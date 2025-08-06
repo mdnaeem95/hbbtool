@@ -513,3 +513,66 @@ model Notification {
   @@index([merchantId, read])
   @@index([createdAt])
 }
+
+// ==================== BETTER AUTH MODELS ====================
+
+model Account {
+  id                String   @id @default(cuid())
+  userId            String
+  userType          String   // "merchant" or "customer"
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?  @db.Text
+  access_token      String?  @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?  @db.Text
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([provider, providerAccountId])
+  @@index([userId, userType])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  createdAt  DateTime @default(now())
+
+  @@unique([identifier, token])
+  @@index([identifier])
+}
+
+model OTP {
+  id          String    @id @default(cuid())
+  identifier  String    // email or phone
+  code        String
+  type        String    // SIGNUP, LOGIN, RESET_PASSWORD
+  expiresAt   DateTime
+  attempts    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  
+  @@unique([identifier, code])
+  @@index([identifier])
+  @@index([expiresAt])
+}
+
+model AuthEvent {
+  id          String    @id @default(cuid())
+  userId      String?   // merchantId or customerId
+  userType    String    // MERCHANT or CUSTOMER
+  event       String    // LOGIN, LOGOUT, PASSWORD_CHANGE, etc.
+  ipAddress   String?
+  userAgent   String?
+  success     Boolean
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  
+  @@index([userId, userType])
+  @@index([event])
+  @@index([createdAt])
+}

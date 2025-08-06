@@ -15,11 +15,17 @@ export const db =
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db
 
+// Use a stripped-down client type (matches Prisma’s callback overload exactly)
+type TransactionClient = Omit<
+  PrismaClient,
+  "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
+>
+
 // Helper function for transactions
 export async function transaction<T>(
-  fn: (tx: PrismaClient) => Promise<T>
+  fn: (tx: TransactionClient) => Promise<T>
 ): Promise<T> {
-  return db.$transaction(fn)
+  return db.$transaction(fn) as Promise<T>
 }
 
 // Soft delete utilities
