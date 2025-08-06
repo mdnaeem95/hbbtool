@@ -1,0 +1,14 @@
+{
+  "recommendations": [
+    "biomejs.biome",
+    "bradlc.vscode-tailwindcss",
+    "prisma.prisma",
+    "dbaeumer.vscode-eslint",
+    "formulahendry.auto-rename-tag",
+    "steoates.autoimport",
+    "usernamehw.errorlens",
+    "yoavbls.pretty-ts-errors",
+    "meganrogge.template-string-converter",
+    "streetsidesoftware.code-spell-checker"
+  ]
+}

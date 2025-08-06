@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "incremental": true,
+    "composite": false,
+    "declaration": true,
+    "declarationMap": true,
+    "inlineSources": false,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "allowJs": true,
+    "paths": {
+      "@kitchencloud/ui": ["./packages/ui/src"],
+      "@kitchencloud/database": ["./packages/database/src"],
+      "@kitchencloud/api": ["./packages/api/src"],
+      "@kitchencloud/core": ["./packages/core/src"]
+    }
+  },
+  "exclude": ["node_modules", "dist", ".next", ".turbo"]
+}
