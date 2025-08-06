@@ -15,6 +15,9 @@
     "format": "turbo run format",
     "clean": "turbo run clean",
     "db:push": "turbo run db:push",
+    "db:seed": "turbo run db:seed",
+    "db:generate": "turbo run db:generate",
+
     "db:studio": "turbo run db:studio",
     "type-check": "turbo run type-check"
   },
