@@ -12,9 +12,21 @@ export const authClient: ReturnType<typeof _create> = _create({
   credentials: "include",
 })
 
+const signUpRaw = authClient.signUp
+
+type RawSignUpOpts = Parameters<typeof signUpRaw.email>[0]
+export interface SignUpOpts extends RawSignUpOpts {
+  data?: Record<string, unknown>
+}
+
+export const signUp = {
+  email: (opts: SignUpOpts) => {
+    return signUpRaw.email(opts as any)
+  },
+}
+
 // Export client methods explicitly
 export const signIn:     typeof authClient.signIn     = authClient.signIn
-export const signUp:     typeof authClient.signUp     = authClient.signUp
 export const signOut:    typeof authClient.signOut    = authClient.signOut
 export const useSession: typeof authClient.useSession = authClient.useSession
 
