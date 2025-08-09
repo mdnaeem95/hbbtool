@@ -24,6 +24,7 @@
     "allowJs": true,
     "paths": {
       "@kitchencloud/ui": ["./packages/ui/src"],
+      "@kitchencloud/auth": ["./packages/auth/src"],
       "@kitchencloud/database": ["./packages/database/src"],
       "@kitchencloud/api": ["./packages/api/src"],
       "@kitchencloud/core": ["./packages/core/src"]

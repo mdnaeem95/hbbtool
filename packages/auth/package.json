@@ -3,13 +3,23 @@
   "version": "0.0.0",
   "private": true,
   "exports": {
-    ".": "./src/index.ts",
-    "./client": "./src/client.ts",
-    "./server": "./src/server.ts",
-    "./providers": "./src/providers/index.ts",
-    "./hooks": "./src/hooks/index.ts",
-    "./middleware": "./src/middleware/index.ts",
-    "./components": "./src/components/index.ts"
+    ".": {
+      "import": "./src/index.ts",
+      "require": "./src/index.ts"
+    },
+    "./client": {
+      "import": "./src/client.ts",
+      "require": "./src/client.ts"
+    },
+    "./server": {
+      "import": "./src/server.ts",
+      "require": "./src/server.ts"
+    },
+    "./utils/*": {
+      "import": "./src/utils/*.ts",
+      "require": "./src/utils/*.ts"
+    },
+    "./types": "./src/lib/database.types.ts"
   },
   "scripts": {
     "type-check": "tsc --noEmit",
@@ -17,9 +27,9 @@
     "format": "biome format --write ./src"
   },
   "dependencies": {
-    "@better-fetch/fetch": "^1.1.18",
     "@kitchencloud/database": "workspace:*",
-    "better-auth": "^0.3.0",
+    "@supabase/ssr": "^0.6.1",
+    "dotenv": "^17.2.1",
     "nanoid": "^5.0.7",
     "zod": "^3.23.8"
   },
@@ -27,6 +37,7 @@
     "@types/node": "^20.14.12",
     "@types/react": "^18.3.3",
     "react": "^18.3.1",
+    "supabase": "^2.33.9",
     "typescript": "^5.5.4"
   },
   "peerDependencies": {

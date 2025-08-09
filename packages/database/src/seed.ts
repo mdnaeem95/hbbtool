@@ -1,6 +1,7 @@
+// packages/database/src/seed.ts
 import { db } from "./client"
 import { MerchantStatus, ProductStatus, DeliveryMethod } from "@prisma/client"
-import { hash } from "@node-rs/argon2"
+import bcrypt from "bcryptjs"
 
 async function seed() {
   console.log("🌱 Starting database seed...")
@@ -19,15 +20,22 @@ async function seed() {
   await db.address.deleteMany()
   await db.customer.deleteMany()
   await db.merchant.deleteMany()
+  
+  // Clean auth tables
+  await db.account.deleteMany()
+  await db.verificationToken.deleteMany()
 
   console.log("✨ Creating merchants...")
+
+  // Use bcrypt with cost factor 10 (better-auth default)
+  const merchantPassword = await bcrypt.hash("password123", 10)
 
   // Create test merchant
   const merchant = await db.merchant.create({
     data: {
       email: "sarah@homekitchen.sg",
       phone: "+6591234567",
-      password: await hash("password123"),
+      password: merchantPassword,
       businessName: "Sarah's Home Kitchen",
       slug: "sarahs-home-kitchen",
       description: "Authentic Peranakan dishes made with love",
@@ -135,12 +143,15 @@ async function seed() {
 
   console.log("👤 Creating customers...")
 
+  // Use bcrypt with cost factor 10
+  const customerPassword = await bcrypt.hash("customer123", 10)
+
   const customer = await db.customer.create({
     data: {
       email: "john@email.com",
       phone: "+6598765432",
       name: "John Tan",
-      password: await hash("customer123"),
+      password: customerPassword,
       emailVerified: true,
       phoneVerified: true,
       addresses: {
@@ -154,6 +165,10 @@ async function seed() {
       },
     },
   })
+
+  // Verify password works
+  const passwordValid = await bcrypt.compare("customer123", customer.password!)
+  console.log(`   Password verification: ${passwordValid ? '✅' : '❌'}`)
 
   console.log("🛍️ Creating sample order...")
 
@@ -212,6 +227,9 @@ async function seed() {
   Test Accounts:
   - Merchant: sarah@homekitchen.sg / password123
   - Customer: john@email.com / customer123
+  
+  Note: Make sure your auth route is set up at:
+  apps/web/src/app/api/auth/[...all]/route.ts
   `)
 }
 

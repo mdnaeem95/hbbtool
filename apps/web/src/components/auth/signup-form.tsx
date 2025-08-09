@@ -1,16 +1,19 @@
-"use client"
+'use client'
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { signUp } from "@kitchencloud/auth/client"
-import { Button, Input, Label } from "@kitchencloud/ui"
-import { Loader2 } from "lucide-react"
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { Button, Input, Label, PasswordStrength } from '@kitchencloud/ui'
+import { Loader2 } from 'lucide-react'
+import Link from 'next/link'
+import { validatePassword } from '@kitchencloud/auth'
 
 export function SignupForm() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [passwordValue, setPasswordValue] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
+  const supabase = createClient()
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -18,47 +21,55 @@ export function SignupForm() {
     setError(null)
 
     const formData = new FormData(e.currentTarget)
-    const name = formData.get("name") as string
-    const email = formData.get("email") as string
-    const phone = formData.get("phone") as string
-    const password = formData.get("password") as string
-    const confirmPassword = formData.get("confirmPassword") as string
+    const email = formData.get('email') as string
+    const password = formData.get('password') as string
+    const confirmPassword = formData.get('confirmPassword') as string
+    const name = formData.get('name') as string
+    const phone = formData.get('phone') as string
 
-    // Basic validation
-    if (password !== confirmPassword) {
-      setError("Passwords do not match")
+    // Validate password
+    const passwordValidation = validatePassword(password)
+    if (!passwordValidation.isValid) {
+      setError(passwordValidation.errors.join('. '))
       setIsLoading(false)
       return
     }
 
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters")
+    // Check passwords match
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
       setIsLoading(false)
       return
     }
 
     try {
-      const result = await signUp.email({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        name,
-        data: {
-          phone,
-          userType: "customer",
+        options: {
+          data: {
+            userType: 'customer',
+            name,
+            phone,
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
-        callbackURL: "/browse",
       })
-
-      if (result.error) {
-        setError(result.error.message || "Failed to create account")
+      
+      if (error) {
+        setError(error.message)
         return
       }
 
-      // Redirect to browse page after successful signup
-      router.push("/browse")
-      router.refresh()
+      // Check if email confirmation is required
+      if (data.user && !data.user.confirmed_at) {
+        router.push('/auth/check-email')
+      } else {
+        router.push('/')
+        router.refresh()
+      }
     } catch (err) {
-      setError("An unexpected error occurred")
+      setError('An unexpected error occurred')
     } finally {
       setIsLoading(false)
     }
@@ -72,7 +83,7 @@ export function SignupForm() {
           id="name"
           name="name"
           type="text"
-          placeholder="John Tan"
+          placeholder="John Doe"
           required
           autoComplete="name"
         />
@@ -84,7 +95,7 @@ export function SignupForm() {
           id="email"
           name="email"
           type="email"
-          placeholder="you@example.com"
+          placeholder="name@example.com"
           required
           autoComplete="email"
         />
@@ -110,9 +121,13 @@ export function SignupForm() {
           type="password"
           required
           autoComplete="new-password"
+          onChange={(e) => {
+            setPasswordValue(e.target.value)
+          }}
         />
+        <PasswordStrength password={passwordValue} />
         <p className="text-xs text-muted-foreground">
-          Must be at least 8 characters long
+          Must be at least 8 characters with uppercase, lowercase, and numbers
         </p>
       </div>
 
