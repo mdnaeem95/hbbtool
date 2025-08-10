@@ -1,3 +1,6 @@
+"use client"
+
+import { useToast } from "@kitchencloud/ui"
 import {
   Toast,
   ToastClose,
@@ -5,8 +8,7 @@ import {
   ToastProvider,
   ToastTitle,
   ToastViewport,
-} from "./toast"
-import { useToast } from "./use-toast"
+} from "@kitchencloud/ui/"
 
 export function Toaster() {
   const { toasts } = useToast()

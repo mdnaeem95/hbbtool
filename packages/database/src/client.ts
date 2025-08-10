@@ -55,3 +55,13 @@ export const merchantIncludes = {
     },
   },
 }
+
+export { Prisma } from "@prisma/client";
+export {
+  ProductStatus,
+  OrderStatus,
+  PaymentStatus,
+  MerchantStatus,
+  DeliveryMethod,
+  PaymentMethod,
+} from "@prisma/client";

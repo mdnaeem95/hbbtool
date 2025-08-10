@@ -1,0 +1,79 @@
+{
+  "name": "@kitchencloud/api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "tRPC API for KitchenCloud - Type-safe API layer for home-based F&B platform",
+  "author": "KitchenCloud Team",
+  "license": "MIT",
+  "keywords": [
+    "trpc",
+    "api",
+    "typescript",
+    "prisma",
+    "food-delivery",
+    "singapore"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "require": "./src/index.ts"
+    },
+    "./client": {
+      "types": "./src/client.ts",
+      "import": "./src/client.ts",
+      "require": "./src/client.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "dev": "tsc --watch --preserveWatchOutput",
+    "build": "tsc",
+    "build:clean": "rm -rf dist && pnpm build",
+    "clean": "rm -rf .turbo dist node_modules .tsbuildinfo",
+    "lint": "eslint . --max-warnings 0 --cache --cache-location node_modules/.cache/eslint",
+    "lint:fix": "pnpm lint --fix",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "generate": "prisma generate",
+    "studio": "prisma studio",
+    "validate": "pnpm lint && pnpm type-check && pnpm test"
+  },
+  "dependencies": {
+    "@kitchencloud/database": "workspace:*",
+    "@trpc/server": "^10.45.2",
+    "bcryptjs": "^2.4.3",
+    "date-fns": "^3.6.0",
+    "jsonwebtoken": "^9.0.2",
+    "nanoid": "^5.1.5",
+    "superjson": "^2.2.1",
+    "zod": "^3.23.8",
+    "zod-validation-error": "^3.3.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.14.12",
+    "@vitest/coverage-v8": "^1.6.0",
+    "@vitest/ui": "^1.6.0",
+    "eslint": "^8.57.0",
+    "prisma": "^5.17.0",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4",
+    "vitest": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=18.17.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.6"
+}

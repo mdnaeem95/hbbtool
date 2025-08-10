@@ -38,6 +38,7 @@ enum OrderStatus {
   DELIVERED
   CANCELLED
   REFUNDED
+  COMPLETED
 }
 
 enum PaymentStatus {
@@ -74,258 +75,304 @@ enum NotificationType {
 // ==================== MODELS ====================
 
 model Merchant {
-  id                String          @id @default(cuid())
-  email             String          @unique
-  phone             String          @unique
-  password          String
-  businessName      String
-  slug              String          @unique
-  description       String?
-  logoUrl           String?
-  bannerUrl         String?
-  
+  id           String  @id @default(cuid())
+  email        String  @unique
+  phone        String  @unique
+  password     String
+  businessName String
+  slug         String  @unique
+  description  String?
+  logoUrl      String?
+  bannerUrl    String?
+
   // Business Details
-  businessType      String?
-  cuisineType       String[]        @default([])
-  halal             Boolean         @default(false)
-  
+  businessType String?
+  cuisineType  String[] @default([])
+  halal        Boolean  @default(false)
+
   // Address
-  address           String?
-  postalCode        String?
-  latitude          Float?
-  longitude         Float?
-  
+  address    String?
+  postalCode String?
+  latitude   Float?
+  longitude  Float?
+
   // Operating Hours (JSON structure)
-  operatingHours    Json?           // { monday: { open: "09:00", close: "18:00" }, ... }
-  
+  operatingHours Json? // { monday: { open: "09:00", close: "18:00" }, ... }
+
   // Delivery Settings
-  deliveryEnabled   Boolean         @default(true)
-  pickupEnabled     Boolean         @default(true)
-  deliveryFee       Decimal         @default(0) @db.Decimal(10, 2)
-  minimumOrder      Decimal         @default(0) @db.Decimal(10, 2)
-  deliveryRadius    Int             @default(5) // in km
-  preparationTime   Int             @default(30) // in minutes
-  
+  deliveryEnabled Boolean @default(true)
+  pickupEnabled   Boolean @default(true)
+  deliveryFee     Decimal @default(0) @db.Decimal(10, 2)
+  minimumOrder    Decimal @default(0) @db.Decimal(10, 2)
+  deliveryRadius  Int     @default(5) // in km
+  preparationTime Int     @default(30) // in minutes
+
   // Payment Settings
-  paymentMethods    PaymentMethod[] @default([PAYNOW, CASH])
-  paynowNumber      String?
-  paynowQrCode      String?
-  
+  paymentMethods PaymentMethod[] @default([PAYNOW, CASH])
+  paynowNumber   String?
+  paynowQrCode   String?
+
   // Status
-  status            MerchantStatus  @default(PENDING_VERIFICATION)
-  verified          Boolean         @default(false)
-  verifiedAt        DateTime?
-  
+  status     MerchantStatus @default(PENDING_VERIFICATION)
+  verified   Boolean        @default(false)
+  verifiedAt DateTime?
+
   // Metadata
-  settings          Json?           // Flexible settings storage
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  deletedAt         DateTime?
-  
+  settings  Json? // Flexible settings storage
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
   // Relations
-  categories        Category[]
-  products          Product[]
-  orders            Order[]
-  reviews           Review[]
-  sessions          Session[]
-  analytics         Analytics[]
-  notifications     Notification[]
-  
+  categories    Category[]
+  products      Product[]
+  orders        Order[]
+  reviews       Review[]
+  sessions      Session[]
+  analytics     Analytics[]
+  notifications Notification[]
+
   @@index([slug])
   @@index([status])
   @@index([email])
 }
 
 model Category {
-  id          String    @id @default(cuid())
+  id          String  @id @default(cuid())
   merchantId  String
   name        String
   slug        String
   description String?
   imageUrl    String?
-  sortOrder   Int       @default(0)
-  isActive    Boolean   @default(true)
-  
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
-  
+  sortOrder   Int     @default(0)
+  isActive    Boolean @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
   // Relations
-  merchant    Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  products    Product[]
-  
+  merchant Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  products Product[]
+
   @@unique([merchantId, slug])
   @@index([merchantId])
 }
 
 model Product {
-  id            String         @id @default(cuid())
-  merchantId    String
-  categoryId    String?
-  
-  name          String
-  slug          String
-  description   String?
-  
+  id         String  @id @default(cuid())
+  merchantId String
+  categoryId String?
+
+  name        String
+  slug        String
+  description String?
+
   // Pricing
-  price         Decimal        @db.Decimal(10, 2)
-  comparePrice  Decimal?       @db.Decimal(10, 2) // Original price for discounts
-  cost          Decimal?       @db.Decimal(10, 2) // Cost to merchant
-  
+  price        Decimal  @db.Decimal(10, 2)
+  comparePrice Decimal? @db.Decimal(10, 2) // Original price for discounts
+  cost         Decimal? @db.Decimal(10, 2) // Cost to merchant
+
   // Inventory
   sku           String?
-  trackQuantity Boolean        @default(false)
-  quantity      Int            @default(0)
-  
+  trackQuantity Boolean @default(false)
+  quantity      Int     @default(0)
+  lowStockAlert Int     @default(5)
+  maxOrderQty   Int?
+
   // Media
-  images        String[]       @default([])
-  
+  images String[] @default([])
+
   // Variants & Options
-  hasVariants   Boolean        @default(false)
-  variants      Json?          // Flexible variant structure
-  
+  hasVariants Boolean @default(false)
+  variants    Json? // Flexible variant structure
+
   // Status
-  status        ProductStatus  @default(DRAFT)
-  featured      Boolean        @default(false)
-  
+  status   ProductStatus @default(DRAFT)
+  featured Boolean       @default(false)
+
   // SEO
-  metaTitle     String?
+  metaTitle       String?
   metaDescription String?
-  
+
   // Metadata
-  tags          String[]       @default([])
-  customFields  Json?
-  
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  publishedAt   DateTime?
-  deletedAt     DateTime?
-  
+  tags         String[] @default([])
+  customFields Json?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  publishedAt     DateTime?
+  deletedAt       DateTime?
+  availableFrom   DateTime?
+  availableTo     DateTime?
+  preparationTime String? // "15-20 mins"
+
   // Relations
-  merchant      Merchant       @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  category      Category?      @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  orderItems    OrderItem[]
-  reviews       Review[]
-  
+  merchant       Merchant         @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  category       Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  orderItems     OrderItem[]
+  reviews        Review[]
+  ProductVariant ProductVariant[]
+  ProductView    ProductView[]
+
   @@unique([merchantId, slug])
   @@index([merchantId, status])
-  @@index([categoryId])
-  @@index([featured])
+  @@index([categoryId, status])
+  @@index([featured, status])
+  @@index([slug])
+  @@index([createdAt])
+  @@index([quantity])
+}
+
+model ProductVariant {
+  id              String  @id @default(cuid())
+  productId       String
+  sku             String?
+  name            String // "Large, Spicy"
+  options         Json // { size: "L", spiceLevel: "Hot" }
+  priceAdjustment Decimal @default(0) @db.Decimal(10, 2)
+  inventory       Int     @default(0)
+  isDefault       Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, sku])
+  @@index([productId])
+}
+
+// Add view tracking for popularity
+model ProductView {
+  id         String   @id @default(cuid())
+  productId  String
+  customerId String?
+  sessionId  String?
+  viewedAt   DateTime @default(now())
+
+  product  Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id])
+
+  @@index([productId, viewedAt])
+  @@index([customerId])
 }
 
 model Customer {
-  id              String    @id @default(cuid())
-  email           String?   @unique
-  phone           String    @unique
-  name            String
-  password        String?   // Optional for guest checkout
-  
+  id       String  @id @default(cuid())
+  email    String? @unique
+  phone    String  @unique
+  name     String
+  password String? // Optional for guest checkout
+
   // Profile
-  dateOfBirth     DateTime?
-  avatarUrl       String?
-  
+  dateOfBirth DateTime?
+  avatarUrl   String?
+
   // Preferences
-  emailVerified   Boolean   @default(false)
-  phoneVerified   Boolean   @default(false)
-  marketingOptIn  Boolean   @default(false)
-  
+  emailVerified  Boolean @default(false)
+  phoneVerified  Boolean @default(false)
+  marketingOptIn Boolean @default(false)
+
   // Metadata
-  lastOrderAt     DateTime?
-  totalOrders     Int       @default(0)
-  totalSpent      Decimal   @default(0) @db.Decimal(10, 2)
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime?
-  
+  lastOrderAt DateTime?
+  totalOrders Int       @default(0)
+  totalSpent  Decimal   @default(0) @db.Decimal(10, 2)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
   // Relations
-  addresses       Address[]
-  orders          Order[]
-  reviews         Review[]
-  sessions        Session[]
-  
+  addresses   Address[]
+  orders      Order[]
+  reviews     Review[]
+  sessions    Session[]
+  ProductView ProductView[]
+
   @@index([email])
   @@index([phone])
 }
 
 model Address {
-  id           String    @id @default(cuid())
-  customerId   String
-  
-  label        String    // Home, Office, etc.
-  line1        String
-  line2        String?
-  postalCode   String
-  
+  id         String @id @default(cuid())
+  customerId String
+
+  label      String // Home, Office, etc.
+  line1      String
+  line2      String?
+  postalCode String
+
   // Coordinates for delivery
-  latitude     Float?
-  longitude    Float?
-  
-  isDefault    Boolean   @default(false)
-  
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  
+  latitude  Float?
+  longitude Float?
+
+  isDefault Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relations
-  customer     Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  orders       Order[]
-  
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orders   Order[]
+
   @@index([customerId])
 }
 
 model Order {
-  id                String          @id @default(cuid())
-  orderNumber       String          @unique
-  merchantId        String
-  customerId        String?
-  
+  id          String  @id @default(cuid())
+  orderNumber String  @unique
+  merchantId  String
+  customerId  String?
+
   // Delivery Details
   deliveryMethod    DeliveryMethod
   deliveryAddressId String?
-  deliveryFee       Decimal         @db.Decimal(10, 2)
+  deliveryFee       Decimal        @db.Decimal(10, 2)
   deliveryNotes     String?
-  
+
   // Scheduling
-  scheduledFor      DateTime?       // For pre-orders
-  estimatedReady    DateTime?
-  
+  scheduledFor   DateTime? // For pre-orders
+  estimatedReady DateTime?
+
   // Pricing
-  subtotal          Decimal         @db.Decimal(10, 2)
-  discount          Decimal         @default(0) @db.Decimal(10, 2)
-  tax               Decimal         @default(0) @db.Decimal(10, 2)
-  total             Decimal         @db.Decimal(10, 2)
-  
+  subtotal Decimal @db.Decimal(10, 2)
+  discount Decimal @default(0) @db.Decimal(10, 2)
+  tax      Decimal @default(0) @db.Decimal(10, 2)
+  total    Decimal @db.Decimal(10, 2)
+
   // Status
-  status            OrderStatus     @default(PENDING)
-  paymentStatus     PaymentStatus   @default(PENDING)
-  paymentMethod     PaymentMethod?
-  
+  status        OrderStatus    @default(PENDING)
+  paymentStatus PaymentStatus  @default(PENDING)
+  paymentMethod PaymentMethod?
+
   // Customer Info (for guest checkout)
-  customerName      String?
-  customerPhone     String?
-  customerEmail     String?
-  
+  customerName  String?
+  customerPhone String?
+  customerEmail String?
+
   // Metadata
-  notes             String?         // Internal notes
-  metadata          Json?           // Flexible data storage
-  
+  notes    String? // Internal notes
+  metadata Json? // Flexible data storage
+
   // Timestamps
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  confirmedAt       DateTime?
-  preparedAt        DateTime?
-  readyAt           DateTime?
-  deliveredAt       DateTime?
-  cancelledAt       DateTime?
-  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  confirmedAt DateTime?
+  preparedAt  DateTime?
+  readyAt     DateTime?
+  deliveredAt DateTime?
+  cancelledAt DateTime?
+  completedAt DateTime?
+
   // Relations
-  merchant          Merchant        @relation(fields: [merchantId], references: [id])
-  customer          Customer?       @relation(fields: [customerId], references: [id])
-  deliveryAddress   Address?        @relation(fields: [deliveryAddressId], references: [id])
-  items             OrderItem[]
-  payment           Payment?
-  events            OrderEvent[]
-  
+  merchant        Merchant     @relation(fields: [merchantId], references: [id])
+  customer        Customer?    @relation(fields: [customerId], references: [id])
+  deliveryAddress Address?     @relation(fields: [deliveryAddressId], references: [id])
+  items           OrderItem[]
+  payment         Payment?
+  events          OrderEvent[]
+
   @@index([merchantId, status])
   @@index([customerId])
   @@index([orderNumber])
@@ -333,109 +380,109 @@ model Order {
 }
 
 model OrderItem {
-  id            String   @id @default(cuid())
-  orderId       String
-  productId     String
-  
+  id        String @id @default(cuid())
+  orderId   String
+  productId String
+
   // Product snapshot at time of order
-  productName   String
-  productPrice  Decimal  @db.Decimal(10, 2)
-  
+  productName  String
+  productPrice Decimal @db.Decimal(10, 2)
+
   // Order details
-  quantity      Int
-  price         Decimal  @db.Decimal(10, 2) // Unit price
-  total         Decimal  @db.Decimal(10, 2) // quantity * price
-  
+  quantity Int
+  price    Decimal @db.Decimal(10, 2) // Unit price
+  total    Decimal @db.Decimal(10, 2) // quantity * price
+
   // Variants/Options
-  variant       Json?    // Selected variant details
-  notes         String?  // Customer notes for this item
-  
-  createdAt     DateTime @default(now())
-  
+  variant Json? // Selected variant details
+  notes   String? // Customer notes for this item
+
+  createdAt DateTime @default(now())
+
   // Relations
-  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product       Product  @relation(fields: [productId], references: [id])
-  
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
   @@index([orderId])
   @@index([productId])
 }
 
 model OrderEvent {
-  id          String      @id @default(cuid())
-  orderId     String
-  
-  event       String      // status_changed, note_added, etc.
-  data        Json        // Event-specific data
-  userId      String?     // Who triggered the event
-  
-  createdAt   DateTime    @default(now())
-  
+  id      String @id @default(cuid())
+  orderId String
+
+  event  String // status_changed, note_added, etc.
+  data   Json // Event-specific data
+  userId String? // Who triggered the event
+
+  createdAt DateTime @default(now())
+
   // Relations
-  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
   @@index([orderId])
   @@index([createdAt])
 }
 
 model Payment {
-  id              String         @id @default(cuid())
-  orderId         String         @unique
-  
-  amount          Decimal        @db.Decimal(10, 2)
-  currency        String         @default("SGD")
-  method          PaymentMethod
-  status          PaymentStatus  @default(PENDING)
-  
+  id      String @id @default(cuid())
+  orderId String @unique
+
+  amount   Decimal       @db.Decimal(10, 2)
+  currency String        @default("SGD")
+  method   PaymentMethod
+  status   PaymentStatus @default(PENDING)
+
   // Payment gateway details
-  gatewayId       String?        // External payment ID
-  gatewayResponse Json?          // Raw response from gateway
-  
+  gatewayId       String? // External payment ID
+  gatewayResponse Json? // Raw response from gateway
+
   // Transaction details
   transactionId   String?
   referenceNumber String?
-  
+
   // Refund info
-  refundAmount    Decimal?       @db.Decimal(10, 2)
-  refundReason    String?
-  refundedAt      DateTime?
-  
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  paidAt          DateTime?
-  
+  refundAmount Decimal?  @db.Decimal(10, 2)
+  refundReason String?
+  refundedAt   DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  paidAt    DateTime?
+
   // Relations
-  order           Order          @relation(fields: [orderId], references: [id])
-  
+  order Order @relation(fields: [orderId], references: [id])
+
   @@index([status])
   @@index([method])
 }
 
 model Review {
-  id           String    @id @default(cuid())
-  merchantId   String
-  customerId   String
-  productId    String?
-  orderId      String?
-  
-  rating       Int       // 1-5
-  comment      String?
-  images       String[]  @default([])
-  
+  id         String  @id @default(cuid())
+  merchantId String
+  customerId String
+  productId  String?
+  orderId    String?
+
+  rating  Int // 1-5
+  comment String?
+  images  String[] @default([])
+
   // Merchant response
-  response     String?
-  respondedAt  DateTime?
-  
-  isVerified   Boolean   @default(false) // Verified purchase
-  isVisible    Boolean   @default(true)
-  
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  
+  response    String?
+  respondedAt DateTime?
+
+  isVerified Boolean @default(false) // Verified purchase
+  isVisible  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relations
-  merchant     Merchant  @relation(fields: [merchantId], references: [id])
-  customer     Customer  @relation(fields: [customerId], references: [id])
-  product      Product?  @relation(fields: [productId], references: [id])
-  
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+  product  Product? @relation(fields: [productId], references: [id])
+
   @@index([merchantId])
   @@index([customerId])
   @@index([productId])
@@ -443,73 +490,73 @@ model Review {
 }
 
 model Session {
-  id           String    @id @default(cuid())
-  token        String    @unique
-  
+  id    String @id @default(cuid())
+  token String @unique
+
   // User association (either merchant or customer)
-  merchantId   String?
-  customerId   String?
-  
+  merchantId String?
+  customerId String?
+
   // Session data
-  ipAddress    String?
-  userAgent    String?
-  
-  expiresAt    DateTime
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  
+  ipAddress String?
+  userAgent String?
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relations
-  merchant     Merchant? @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  customer     Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  
+  merchant Merchant? @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
   @@index([token])
   @@index([merchantId])
   @@index([customerId])
 }
 
 model Analytics {
-  id           String    @id @default(cuid())
-  merchantId   String
-  
-  event        String    // page_view, product_view, order_placed, etc.
-  properties   Json      // Event-specific properties
-  
+  id         String @id @default(cuid())
+  merchantId String
+
+  event      String // page_view, product_view, order_placed, etc.
+  properties Json // Event-specific properties
+
   // Context
-  sessionId    String?
-  ipAddress    String?
-  userAgent    String?
-  referrer     String?
-  
-  createdAt    DateTime  @default(now())
-  
+  sessionId String?
+  ipAddress String?
+  userAgent String?
+  referrer  String?
+
+  createdAt DateTime @default(now())
+
   // Relations
-  merchant     Merchant  @relation(fields: [merchantId], references: [id])
-  
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+
   @@index([merchantId, event])
   @@index([createdAt])
 }
 
 model Notification {
-  id           String            @id @default(cuid())
-  merchantId   String
-  
-  type         NotificationType
-  title        String
-  message      String
-  data         Json?             // Additional data
-  
+  id         String @id @default(cuid())
+  merchantId String
+
+  type    NotificationType
+  title   String
+  message String
+  data    Json? // Additional data
+
   // Delivery
-  channels     String[]          @default(["in_app"]) // in_app, email, sms, whatsapp
-  
+  channels String[] @default(["in_app"]) // in_app, email, sms, whatsapp
+
   // Status
-  read         Boolean           @default(false)
-  readAt       DateTime?
-  
-  createdAt    DateTime          @default(now())
-  
+  read   Boolean   @default(false)
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
   // Relations
-  merchant     Merchant          @relation(fields: [merchantId], references: [id])
-  
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+
   @@index([merchantId, read])
   @@index([createdAt])
 }
@@ -519,7 +566,7 @@ model Notification {
 model Account {
   id                String   @id @default(cuid())
   userId            String
-  userType          String   // "merchant" or "customer"
+  userType          String // "merchant" or "customer"
   type              String
   provider          String
   providerAccountId String
@@ -548,30 +595,30 @@ model VerificationToken {
 }
 
 model OTP {
-  id          String    @id @default(cuid())
-  identifier  String    // email or phone
-  code        String
-  type        String    // SIGNUP, LOGIN, RESET_PASSWORD
-  expiresAt   DateTime
-  attempts    Int       @default(0)
-  createdAt   DateTime  @default(now())
-  
+  id         String   @id @default(cuid())
+  identifier String // email or phone
+  code       String
+  type       String // SIGNUP, LOGIN, RESET_PASSWORD
+  expiresAt  DateTime
+  attempts   Int      @default(0)
+  createdAt  DateTime @default(now())
+
   @@unique([identifier, code])
   @@index([identifier])
   @@index([expiresAt])
 }
 
 model AuthEvent {
-  id          String    @id @default(cuid())
-  userId      String?   // merchantId or customerId
-  userType    String    // MERCHANT or CUSTOMER
-  event       String    // LOGIN, LOGOUT, PASSWORD_CHANGE, etc.
-  ipAddress   String?
-  userAgent   String?
-  success     Boolean
-  metadata    Json?
-  createdAt   DateTime  @default(now())
-  
+  id        String   @id @default(cuid())
+  userId    String? // merchantId or customerId
+  userType  String // MERCHANT or CUSTOMER
+  event     String // LOGIN, LOGOUT, PASSWORD_CHANGE, etc.
+  ipAddress String?
+  userAgent String?
+  success   Boolean
+  metadata  Json?
+  createdAt DateTime @default(now())
+
   @@index([userId, userType])
   @@index([event])
   @@index([createdAt])
