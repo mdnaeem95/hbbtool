@@ -2,10 +2,11 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ChefHat, ShoppingCart, Menu, X, User } from "lucide-react"
+import { ChefHat, Menu, X, User } from "lucide-react"
 import { Button } from "@kitchencloud/ui"
 import { useState } from "react"
 import { useCustomer } from "@kitchencloud/auth/client"
+import { CartBadge } from "../cart/cart-badge"
 
 export function Header() {
   const pathname = usePathname()
@@ -47,12 +48,7 @@ export function Header() {
         {/* Right side actions */}
         <div className="flex items-center gap-4">
           {/* Cart */}
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/cart">
-              <ShoppingCart className="h-5 w-5" />
-              <span className="sr-only">Cart</span>
-            </Link>
-          </Button>
+          <CartBadge />
 
           {/* User menu */}
           {isAuthenticated ? (
