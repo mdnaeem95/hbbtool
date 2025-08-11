@@ -11,6 +11,10 @@ export interface CartItem {
   price: number
   quantity: number
   image?: string
+  variant?: {
+    label?: string;      // e.g. "Large, Spicy"
+    options?: Record<string, string>; // { size: "L", spice: "Hot" }
+  } | null;
   maxQuantity?: number
   notes?: string
 }
@@ -186,7 +190,9 @@ export const useCart = () => {
     removeItem: store.removeItem,
     clearCart: store.clearCart,
     canAddItem: store.canAddItem,
-    findItem: store.findItem
+    findItem: store.findItem,
+    getItemCount: store.getItemCount,
+    getSubtotal: store.getSubtotal
   }
 }
 

@@ -1,9 +1,10 @@
 import { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { Suspense } from "react"
-import { api } from "@/lib/trpc/server"
+
 import { ProductCatalog } from "@/components/product-catalog"
 import { ProductCatalogSkeleton } from "@/components/product-catalog-skeleton"
+import { api } from "@/lib/tprc/server"
 
 interface ProductsPageProps {
   params: {
@@ -31,12 +32,12 @@ export async function generateMetadata({
   }
 
   return {
-    title: `${merchant.name} - Menu | KitchenCloud`,
-    description: merchant.description || `Order delicious food from ${merchant.name}`,
+    title: `${merchant.businessName} - Menu | KitchenCloud`,
+    description: merchant.description || `Order delicious food from ${merchant.businessName}`,
     openGraph: {
-      title: `${merchant.name} - Menu`,
-      description: merchant.description || `Order delicious food from ${merchant.name}`,
-      images: merchant.coverImage ? [merchant.coverImage] : [],
+      title: `${merchant.businessName} - Menu`,
+      description: merchant.description || `Order delicious food from ${merchant.businessName}`,
+      images: merchant.logoUrl ? [merchant.logoUrl] : [],
     },
   }
 }
@@ -57,15 +58,15 @@ export default async function ProductsPage({
       <div className="border-b bg-card">
         <div className="container py-8">
           <div className="flex items-start gap-6">
-            {merchant.logo && (
+            {merchant.logoUrl && (
               <img
-                src={merchant.logo}
-                alt={merchant.name}
+                src={merchant.logoUrl}
+                alt={merchant.businessName}
                 className="h-20 w-20 rounded-lg object-cover"
               />
             )}
             <div className="flex-1">
-              <h1 className="text-3xl font-bold">{merchant.name}</h1>
+              <h1 className="text-3xl font-bold">{merchant.businessName}</h1>
               {merchant.description && (
                 <p className="mt-2 text-muted-foreground">
                   {merchant.description}

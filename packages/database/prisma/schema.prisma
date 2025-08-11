@@ -11,6 +11,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")  
 }
 
 // ==================== ENUMS ====================
@@ -124,13 +125,15 @@ model Merchant {
   deletedAt DateTime?
 
   // Relations
-  categories    Category[]
-  products      Product[]
-  orders        Order[]
-  reviews       Review[]
-  sessions      Session[]
-  analytics     Analytics[]
-  notifications Notification[]
+  categories           Category[]
+  products             Product[]
+  orders               Order[]
+  reviews              Review[]
+  sessions             Session[]
+  analytics            Analytics[]
+  notifications        Notification[]
+  paymentVerifications Payment[]         @relation("PaymentVerifications")
+  checkoutSessions     CheckoutSession[]
 
   @@index([slug])
   @@index([status])
@@ -284,11 +287,12 @@ model Customer {
   deletedAt DateTime?
 
   // Relations
-  addresses   Address[]
-  orders      Order[]
-  reviews     Review[]
-  sessions    Session[]
-  ProductView ProductView[]
+  addresses        Address[]
+  orders           Order[]
+  reviews          Review[]
+  sessions         Session[]
+  ProductView      ProductView[]
+  checkoutSessions CheckoutSession[]
 
   @@index([email])
   @@index([phone])
@@ -441,6 +445,13 @@ model Payment {
   transactionId   String?
   referenceNumber String?
 
+  // Paynow specific fields
+  paymentProofUrl  String?
+  paymentReference String?
+  verifiedBy       String?
+  verifiedAt       DateTime?
+  verficationNotes String?
+
   // Refund info
   refundAmount Decimal?  @db.Decimal(10, 2)
   refundReason String?
@@ -451,10 +462,79 @@ model Payment {
   paidAt    DateTime?
 
   // Relations
-  order Order @relation(fields: [orderId], references: [id])
+  order              Order          @relation(fields: [orderId], references: [id])
+  verifiedByMerchant Merchant?      @relation("PaymentVerifications", fields: [verifiedBy], references: [id])
+  paymentProofs      PaymentProof[]
 
   @@index([status])
   @@index([method])
+  @@index([paymentReference])
+}
+
+model PaymentProof {
+  id        String @id @default(cuid())
+  paymentId String
+
+  fileUrl  String
+  fileName String
+  fileSize Int
+  mimeType String
+
+  //upload metadata
+  uploadedAt DateTime @default(now())
+  uploadedBy String?
+  ipAddress  String?
+  userAgent  String?
+
+  // verification
+  isVerified Boolean   @default(false)
+  verifiedAt DateTime?
+
+  // relations
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@index([uploadedAt])
+}
+
+model CheckoutSession {
+  id        String @id @default(cuid())
+  sessionId String @unique
+
+  // cart data
+  merchantId String
+  items      Json
+
+  //checkout progress
+  deliveryMethod  DeliveryMethod?
+  deliveryAddress Json?
+  contactInfo     Json?
+
+  // Pricing
+  subtotal    Decimal? @db.Decimal(10, 2)
+  deliveryFee Decimal? @db.Decimal(10, 2)
+  discount    Decimal? @db.Decimal(10, 2)
+  total       Decimal? @db.Decimal(10, 2)
+
+  // Payment
+  paymentReference String? @unique
+
+  // session management
+  ipAddress  String?
+  userAgent  String?
+  customerId String?
+
+  expiresAt DateTime
+  createdAt DateTime
+  updatedAt DateTime
+
+  // relations
+  merchant Merchant  @relation(fields: [merchantId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+
+  @@index([sessionId])
+  @@index([expiresAt])
+  @@index([paymentReference])
 }
 
 model Review {

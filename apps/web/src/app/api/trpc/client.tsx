@@ -1,9 +1,9 @@
 "use client"
 
+import { useState } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { httpBatchLink, loggerLink } from "@trpc/client"
 import { createTRPCReact } from "@trpc/react-query"
-import { useState } from "react"
 import type { AppRouter } from "@kitchencloud/api"
 import superjson from "../../../../../../packages/api/src/superjson"
 
@@ -16,17 +16,11 @@ function getBaseUrl() {
 }
 
 export function TRPCProvider({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 5 * 1000,
-            refetchOnWindowFocus: false,
-          },
-        },
-      })
-  )
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: { staleTime: 5000, refetchOnWindowFocus: false },
+    },
+  }))
 
   const [trpcClient] = useState(() =>
     api.createClient({
@@ -40,9 +34,7 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
         httpBatchLink({
           url: `${getBaseUrl()}/api/trpc`,
           headers() {
-            return {
-              "x-trpc-source": "client",
-            }
+            return { "x-trpc-source": "client" }
           },
         }),
       ],
