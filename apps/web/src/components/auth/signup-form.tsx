@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Button, Input, Label, PasswordStrength } from '@kitchencloud/ui'
+import { Button, Input, Label } from '@kitchencloud/ui'
 import { Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { validatePassword } from '@kitchencloud/auth'
@@ -11,7 +11,7 @@ import { validatePassword } from '@kitchencloud/auth'
 export function SignupForm() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
-  const [passwordValue, setPasswordValue] = useState<string>('')
+  const [, setPasswordValue] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
 
@@ -125,7 +125,6 @@ export function SignupForm() {
             setPasswordValue(e.target.value)
           }}
         />
-        <PasswordStrength password={passwordValue} />
         <p className="text-xs text-muted-foreground">
           Must be at least 8 characters with uppercase, lowercase, and numbers
         </p>
