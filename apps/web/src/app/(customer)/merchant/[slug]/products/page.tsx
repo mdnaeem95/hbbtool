@@ -4,7 +4,7 @@ import { Suspense } from "react"
 
 import { ProductCatalog } from "@/components/product-catalog"
 import { ProductCatalogSkeleton } from "@/components/product-catalog-skeleton"
-import { api } from "@/lib/tprc/server"
+import { api } from "@/lib/trpc/server"
 
 interface ProductsPageProps {
   params: {

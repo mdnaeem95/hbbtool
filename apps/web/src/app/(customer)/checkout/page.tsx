@@ -21,7 +21,7 @@ import {
 import { useCart, useCartTotal } from '@/stores/cart-store'
 import { CheckoutSteps, DeliverySection, ContactForm, PaymentSection, OrderSummary } from "@/components/checkout"
 import { useCheckoutStore } from '@/stores/checkout-store'
-import { api } from '@/lib/tprc/client'
+import { api } from '@/lib/trpc/client'
 
 type CheckoutStep = 'delivery' | 'contact' | 'payment'
 

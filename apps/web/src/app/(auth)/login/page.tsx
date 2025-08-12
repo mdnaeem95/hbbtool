@@ -39,7 +39,7 @@ export default function LoginPage() {
 
       <div className="text-center">
         <Link 
-          href={process.env.NEXT_PUBLIC_MERCHANT_URL || "http://localhost:3001"}
+          href={"http://localhost:3000/dashboard"}
           className="text-sm text-primary hover:underline"
         >
           Go to Merchant Dashboard

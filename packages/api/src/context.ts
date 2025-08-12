@@ -34,7 +34,7 @@ export async function createTRPCContext (
 ) {
   const { resHeaders } = opts
   // Get the session from the headers/cookies
-  const session = await getSession(opts.req)
+  const session = await getSessionFromHeaders(opts.req.headers)
 
   return createInnerTRPCContext({
     headers: opts.req.headers,
@@ -46,11 +46,26 @@ export async function createTRPCContext (
 export type Context = Awaited<ReturnType<typeof createTRPCContext>>
 
 /**
- * Get session from request
- * This is a placeholder - implement your actual session logic here
+ * Get session from supabase using the Authorization header
  */
-async function getSession(req: Request): Promise<Session | null> {
-  // TODO: Implement actual session retrieval from cookies/headers
-  // For now, return null (unauthenticated)
-  return null
+async function getSessionFromHeaders(headers: Headers): Promise<Session | null> {
+  try {
+    // check fr custom headers set by the app
+    const userId = headers.get("x-user-id")
+    const userEmail = headers.get("x-user-email")
+    const userRole = headers.get("x-user-role") as "CUSTOMER" | "MERCHANT" | null
+  
+    if (!userId || !userRole) return null
+
+    return {
+      user: {
+        id: userId,
+        email: userEmail || '',
+        role: userRole,
+      }
+    }
+    } catch (error) {
+      console.error("Error getting session from headers:", error)
+      return null
+    }
 }

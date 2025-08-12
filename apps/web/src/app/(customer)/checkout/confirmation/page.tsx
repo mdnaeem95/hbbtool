@@ -23,7 +23,7 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import confetti from 'canvas-confetti'
-import { api } from '@/lib/tprc/client'
+import { api } from '@/lib/trpc/client'
 
 const num = (v: unknown) =>
   typeof v === "number" ? v : v ? Number(v as any) : 0

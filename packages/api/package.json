@@ -50,6 +50,7 @@
   },
   "dependencies": {
     "@kitchencloud/database": "workspace:*",
+    "@supabase/ssr": "^0.6.1",
     "@trpc/server": "^10.45.2",
     "bcryptjs": "^2.4.3",
     "date-fns": "^3.6.0",

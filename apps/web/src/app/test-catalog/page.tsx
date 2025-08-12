@@ -14,7 +14,7 @@ import {
   useToast,
 } from "@kitchencloud/ui"
 import { Search, Package, Store } from "lucide-react"
-import { api } from "@/lib/tprc/client"
+import { api } from "@/lib/trpc/client"
 
 export default function TestCatalogPage() {
   const { toast } = useToast()

@@ -37,7 +37,7 @@ import {
 import { useRouter } from 'next/navigation'
 import { useCart } from '@/stores/cart-store'
 import { useCheckoutStore } from '@/stores/checkout-store'
-import { api } from '@/lib/tprc/client'
+import { api } from '@/lib/trpc/client'
 import { useUser } from '@/hooks/use-user'
 
 export default function TestCheckoutPage() {

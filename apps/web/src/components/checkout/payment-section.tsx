@@ -15,7 +15,7 @@ import {
   Loader2
 } from 'lucide-react'
 import { PaynowQR, PaymentUpload, PaymentInstructionsDialog } from "@/components/checkout"
-import { api } from '@/lib/tprc/client'
+import { api } from '@/lib/trpc/client'
 
 interface PaymentSectionProps {
   sessionId: string

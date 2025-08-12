@@ -40,7 +40,7 @@ export function LoginForm() {
       
       if (userType === 'merchant') {
         // Redirect to merchant dashboard
-        window.location.href = process.env.NEXT_PUBLIC_MERCHANT_URL || 'http://localhost:3001'
+        window.location.href = process.env.NEXT_PUBLIC_MERCHANT_URL || '/dashboard'
       } else {
         // Redirect to customer area
         router.push('/')

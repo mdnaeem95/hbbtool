@@ -348,4 +348,83 @@ export const orderRouter = createTRPCRouter({
 
         return updated
     }),
+  
+  // list orders for merchant dashboard
+  listByMerchant: protectedProcedure
+    .input(
+      z.object({
+        status: z.nativeEnum(OrderStatus).optional(),
+        limit: z.number().min(1).max(100).default(20),
+        cursor: z.string().optional(),
+        sortBy: z.enum(["createdAt", "total", "status"]).default("createdAt"),
+        sortOrder: z.enum(["asc", "desc"]).default("desc"),
+        search: z.string().optional(),
+        dateFrom: z.date().optional(),
+        dateTo: z.date().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const u = ctx.session.user
+      if (u.role !== "MERCHANT") {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Merchant access only" })
+      }
+
+      const { status, limit, cursor, sortBy, sortOrder, search, dateFrom, dateTo } = input
+
+      // build where clause
+      const where: Prisma.OrderWhereInput = {
+        merchantId: u.id,
+        ...(status && { status }),
+        ...(search && {
+          OR: [
+            { orderNumber: { contains: search, mode: "insensitive" } },
+            { customerName: { contains: search, mode: "insensitive" } },
+            { customerPhone: { contains: search } },
+            { customerEmail: { contains: search, mode: "insensitive" } },
+          ]
+        }),
+        ...(dateFrom && { createdAt: { gte: dateFrom } }),
+        ...(dateTo && { createdAt: { lte: dateTo } }),
+      }
+
+      // build orderby
+      const orderBy = { [sortBy]: sortOrder }
+
+      const orders = await ctx.db.order.findMany({
+        where,
+        orderBy,
+        take: limit + 1,
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        include: {
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  images: true
+                }
+              }
+            }
+          },
+          deliveryAddress: true,
+          payment: {
+            select: {
+              id: true,
+              method: true,
+              status: true,
+              amount: true
+            }
+          }
+        }
+      })
+
+      let nextCursor: string | undefined
+      if (orders.length > limit) {
+        const next = orders.pop()!
+        nextCursor = next.id
+      }
+
+      return { items: orders, nextCursor }
+    })
 })
