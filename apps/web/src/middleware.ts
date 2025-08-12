@@ -38,32 +38,45 @@ export async function middleware(request: NextRequest) {
   // Refresh session if expired - required for Server Components
   const { data: { user } } = await supabase.auth.getUser()
 
+  // Define paths that require authentication
+  const merchantPaths = ['/dashboard', '/orders', '/products', '/analytics', '/settings']
+  const customerAuthRequiredPaths = ['/account/orders', '/account/addresses', '/account/profile']
+  
+  const pathname = request.nextUrl.pathname
+  
   // Check if the request is for merchant routes
-  if (request.nextUrl.pathname.startsWith('/dashboard') || 
-      request.nextUrl.pathname.startsWith('/orders') ||
-      request.nextUrl.pathname.startsWith('/products') ||
-      request.nextUrl.pathname.startsWith('/analytics') ||
-      request.nextUrl.pathname.startsWith('/settings')) {
-    
+  if (merchantPaths.some(path => pathname.startsWith(path))) {
     // If no user, redirect to login
     if (!user) {
       const redirectUrl = new URL('/login', request.url)
-      redirectUrl.searchParams.set('redirect', request.nextUrl.pathname)
+      redirectUrl.searchParams.set('redirect', pathname)
       return NextResponse.redirect(redirectUrl)
     }
 
-    // Note: Role check will be handled by the layout component
+    // Check if user is a merchant
+    if (user.user_metadata?.userType !== 'merchant') {
+      // Redirect non-merchants to customer area
+      return NextResponse.redirect(new URL('/', request.url))
+    }
   }
+
+  // Check if the request is for customer auth-required routes
+  if (customerAuthRequiredPaths.some(path => pathname.startsWith(path))) {
+    if (!user) {
+      const redirectUrl = new URL('/login', request.url)
+      redirectUrl.searchParams.set('redirect', pathname)
+      return NextResponse.redirect(redirectUrl)
+    }
+  }
+
+  // All other customer routes (/, /browse, /cart, /checkout, etc.) are accessible without auth
 
   return response
 }
 
 export const config = {
   matcher: [
-    '/dashboard/:path*',
-    '/orders/:path*', 
-    '/products/:path*',
-    '/analytics/:path*',
-    '/settings/:path*',
+    // Include all routes except static files and API routes
+    '/((?!_next/static|_next/image|favicon.ico|api/).*)',
   ],
 }

@@ -12,6 +12,7 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
+    "db:seed": "ts-node src/seed.ts",
     "type-check": "tsc --noEmit",
     "lint": "biome check ./src",
     "format": "biome format --write ./src"
@@ -26,6 +27,7 @@
   "devDependencies": {
     "@types/node": "^20.19.9",
     "prisma": "^5.17.0",
+    "ts-node": "^10.9.2",
     "tsx": "^4.16.2",
     "typescript": "^5.5.4"
   }

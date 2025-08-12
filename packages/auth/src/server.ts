@@ -38,7 +38,7 @@ export async function requireMerchant() {
     throw new Error('Unauthorized: Merchant account is not active')
   }
   
-  return session
+  return { session, merchant }
 }
 
 export async function requireCustomer() {
@@ -52,13 +52,57 @@ export async function requireCustomer() {
     throw new Error('Unauthorized: Customer access required')
   }
   
-  return session
+  const customer = await db.customer.findUnique({
+    where: { id: session.user.id }
+  })
+  
+  if (!customer) {
+    throw new Error('Customer profile not found')
+  }
+  
+  return { session, customer }
 }
 
 export async function optionalAuth() {
   try {
-    return await getServerSession()
+    const session = await getServerSession()
+    
+    if (!session) return { session: null, user: null }
+    
+    // Get the appropriate user profile based on type
+    if (session.user.userType === 'merchant') {
+      const merchant = await db.merchant.findUnique({
+        where: { id: session.user.id }
+      })
+      return { session, user: merchant, userType: 'merchant' as const }
+    } else {
+      const customer = await db.customer.findUnique({
+        where: { id: session.user.id }
+      })
+      return { session, user: customer, userType: 'customer' as const }
+    }
   } catch {
-    return null
+    return { session: null, user: null }
+  }
+}
+
+// Helper to get customer or guest session
+export async function getCustomerOrGuest() {
+  const auth = await optionalAuth()
+  
+  if (auth.user && auth.userType === 'customer') {
+    return {
+      isAuthenticated: true,
+      customer: auth.user,
+      guestId: null
+    }
+  }
+  
+  // For guest users, you might want to use a session ID or cookie
+  // This is a placeholder - implement based on your guest tracking needs
+  return {
+    isAuthenticated: false,
+    customer: null,
+    guestId: 'guest-' + Math.random().toString(36).substr(2, 9)
   }
 }

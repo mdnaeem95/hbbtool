@@ -1,6 +1,7 @@
 import { Metadata } from "next"
 import Link from "next/link"
 import { LoginForm } from "@/components/auth/login-form"
+import { Store, Users } from "lucide-react"
 
 export const metadata: Metadata = {
   title: "Login",
@@ -13,7 +14,7 @@ export default function LoginPage() {
       <div>
         <h2 className="text-2xl font-bold">Welcome back</h2>
         <p className="mt-2 text-muted-foreground">
-          Sign in to your account to continue ordering
+          Sign in to your account to continue
         </p>
       </div>
 
@@ -32,19 +33,48 @@ export default function LoginPage() {
         </div>
         <div className="relative flex justify-center text-xs uppercase">
           <span className="bg-background px-2 text-muted-foreground">
-            Are you a merchant?
+            Choose your account type
           </span>
         </div>
       </div>
 
-      <div className="text-center">
-        <Link 
-          href={"http://localhost:3000/dashboard"}
-          className="text-sm text-primary hover:underline"
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* CUSTOMER OPTION */}
+        <Link
+          href="/browse"
+          className="group rounded-lg border border-border bg-card p-6 transition-colors hover:border-primary hover:bg-primary/5"
         >
-          Go to Merchant Dashboard
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 group-hover:bg-primary/20">
+              <Users className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-medium">Continue as Customer</h3>
+              <p className="text-sm text-muted-foreground">Browse and order food</p>
+            </div>
+          </div>
+        </Link>
+
+        {/* Merchant Option */}
+        <Link
+          href="/merchant-signup"
+          className="group rounded-lg border border-border bg-card p-6 transition-colors hover:border-primary hover:bg-primary/5"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 group-hover:bg-primary/20">
+              <Store className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-medium">Merchant Dashboard</h3>
+              <p className="text-sm text-muted-foreground">Manage your business</p>
+            </div>
+          </div>
         </Link>
       </div>
+
+      <p className="text-center text-xs text-muted-foreground">
+        Note: Merchant accounts require registration and approval
+      </p>
     </div>
   )
 }

@@ -26,6 +26,7 @@ export * from "./product-image"
 export * from "./product-card"
 export * from "./product-grid"
 export * from "./product-filters"
+export * from "./resizable"
 export * from "./spinner"
 
 // Utilities and hooks

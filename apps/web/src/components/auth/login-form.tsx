@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@kitchencloud/ui'
 import { Input } from '@kitchencloud/ui'
@@ -11,6 +11,7 @@ import Link from 'next/link'
 
 export function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
@@ -37,15 +38,21 @@ export function LoginForm() {
 
       // Check user type and redirect accordingly
       const userType = data.user.user_metadata.userType
+      const redirectTo = searchParams.get('redirect')
       
       if (userType === 'merchant') {
         // Redirect to merchant dashboard
-        window.location.href = process.env.NEXT_PUBLIC_MERCHANT_URL || '/dashboard'
+        if (redirectTo?.startsWith('/dashboard')) {
+          router.push(redirectTo)
+        } else {
+          router.push('/dashboard')
+        }
       } else {
         // Redirect to customer area
-        router.push('/')
-        router.refresh()
+        router.push(redirectTo || '/')
       }
+
+      router.refresh()
     } catch (err) {
       setError('An unexpected error occurred')
     } finally {

@@ -1,94 +1,113 @@
-import Link from "next/link"
-import { Button } from "@kitchencloud/ui"
-import { ArrowRight, ShoppingBag, Clock, MapPin } from "lucide-react"
+'use client'
+
+import { useState, useCallback } from 'react'
+import { MerchantMap } from '@/components/map/merchant-map'
+import { MapSearchHeader, FilterState } from '@/components/map/map-search-header'
+import { MerchantListSidebar } from '@/components/map/merchant-list-sidebar'
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@kitchencloud/ui'
+import { api } from '@/lib/trpc/client'
+import type { LngLatBounds } from 'react-map-gl/mapbox'
 
 export default function HomePage() {
+  const [selectedMerchantId, setSelectedMerchantId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filters, setFilters] = useState<FilterState>({})
+  const [mapBounds, setMapBounds] = useState<LngLatBounds | null>(null)
+
+  // Fetch merchants with filters
+  const { data, isLoading } = api.merchant.searchNearby.useQuery({
+    query: searchQuery,
+    filters: {
+      ...filters,
+      bounds: mapBounds ? {
+        north: mapBounds.getNorth(),
+        south: mapBounds.getSouth(),
+        east: mapBounds.getEast(),
+        west: mapBounds.getWest()
+      } : undefined
+    }
+  }, {
+    keepPreviousData: true,
+    refetchInterval: 30000 // Refresh every 30 seconds for open/closed status
+  })
+
+  const merchants = data?.merchants || []
+
+  // Handle search
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query)
+    setSelectedMerchantId(null)
+  }, [])
+
+  // Handle filter change
+  const handleFilterChange = useCallback((newFilters: FilterState) => {
+    setFilters(newFilters)
+    setSelectedMerchantId(null)
+  }, [])
+
+  // Handle bounds change
+  const handleBoundsChange = useCallback((bounds: LngLatBounds) => {
+    setMapBounds(bounds)
+  }, [])
+
+  // Handle merchant selection
+  const handleMerchantSelect = useCallback((merchantId: string | null) => {
+    setSelectedMerchantId(merchantId)
+  }, [])
+
   return (
-    <main className="min-h-screen">
-      {/* Hero Section */}
-      <section className="section-padding bg-gradient-to-b from-primary/5 to-background">
-        <div className="container">
-          <div className="mx-auto max-w-4xl text-center">
-            <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
-              Homemade Goodness,{" "}
-              <span className="text-primary">Delivered Fresh</span>
-            </h1>
-            <p className="mt-6 text-lg text-muted-foreground md:text-xl">
-              Discover and order from Singapore&apos;s best home-based food businesses. 
-              From traditional favorites to modern fusion, find your next meal here.
-            </p>
-            <div className="mt-10 flex flex-col gap-4 sm:flex-row sm:justify-center">
-              <Button size="lg" asChild>
-                <Link href="/browse">
-                  Browse Merchants
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-              <Button size="lg" variant="outline" asChild>
-                <Link href="/login">Sign In</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
+    <div className="h-screen flex flex-col">
+      {/* Search Header */}
+      <MapSearchHeader
+        onSearch={handleSearch}
+        onFilterChange={handleFilterChange}
+        totalResults={merchants.length}
+        isLoading={isLoading}
+      />
 
-      {/* Features Section */}
-      <section className="section-padding">
-        <div className="container">
-          <h2 className="text-center text-3xl font-bold">Why Choose KitchenCloud?</h2>
-          <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                <ShoppingBag className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="mt-4 text-lg font-semibold">Easy Ordering</h3>
-              <p className="mt-2 text-muted-foreground">
-                Browse menus, add to cart, and checkout in minutes. No more 
-                back-and-forth messaging.
-              </p>
+      {/* Map and List */}
+      <div className="flex-1 relative">
+        <ResizablePanelGroup direction="horizontal">
+          {/* Merchant List Sidebar */}
+          <ResizablePanel
+            defaultSize={30}
+            minSize={20}
+            maxSize={40}
+            className="hidden md:block"
+          >
+            <div className="h-full overflow-y-auto">
+              <MerchantListSidebar
+                merchants={merchants}
+                selectedMerchantId={selectedMerchantId}
+                onMerchantSelect={handleMerchantSelect}
+                isLoading={isLoading}
+              />
             </div>
-            <div className="text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                <Clock className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="mt-4 text-lg font-semibold">Real-time Updates</h3>
-              <p className="mt-2 text-muted-foreground">
-                Track your order status in real-time. Know exactly when your 
-                food will be ready.
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                <MapPin className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="mt-4 text-lg font-semibold">Local & Fresh</h3>
-              <p className="mt-2 text-muted-foreground">
-                Support local home-based businesses and enjoy freshly prepared 
-                meals from your neighborhood.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+          </ResizablePanel>
 
-      {/* CTA Section */}
-      <section className="section-padding bg-primary/5">
-        <div className="container">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold">Ready to Order?</h2>
-            <p className="mt-4 text-lg text-muted-foreground">
-              Join thousands of happy customers enjoying homemade meals from 
-              talented local cooks.
-            </p>
-            <Button size="lg" className="mt-8" asChild>
-              <Link href="/browse">
-                Start Ordering Now
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
+          <ResizableHandle className="hidden md:block" />
+
+          {/* Map */}
+          <ResizablePanel defaultSize={70}>
+            <MerchantMap
+              merchants={merchants}
+              onBoundsChange={handleBoundsChange}
+              selectedMerchantId={selectedMerchantId}
+              onMerchantSelect={handleMerchantSelect}
+            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
+
+        {/* Mobile Merchant List - Bottom Sheet */}
+        <div className="md:hidden absolute bottom-0 left-0 right-0 bg-background max-h-[40vh] overflow-y-auto rounded-t-xl shadow-lg border-t">
+          <MerchantListSidebar
+            merchants={merchants}
+            selectedMerchantId={selectedMerchantId}
+            onMerchantSelect={handleMerchantSelect}
+            isLoading={isLoading}
+          />
         </div>
-      </section>
-    </main>
+      </div>
+    </div>
   )
 }

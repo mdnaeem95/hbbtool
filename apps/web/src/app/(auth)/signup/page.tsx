@@ -1,6 +1,7 @@
 import { Metadata } from "next"
 import Link from "next/link"
 import { SignupForm } from "@/components/auth/signup-form"
+import { Store } from "lucide-react"
 
 export const metadata: Metadata = {
   title: "Sign Up",
@@ -37,14 +38,20 @@ export default function SignupPage() {
         </div>
       </div>
 
-      <div className="text-center">
-        <Link 
-          href={process.env.NEXT_PUBLIC_MERCHANT_URL || "http://localhost:3001"}
-          className="text-sm text-primary hover:underline"
-        >
-          Register as a Merchant
-        </Link>
-      </div>
+      <Link
+        href="/merchant-signup"
+        className="group flex w-full items-center justify-center gap-3 rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary hover:bg-primary/5"
+      >
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 group-hover:bg-primary/20">
+          <Store className="h-5 w-5 text-primary" />
+        </div>
+        <div className="text-left">
+          <p className="font-medium">Register as a Merchant</p>
+          <p className="text-sm text-muted-foreground">
+            Start selling your home-cooked meals
+          </p>
+        </div>
+      </Link>
     </div>
   )
 }

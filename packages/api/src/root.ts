@@ -4,7 +4,6 @@ import { merchantRouter } from "./routers/merchant"
 import { categoryRouter } from "./routers/category"
 import { orderRouter } from "./routers/order"
 import { customerRouter } from "./routers/customer"
-import { authRouter } from "./routers/auth"
 import { checkoutRouter } from "./routers/checkout"
 import { paymentRouter } from "./routers/payment"
 
@@ -14,7 +13,6 @@ import { paymentRouter } from "./routers/payment"
  * All routers added in /api/routers should be manually added here.
  */
 export const appRouter = createTRPCRouter({
-  auth: authRouter,
   product: productRouter,
   merchant: merchantRouter,
   category: categoryRouter,

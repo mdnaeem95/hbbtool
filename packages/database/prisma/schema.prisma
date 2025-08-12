@@ -9,9 +9,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")  
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ==================== ENUMS ====================
@@ -88,16 +88,19 @@ model Merchant {
 
   // Business Details
   businessType String?
-  cuisineType  String[] @default([])
+  cuisineType  String[] @default([]) // e.g., ["Malay","Indian"]
   halal        Boolean  @default(false)
 
-  // Address
-  address    String?
-  postalCode String?
-  latitude   Float?
-  longitude  Float?
+  // Address & Location
+  address           String?
+  postalCode        String? @db.VarChar(6)
+  unitNumber        String? @db.VarChar(20)
+  buildingName      String? @db.VarChar(255)
+  latitude          Float?  @db.DoublePrecision
+  longitude         Float?  @db.DoublePrecision
+  showExactLocation Boolean @default(false) // show exact pin vs general area
 
-  // Operating Hours (JSON structure)
+  // Operating Hours (JSON)
   operatingHours Json? // { monday: { open: "09:00", close: "18:00" }, ... }
 
   // Delivery Settings
@@ -119,12 +122,12 @@ model Merchant {
   verifiedAt DateTime?
 
   // Metadata
-  settings  Json? // Flexible settings storage
+  settings  Json?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  // Relations
+  // Relations (assumes other models reference Merchant via foreign keys)
   categories           Category[]
   products             Product[]
   orders               Order[]
@@ -135,9 +138,12 @@ model Merchant {
   paymentVerifications Payment[]         @relation("PaymentVerifications")
   checkoutSessions     CheckoutSession[]
 
+  // Indexes
   @@index([slug])
   @@index([status])
   @@index([email])
+  @@index([latitude, longitude], map: "merchants_latitude_longitude_idx")
+  @@index([postalCode], map: "merchants_postal_code_idx")
 }
 
 model Category {

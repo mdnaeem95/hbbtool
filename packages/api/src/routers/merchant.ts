@@ -2,6 +2,26 @@ import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { createTRPCRouter, publicProcedure, protectedProcedure } from "../trpc"
 import { MerchantStatus, ProductStatus, Prisma, PaymentStatus } from "@kitchencloud/database/client"
+import { checkIfOpen } from "../utils/operating-hours"
+import { getDisplayLocation } from "../utils/get-display-location"
+import { calculateDistance } from "../utils/calculate-distance"
+
+export type MerchantMapMarker = {
+  id: string
+  businessName: string
+  slug: string
+  address: string | null
+  location: { lat: number; lng: number }
+  cuisine: string[]
+  rating?: number
+  reviewCount: number
+  minimumOrder: number
+  deliveryFee: number
+  preparationTime: string
+  isOpen: boolean
+  logoUrl: string | null
+  distance?: number
+}
 
 function requireMerchantId(ctx: any) {
   const u = ctx.session?.user
@@ -10,6 +30,13 @@ function requireMerchantId(ctx: any) {
   }
   return u.id // treat as merchant.id
 }
+
+const boundsSchema = z.object({
+  north: z.number(),
+  south: z.number(),
+  east: z.number(),
+  west: z.number(),
+})
 
 export const merchantRouter = createTRPCRouter({
   getBySlug: publicProcedure
@@ -339,4 +366,149 @@ export const merchantRouter = createTRPCRouter({
 
         return updated
     }),
+
+  // search merchants for map display
+  searchNearby: publicProcedure
+    .input(
+      z.object({
+        query: z.string().optional(),
+        filters: z.object({
+          cuisine: z.string().optional(),
+          isOpen: z.boolean().optional(),
+          hasDelivery: z.boolean().optional(),
+          minRating: z.number().optional(),
+          maxDeliveryFee: z.number().optional(),
+          bounds: boundsSchema.optional()
+        }).optional(),
+        userLocation: z.object({ lat: z.number(), lng: z.number() }).optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { query, filters = {}, userLocation } = input
+
+      // where clause
+      const where: any = {
+        status: 'ACTIVE',
+        deletedAt: null,
+      }
+
+      // search query
+      if (query) {
+        where.OR = [
+          { businessName: { contains: query, mode: 'insensitive' } },
+          { description: { contains: query, mode: 'insensitive' } },
+          { categories: { some: { name: { contains: query, mode: 'insensitive' } } } },
+        ]
+      }
+
+      // cuisine filter
+      if (filters.cuisine) {
+        where.categories = { some: { name: { equals: filters.cuisine, mode: 'insensitive' } } }
+      }
+
+      // has delivery filter
+      if (filters.hasDelivery !== undefined) {
+        where.deliveryFee = filters.hasDelivery ? { gt: 0 } : { equals: 0 }
+      }
+
+      // bounds filter
+      if (filters.bounds) {
+        where.AND = [
+          { latitude: { gte: filters.bounds.south, lte: filters.bounds.north } },
+          { longitude: { gte: filters.bounds.west, lte: filters.bounds.east } }
+        ]
+      }
+
+      // fetch merchants
+      const merchants = await ctx.db.merchant.findMany({
+        where,
+        select: {
+          id: true,
+          businessName: true,
+          slug: true,
+          description: true,
+          logoUrl: true,
+          address: true,
+          latitude: true,
+          longitude: true,
+          showExactLocation: true,
+          minimumOrder: true,
+          deliveryFee: true,
+          preparationTime: true,
+          operatingHours: true,
+          categories: { select: { name: true } },
+          _count: { select: { reviews: true } },
+          reviews: { select: { rating: true } }          
+        },
+        take: 100
+      })
+
+      // process and filter merchants
+      const processedMerchants = merchants
+        .map((m): MerchantMapMarker | null => {
+          // calculate average rating
+          const avgRating = 
+            m.reviews.length > 0
+              ? m.reviews.reduce((sum, r) => sum + r.rating, 0) / m.reviews.length
+              : null
+
+          // check if meets rating filter
+          if (filters.minRating != null && (avgRating == null || avgRating < filters.minRating)) {
+            return null
+          }
+
+          // check if meets delivery fee filter
+          if (filters.maxDeliveryFee != null && Number(m.deliveryFee) > filters.maxDeliveryFee) {
+            return null
+          }
+
+          // get display location
+          const location = getDisplayLocation({
+            latitude: m.latitude,
+            longitude: m.longitude,
+            showExactLocation: m.showExactLocation
+          })
+          if (!location) return null
+
+          // check operating hours
+          const isOpen = m.operatingHours ? checkIfOpen(m.operatingHours as any) : true
+          if (filters.isOpen !== undefined && isOpen !== filters.isOpen) {
+            return null
+          }
+
+          // calculate distance if user location provided
+          let distance: number | undefined
+          if (userLocation && m.latitude != null && m.longitude != null) {
+            distance = calculateDistance(userLocation.lat, userLocation.lng, m.latitude, m.longitude)
+          }
+
+          return {
+            id: m.id,
+            businessName: m.businessName,
+            slug: m.slug,
+            address: m.address,
+            location,
+            cuisine: m.categories.map(c => c.name),
+            rating: avgRating != null ? Math.round(avgRating * 10) / 10 : undefined,
+            reviewCount: m._count.reviews,
+            minimumOrder: Number(m.minimumOrder),
+            deliveryFee: Number(m.deliveryFee),
+            preparationTime: String(m.preparationTime),
+            isOpen,
+            logoUrl: m.logoUrl,
+            distance,
+          }
+        })
+        .filter((x): x is MerchantMapMarker => x !== null)
+
+        // sort by distance
+        if (userLocation) {
+          processedMerchants.sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999))
+        }
+
+        return {
+          merchants: processedMerchants,
+          total: processedMerchants.length,
+        }
+    })
 })
