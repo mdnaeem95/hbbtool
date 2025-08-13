@@ -3,23 +3,10 @@
   "version": "0.0.0",
   "private": true,
   "exports": {
-    ".": {
-      "import": "./src/index.ts",
-      "require": "./src/index.ts"
-    },
-    "./client": {
-      "import": "./src/client.ts",
-      "require": "./src/client.ts"
-    },
-    "./server": {
-      "import": "./src/server.ts",
-      "require": "./src/server.ts"
-    },
-    "./utils/*": {
-      "import": "./src/utils/*.ts",
-      "require": "./src/utils/*.ts"
-    },
-    "./types": "./src/lib/database.types.ts"
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts",
+    "./client": "./src/client.ts",
+    "./hooks": "./src/hooks/index.ts"
   },
   "scripts": {
     "type-check": "tsc --noEmit",

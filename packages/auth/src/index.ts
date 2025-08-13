@@ -1,4 +1,27 @@
-// export only client-safe utitilies
+// Server utilities
+export {
+  getServerSession,
+  requireMerchant,
+  getCustomerSession,
+  getMerchantById,
+  createServerSupabaseClient,
+  type AuthUser,
+  type MerchantSession,
+  type CustomerSession,
+} from './server'
 
-export * from './client'
-export * from './utils/password'
+// Client utilities
+export {
+  createBrowserSupabaseClient,
+  signInMerchant,
+  signUpMerchant,
+  signInCustomer,
+  signOut,
+} from './client'
+
+// Hooks
+export { useAuth } from './hooks/use-auth'
+export { useMerchant } from './hooks/use-merchant'
+
+// Middleware
+export { authMiddleware } from './middleware'

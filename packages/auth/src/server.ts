@@ -1,7 +1,53 @@
-import { createServerSupabaseClient } from './lib/supabase-server'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { db } from '@kitchencloud/database'
+import type { Merchant, Customer } from '@kitchencloud/database'
+import { SupabaseClient } from '@supabase/supabase-js'
 
-export async function getServerSession() {
+export type AuthUser = {
+  id: string
+  email: string
+  userType: 'merchant' | 'customer'
+}
+
+export type MerchantSession = {
+  user: AuthUser
+  merchant: Merchant
+}
+
+export type CustomerSession = {
+  user: AuthUser
+  customer: Customer
+} | null // null for guest users
+
+// Create Supabase server client
+export function createServerSupabaseClient(): SupabaseClient {
+  const cookieStore = cookies()
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            )
+          } catch {
+            // Server Component boundary - ignore
+          }
+        },
+      },
+    }
+  )
+}
+
+// Get current auth session
+export async function getServerSession(): Promise<{ user: AuthUser } | null> {
   const supabase = createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
   
@@ -9,24 +55,26 @@ export async function getServerSession() {
   
   return {
     user: {
-      ...user,
+      id: user.id,
+      email: user.email!,
       userType: user.user_metadata.userType as 'merchant' | 'customer',
     }
   }
 }
 
-export async function requireMerchant() {
+// Require merchant authentication
+export async function requireMerchant(): Promise<MerchantSession> {
   const session = await getServerSession()
   
   if (!session) {
-    throw new Error('Unauthorized: Authentication required')
+    throw new Error('Authentication required')
   }
   
   if (session.user.userType !== 'merchant') {
-    throw new Error('Unauthorized: Merchant access required')
+    throw new Error('Merchant access required')
   }
   
-  const merchant = await db.merchant.findUnique({
+  const merchant = await db.merchant.findFirst({
     where: { id: session.user.id }
   })
   
@@ -35,74 +83,38 @@ export async function requireMerchant() {
   }
   
   if (merchant.status !== 'ACTIVE') {
-    throw new Error('Unauthorized: Merchant account is not active')
+    throw new Error('Merchant account is not active')
   }
   
-  return { session, merchant }
+  return { user: session.user, merchant }
 }
 
-export async function requireCustomer() {
+// Get customer session (optional auth)
+export async function getCustomerSession(): Promise<CustomerSession> {
   const session = await getServerSession()
   
-  if (!session) {
-    throw new Error('Unauthorized: Authentication required')
+  if (!session || session.user.userType !== 'customer') {
+    return null // Guest user
   }
   
-  if (session.user.userType !== 'customer') {
-    throw new Error('Unauthorized: Customer access required')
-  }
-  
-  const customer = await db.customer.findUnique({
+  const customer = await db.customer.findFirst({
     where: { id: session.user.id }
   })
   
   if (!customer) {
-    throw new Error('Customer profile not found')
+    return null
   }
   
-  return { session, customer }
+  return { user: session.user, customer }
 }
 
-export async function optionalAuth() {
-  try {
-    const session = await getServerSession()
-    
-    if (!session) return { session: null, user: null }
-    
-    // Get the appropriate user profile based on type
-    if (session.user.userType === 'merchant') {
-      const merchant = await db.merchant.findUnique({
-        where: { id: session.user.id }
-      })
-      return { session, user: merchant, userType: 'merchant' as const }
-    } else {
-      const customer = await db.customer.findUnique({
-        where: { id: session.user.id }
-      })
-      return { session, user: customer, userType: 'customer' as const }
+// Get merchant by ID (for public pages)
+export async function getMerchantById(merchantId: string) {
+  return db.merchant.findFirst({
+    where: { 
+      id: merchantId,
+      status: 'ACTIVE',
+      deletedAt: null
     }
-  } catch {
-    return { session: null, user: null }
-  }
-}
-
-// Helper to get customer or guest session
-export async function getCustomerOrGuest() {
-  const auth = await optionalAuth()
-  
-  if (auth.user && auth.userType === 'customer') {
-    return {
-      isAuthenticated: true,
-      customer: auth.user,
-      guestId: null
-    }
-  }
-  
-  // For guest users, you might want to use a session ID or cookie
-  // This is a placeholder - implement based on your guest tracking needs
-  return {
-    isAuthenticated: false,
-    customer: null,
-    guestId: 'guest-' + Math.random().toString(36).substr(2, 9)
-  }
+  })
 }
