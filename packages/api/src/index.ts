@@ -1,13 +1,20 @@
-export * from "./root"
-export * from "./trpc"
-export * from "./superjson"
-export type { AppRouter } from './root'
-export { createTRPCContext, type Context } from "./context"
-export {
-  createTRPCRouter,
-  publicProcedure,
-  protectedProcedure,
-} from "./trpc"
+import { router } from './trpc'
+import { authRouter } from './routers/auth'
+import { merchantRouter } from './routers/merchant'
+import { productRouter } from './routers/product'
+import { orderRouter } from './routers/order'
+import { publicRouter } from './routers/public'
 
-// Re-export types that might be useful
-export type { Session } from "./context"
+export const appRouter = router({
+  auth: authRouter,
+  merchant: merchantRouter,
+  product: productRouter,
+  order: orderRouter,
+  public: publicRouter,
+})
+
+export type AppRouter = typeof appRouter
+
+// Export utilities
+export { createContext } from './context'
+export * from './types'

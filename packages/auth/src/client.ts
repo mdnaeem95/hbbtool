@@ -1,7 +1,8 @@
 import { createBrowserClient } from '@supabase/ssr'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
-// Create browser client
-export function createBrowserSupabaseClient() {
+// Create browser Supabase client
+export function createBrowserSupabaseClient(): SupabaseClient {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -9,7 +10,10 @@ export function createBrowserSupabaseClient() {
 }
 
 // Sign in merchant
-export async function signInMerchant(email: string, password: string) {
+export async function signInMerchant(
+  email: string,
+  password: string
+) {
   const supabase = createBrowserSupabaseClient()
   
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -20,26 +24,18 @@ export async function signInMerchant(email: string, password: string) {
   if (error) throw error
   
   // Verify user is a merchant
-  if (data.user?.user_metadata.userType !== 'merchant') {
-    await supabase.auth.signOut()
-    throw new Error('Invalid merchant credentials')
+  if (data.user?.user_metadata?.userType !== 'merchant') {
+    throw new Error('Not a merchant account')
   }
   
   return data
 }
 
 // Sign up merchant
-export async function signUpMerchant({
-  email,
-  password,
-  phone,
-  businessName,
-}: {
-  email: string
+export async function signUpMerchant(
+  email: string,
   password: string
-  phone: string
-  businessName: string
-}) {
+) {
   const supabase = createBrowserSupabaseClient()
   
   const { data, error } = await supabase.auth.signUp({
@@ -48,37 +44,30 @@ export async function signUpMerchant({
     options: {
       data: {
         userType: 'merchant',
-        phone,
-        businessName,
       },
     },
   })
   
   if (error) throw error
+  
   return data
+}
+
+// Sign in customer (simplified for MVP)
+export async function signInCustomer(
+  phone: string
+) {
+  // For MVP, we're using a simplified flow
+  // In production, this would integrate with SMS OTP
+  return {
+    phone,
+    requiresOtp: true,
+  }
 }
 
 // Sign out
 export async function signOut() {
   const supabase = createBrowserSupabaseClient()
-  await supabase.auth.signOut()
-}
-
-// Optional: Customer sign in (if they want to track orders)
-export async function signInCustomer(email: string, password: string) {
-  const supabase = createBrowserSupabaseClient()
-  
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  })
-  
+  const { error } = await supabase.auth.signOut()
   if (error) throw error
-  
-  if (data.user?.user_metadata.userType !== 'customer') {
-    await supabase.auth.signOut()
-    throw new Error('Invalid customer credentials')
-  }
-  
-  return data
 }

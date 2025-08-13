@@ -2,49 +2,37 @@
 
 import { useEffect, useState } from 'react'
 import { createBrowserSupabaseClient } from '../client'
-import type { AuthUser } from '../server'
+import type { User } from '@supabase/supabase-js'
 
 export function useAuth() {
-  const [user, setUser] = useState<AuthUser | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createBrowserSupabaseClient()
-
+  
   useEffect(() => {
+    const supabase = createBrowserSupabaseClient()
+    
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email!,
-          userType: session.user.user_metadata.userType,
-        })
-      }
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user)
       setLoading(false)
     })
-
+    
     // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email!,
-          userType: session.user.user_metadata.userType,
-        })
-      } else {
-        setUser(null)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null)
+        setLoading(false)
       }
-    })
-
+    )
+    
     return () => subscription.unsubscribe()
-  }, [supabase])
-
+  }, [])
+  
   return {
     user,
     loading,
-    isMerchant: user?.userType === 'merchant',
-    isCustomer: user?.userType === 'customer',
     isAuthenticated: !!user,
+    isMerchant: user?.user_metadata?.userType === 'merchant',
+    isCustomer: user?.user_metadata?.userType === 'customer',
   }
 }

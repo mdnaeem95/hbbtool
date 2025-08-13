@@ -1,19 +1,19 @@
 'use client'
 
 import { useAuth } from './use-auth'
-import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
-export function useMerchant(redirectTo = '/merchant/login') {
+export function useMerchant() {
   const { user, loading, isMerchant } = useAuth()
   const router = useRouter()
-
+  
   useEffect(() => {
     if (!loading && (!user || !isMerchant)) {
-      router.push(redirectTo)
+      router.push('/merchant/login')
     }
-  }, [user, loading, isMerchant, router, redirectTo])
-
+  }, [user, loading, isMerchant, router])
+  
   return {
     user,
     loading,

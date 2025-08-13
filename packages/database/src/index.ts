@@ -1,4 +1,4 @@
-// packages/database/src/index.ts
+import { db } from "./client"
 
 // Export the main database client and utilities
 export {
@@ -19,7 +19,9 @@ export * from "./types"
 export * from "./cache"
 
 // Export Prisma namespace and enums
-export { Prisma } from "@prisma/client"
+export { Prisma, type PrismaClient } from "@prisma/client"
+export { type Decimal } from "@prisma/client/runtime/library.js"
+export type DB = typeof db
 export {
   ProductStatus,
   OrderStatus,

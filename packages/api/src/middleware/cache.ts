@@ -1,33 +1,32 @@
-import { Redis } from '@upstash/redis'
 import { middleware } from '../trpc'
 
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_URL!,
-  token: process.env.UPSTASH_REDIS_TOKEN!,
-})
+interface CacheConfig {
+  ttl: number // seconds
+  key?: (input: unknown) => string
+}
 
-export const cacheMiddleware = middleware(async ({ next, ctx, path, type, rawInput }) => {
-  // Only cache queries, not mutations
-  if (type !== 'query') {
-    return next({ ctx })
-  }
-  
-  // Generate cache key
-  const cacheKey = `trpc:${path}:${JSON.stringify(rawInput)}`
-  
-  // Try to get from cache
-  const cached = await redis.get(cacheKey)
-  if (cached) {
-    return { ok: true, data: cached }
-  }
-  
-  // Execute query
-  const result = await next({ ctx })
-  
-  // Cache successful results
-  if (result.ok) {
-    await redis.setex(cacheKey, 60, result.data) // Cache for 1 minute
-  }
-  
-  return result
-})
+const cacheStore = new Map<string, { data: any; expiresAt: number }>()
+
+export const cache = (config: CacheConfig) => {
+  return middleware(async ({ next, path, input }) => {
+    const cacheKey = config.key 
+      ? `${path}:${config.key(input)}`
+      : `${path}:${JSON.stringify(input)}`
+    
+    const now = Date.now()
+    const cached = cacheStore.get(cacheKey)
+    
+    if (cached && cached.expiresAt > now) {
+      return cached.data
+    }
+    
+    const result = await next()
+    
+    cacheStore.set(cacheKey, {
+      data: result,
+      expiresAt: now + (config.ttl * 1000),
+    })
+    
+    return result
+  })
+}
