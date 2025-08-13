@@ -18,6 +18,8 @@ export type MerchantWithProducts = Prisma.MerchantGetPayload<{
       include: {
         products: {
           where: { deletedAt: null; status: "ACTIVE" }
+          // Remove sortOrder from products - it doesn't exist
+          orderBy: { createdAt: "desc" }
         }
       }
     }

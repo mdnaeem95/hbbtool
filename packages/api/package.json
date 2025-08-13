@@ -52,6 +52,7 @@
     "@kitchencloud/database": "workspace:*",
     "@supabase/ssr": "^0.6.1",
     "@trpc/server": "^11.4.4",
+    "@upstash/redis": "^1.35.3",
     "bcryptjs": "^3.0.2",
     "date-fns": "^4.1.0",
     "eslint": "^9.33.0",

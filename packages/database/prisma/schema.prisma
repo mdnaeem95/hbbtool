@@ -79,7 +79,6 @@ model Merchant {
   id           String  @id @default(cuid())
   email        String  @unique
   phone        String  @unique
-  password     String
   businessName String
   slug         String  @unique
   description  String?
@@ -139,8 +138,8 @@ model Merchant {
   checkoutSessions     CheckoutSession[]
 
   // Indexes
-  @@index([slug])
-  @@index([status])
+  @@index([slug, deletedAt])
+  @@index([status, deletedAt])
   @@index([email])
   @@index([latitude, longitude], map: "merchants_latitude_longitude_idx")
   @@index([postalCode], map: "merchants_postal_code_idx")
@@ -172,6 +171,7 @@ model Product {
   id         String  @id @default(cuid())
   merchantId String
   categoryId String?
+  sortOrder  Int  @default(0)
 
   name        String
   slug        String
@@ -225,12 +225,11 @@ model Product {
   ProductView    ProductView[]
 
   @@unique([merchantId, slug])
-  @@index([merchantId, status])
-  @@index([categoryId, status])
-  @@index([featured, status])
-  @@index([slug])
-  @@index([createdAt])
-  @@index([quantity])
+  @@index([merchantId, status, deletedAt])
+  @@index([categoryId, status, deletedAt])
+  @@index([featured, status, deletedAt])
+  @@index([name])
+  @@index([tags])
 }
 
 model ProductVariant {
@@ -272,7 +271,6 @@ model Customer {
   email    String? @unique
   phone    String  @unique
   name     String
-  password String? // Optional for guest checkout
 
   // Profile
   dateOfBirth DateTime?
@@ -383,10 +381,12 @@ model Order {
   payment         Payment?
   events          OrderEvent[]
 
-  @@index([merchantId, status])
-  @@index([customerId])
+  @@index([merchantId, status, createdAt])
+  @@index([customerId, createdAt])
   @@index([orderNumber])
   @@index([createdAt])
+  @@index([scheduledFor])
+  @@index([paymentStatus])
 }
 
 model OrderItem {
@@ -644,68 +644,5 @@ model Notification {
   merchant Merchant @relation(fields: [merchantId], references: [id])
 
   @@index([merchantId, read])
-  @@index([createdAt])
-}
-
-// ==================== BETTER AUTH MODELS ====================
-
-model Account {
-  id                String   @id @default(cuid())
-  userId            String
-  userType          String // "merchant" or "customer"
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?  @db.Text
-  access_token      String?  @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?  @db.Text
-  session_state     String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  @@unique([provider, providerAccountId])
-  @@index([userId, userType])
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-  createdAt  DateTime @default(now())
-
-  @@unique([identifier, token])
-  @@index([identifier])
-}
-
-model OTP {
-  id         String   @id @default(cuid())
-  identifier String // email or phone
-  code       String
-  type       String // SIGNUP, LOGIN, RESET_PASSWORD
-  expiresAt  DateTime
-  attempts   Int      @default(0)
-  createdAt  DateTime @default(now())
-
-  @@unique([identifier, code])
-  @@index([identifier])
-  @@index([expiresAt])
-}
-
-model AuthEvent {
-  id        String   @id @default(cuid())
-  userId    String? // merchantId or customerId
-  userType  String // MERCHANT or CUSTOMER
-  event     String // LOGIN, LOGOUT, PASSWORD_CHANGE, etc.
-  ipAddress String?
-  userAgent String?
-  success   Boolean
-  metadata  Json?
-  createdAt DateTime @default(now())
-
-  @@index([userId, userType])
-  @@index([event])
   @@index([createdAt])
 }
