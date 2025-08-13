@@ -29,9 +29,9 @@
     "type-check": "turbo run type-check"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.8.3",
-    "@types/react": "18.3.3",
-    "@types/react-dom": "18.3.0",
+    "@biomejs/biome": "^2.1.4",
+    "@types/react": "19.1.10",
+    "@types/react-dom": "19.1.7",
     "cross-env": "^10.0.0",
     "dotenv-cli": "^10.0.0",
     "prettier": "^3.3.3",
@@ -45,8 +45,8 @@
   "packageManager": "pnpm@9.7.0",
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
-    "@supabase/supabase-js": "^2.53.0",
-    "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "@supabase/supabase-js": "^2.55.0",
+    "react": "19.1.1",
+    "react-dom": "19.1.1"
   }
 }

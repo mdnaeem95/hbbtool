@@ -31,17 +31,17 @@
     "@supabase/ssr": "^0.6.1",
     "dotenv": "^17.2.1",
     "nanoid": "^5.0.7",
-    "zod": "^3.23.8"
+    "zod": "^4.0.17"
   },
   "devDependencies": {
-    "@types/node": "^20.14.12",
-    "@types/react": "^18.3.3",
-    "react": "^18.3.1",
-    "supabase": "^2.33.9",
+    "@types/node": "^24.2.1",
+    "@types/react": "19.1.10",
+    "react": "19.1.1",
+    "supabase": "^2.34.3",
     "typescript": "^5.5.4"
   },
   "peerDependencies": {
     "next": "^14.2.0",
-    "react": "^18.2.0"
+    "react": "18.3.1"
   }
 }
