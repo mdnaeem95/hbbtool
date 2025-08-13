@@ -1,28 +1,41 @@
-import { Card } from '@kitchencloud/ui'
-import { Mail } from 'lucide-react'
-import Link from 'next/link'
+import { Metadata } from "next"
+import { Card } from "@kitchencloud/ui"
+import { Mail, ArrowLeft } from "lucide-react"
+import Link from "next/link"
+
+export const metadata: Metadata = {
+  title: "Check Your Email",
+  description: "Confirm your email to complete registration",
+}
 
 export default function CheckEmailPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md p-8 text-center">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+        <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
           <Mail className="h-8 w-8 text-primary" />
         </div>
         
         <h1 className="text-2xl font-bold">Check your email</h1>
         
         <p className="mt-4 text-muted-foreground">
-          We've sent you a confirmation email. Please check your inbox and click
-          the link to verify your account.
+          We&apos;ve sent you an email with a confirmation link. 
+          Please check your inbox and click the link to activate your account.
         </p>
         
-        <p className="mt-6 text-sm text-muted-foreground">
-          Didn't receive an email?{' '}
-          <Link href="/signup" className="text-primary hover:underline">
-            Try signing up again
+        <div className="mt-8 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Didn&apos;t receive the email? Check your spam folder or contact support.
+          </p>
+          
+          <Link 
+            href="/login" 
+            className="inline-flex items-center text-sm text-primary hover:underline"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to login
           </Link>
-        </p>
+        </div>
       </Card>
     </div>
   )

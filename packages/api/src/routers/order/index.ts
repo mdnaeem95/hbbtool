@@ -16,7 +16,7 @@ export const orderRouter = router({
     }))
     .query(async ({ ctx, input }) => {
       const where = {
-        merchantId: ctx.session.user.id,
+        merchantId: ctx.session?.user.id,
         ...(input.status && { status: input.status }),
         ...(input.search && {
           OR: [
@@ -52,7 +52,7 @@ export const orderRouter = router({
       const order = await ctx.db.order.findFirst({
         where: {
           id: input.id,
-          merchantId: ctx.session.user.id,
+          merchantId: ctx.session?.user.id,
         },
         include: {
           customer: true,
@@ -86,7 +86,7 @@ export const orderRouter = router({
       const currentOrder = await ctx.db.order.findFirst({
         where: {
           id: input.id,
-          merchantId: ctx.session.user.id,
+          merchantId: ctx.session?.user.id,
         },
       })
       
@@ -132,7 +132,7 @@ export const orderRouter = router({
     .query(async ({ ctx, input }) => {
       return paginatedResponse(
         ctx.db.order,
-        { customerId: ctx.session.user.id },
+        { customerId: ctx.session?.user.id },
         { ...input, sortBy: 'createdAt' },
         {
           merchant: true,

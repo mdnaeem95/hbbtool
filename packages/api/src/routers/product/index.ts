@@ -3,7 +3,7 @@ import { router, merchantProcedure } from '../../trpc'
 import { paginationSchema, priceSchema, quantitySchema } from '../../utils/validation'
 import { paginatedResponse } from '../../utils/pagination'
 import { handleDatabaseError } from '../../utils/errors'
-import { ProductStatus } from '@kitchencloud/database'
+import { Prisma, ProductStatus } from '@kitchencloud/database'
 import { TRPCError } from '@trpc/server'
 
 export const productRouter = router({
@@ -16,7 +16,7 @@ export const productRouter = router({
     }))
     .query(async ({ ctx, input }) => {
       const where = {
-        merchantId: ctx.session.user.id,
+        merchantId: ctx.session?.user.id,
         ...(input.status && { status: input.status }),
         ...(input.categoryId && { categoryId: input.categoryId }),
         ...(input.search && {
@@ -47,7 +47,7 @@ export const productRouter = router({
       const product = await ctx.db.product.findFirst({
         where: {
           id: input.id,
-          merchantId: ctx.session.user.id,
+          merchantId: ctx.session?.user.id,
         },
         include: {
           category: true,
@@ -87,14 +87,25 @@ export const productRouter = router({
         const slug = input.name.toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/^-+|-+$/g, '')
+
+        const data: Prisma.ProductCreateInput = {
+          name: input.name,
+          description: input.description ?? null,
+          slug,
+          price: input.price,
+          comparePrice: input.comparePrice ?? null,
+          sku: input.sku ?? null,
+          trackQuantity: input.trackQuantity ?? false,
+          quantity: input.quantity ?? 0,
+          images: input.images ?? [],
+          status: input.status,
+          merchant: { connect: { id: ctx.session!.user.id } }, // ← relation connect
+          ...(input.categoryId
+            ? { category: { connect: { id: input.categoryId } } }
+            : {}),
+        }
           
-        const product = await ctx.db.product.create({
-          data: {
-            ...input,
-            slug,
-            merchantId: ctx.session.user.id,
-          },
-        })
+        const product = await ctx.db.product.create({ data })
         
         return product
       } catch (error) {
@@ -126,7 +137,7 @@ export const productRouter = router({
         const existing = await ctx.db.product.findFirst({
           where: {
             id: input.id,
-            merchantId: ctx.session.user.id,
+            merchantId: ctx.session?.user.id,
           },
         })
         
@@ -156,7 +167,7 @@ export const productRouter = router({
         const existing = await ctx.db.product.findFirst({
           where: {
             id: input.id,
-            merchantId: ctx.session.user.id,
+            merchantId: ctx.session?.user.id,
           },
         })
         
@@ -194,7 +205,7 @@ export const productRouter = router({
       await ctx.db.product.updateMany({
         where: {
           id: { in: input.ids },
-          merchantId: ctx.session.user.id,
+          merchantId: ctx.session?.user.id,
         },
         data,
       })

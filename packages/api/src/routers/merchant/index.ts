@@ -9,7 +9,7 @@ export const merchantRouter = router({
   get: merchantProcedure
     .query(async ({ ctx }) => {
       const merchant = await ctx.db.merchant.findUnique({
-        where: { id: ctx.session.user.id },
+        where: { id: ctx.session?.user.id },
         include: {
           _count: {
             select: {
@@ -54,7 +54,7 @@ export const merchantRouter = router({
     .mutation(async ({ ctx, input }) => {
       try {
         const merchant = await ctx.db.merchant.update({
-          where: { id: ctx.session.user.id },
+          where: { id: ctx.session?.user.id },
           data: input,
         })
         
@@ -70,7 +70,7 @@ export const merchantRouter = router({
       period: z.enum(['today', 'week', 'month', 'year']).default('month'),
     }))
     .query(async ({ ctx, input }) => {
-      const merchantId = ctx.session.user.id
+      const merchantId = ctx.session?.user.id
       const now = new Date()
       let startDate: Date
       
