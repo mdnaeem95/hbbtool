@@ -2,9 +2,11 @@ import { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { Suspense } from "react"
 
-import { ProductCatalog } from "@/components/product-catalog"
-import { ProductCatalogSkeleton } from "@/components/product-catalog-skeleton"
-import { api } from "@/lib/trpc/server"
+
+import { ProductCatalog } from "@/components/product/product-catalog"
+import { getServerCaller } from "@/app/api/trpc/server"
+import { ProductCatalogSkeleton } from "@/components/product/product-catalog-skeleton"
+
 
 interface ProductsPageProps {
   params: {
@@ -23,7 +25,8 @@ interface ProductsPageProps {
 export async function generateMetadata({
   params,
 }: ProductsPageProps): Promise<Metadata> {
-  const merchant = await api.merchant.getBySlug.query({ slug: params.slug })
+  const api = await getServerCaller()
+  const merchant = await api.public.getMerchant({ slug: params.slug })
 
   if (!merchant) {
     return {
@@ -46,7 +49,8 @@ export default async function ProductsPage({
   params,
   searchParams,
 }: ProductsPageProps) {
-  const merchant = await api.merchant.getBySlug.query({ slug: params.slug })
+  const api = await getServerCaller()
+  const merchant = await api.public.getMerchant({ slug: params.slug })
 
   if (!merchant) {
     notFound()
@@ -73,14 +77,14 @@ export default async function ProductsPage({
                 </p>
               )}
               <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
-                {merchant.rating && (
+                {/* {merchant.rating && (
                   <div className="flex items-center gap-1">
                     <span className="font-medium">{merchant.rating}</span>
                     <span className="text-muted-foreground">
                       ({merchant.reviewCount} reviews)
                     </span>
                   </div>
-                )}
+                )} */}
                 {merchant.preparationTime && (
                   <span className="text-muted-foreground">
                     {merchant.preparationTime}
@@ -88,7 +92,7 @@ export default async function ProductsPage({
                 )}
                 {merchant.minimumOrder && (
                   <span className="text-muted-foreground">
-                    Min order: ${merchant.minimumOrder}
+                    Min order: ${Number(merchant.minimumOrder).toFixed(2)}
                   </span>
                 )}
               </div>

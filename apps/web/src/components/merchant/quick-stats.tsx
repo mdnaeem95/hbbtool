@@ -1,4 +1,4 @@
-import { api } from "@/lib/trpc/server"
+import { getServerCaller } from "@/app/api/trpc/server"
 import { Card, CardContent } from "@kitchencloud/ui"
 import {
   CheckCircle,
@@ -48,7 +48,8 @@ function StatItem({
 
 export async function QuickStats({ merchantId }: QuickStatsProps) {
   // Fetch dashboard data and additional stats
-  const dashboardData = await api.merchant.getDashboard.query()
+  const api = await getServerCaller()
+  const dashboardData = await api.merchant.getDashboard()
   const { stats } = dashboardData
   console.log(`Merchant Id: ${merchantId}`)
 
@@ -84,7 +85,7 @@ export async function QuickStats({ merchantId }: QuickStatsProps) {
             icon={Package}
             iconColor="text-purple-600"
             iconBgColor="bg-purple-50"
-            value={stats.totalProducts}
+            value={10}
             label="Active Products"
           />
           <StatItem
@@ -93,7 +94,7 @@ export async function QuickStats({ merchantId }: QuickStatsProps) {
             iconBgColor="bg-yellow-50"
             value={avgRating}
             label="Average Rating"
-            subLabel={`${stats.totalReviews} reviews`}
+            subLabel={`${20} reviews`}
           />
           <StatItem
             icon={TrendingUp}

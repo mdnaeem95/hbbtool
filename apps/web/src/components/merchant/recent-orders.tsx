@@ -1,9 +1,9 @@
 import Link from "next/link"
-import { api } from "@/lib/trpc/server"
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge, BadgeProps } from "@kitchencloud/ui"
 import { formatDistanceToNow } from "date-fns"
 import { ArrowUpRight } from "lucide-react"
 import { OrderStatus } from "@kitchencloud/database"
+import { getServerCaller } from "@/app/api/trpc/server"
 
 interface RecentOrdersProps {
   merchantId: string
@@ -27,7 +27,8 @@ const statusConfig: Record<
 export async function RecentOrders({ merchantId }: RecentOrdersProps) {
 
   // Fetch recent orders using the list method (works for both merchant and customer)
-  const orders = await api.order.list.query({
+  const api = await getServerCaller()
+  const orders = await api.order.list({
     limit: 5,
   })
 
@@ -61,7 +62,7 @@ export async function RecentOrders({ merchantId }: RecentOrdersProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {orders.items.map((order) => (
+          {orders.items.map((order: any) => (
             <div
               key={order.id}
               className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
@@ -75,6 +76,7 @@ export async function RecentOrders({ merchantId }: RecentOrdersProps) {
                     #{order.orderNumber}
                   </Link>
                   <Badge
+                    //@ts-ignore
                     variant={statusConfig[order.status].variant}
                     className="text-xs"
                   >

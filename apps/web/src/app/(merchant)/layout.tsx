@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import { MerchantSidebar, MerchantHeader, MerchantMobileNav } from "@/components/merchant"
 
 import { createClient } from "@/lib/supabase/server"
-import { api } from "@/lib/trpc/server"
+import { getServerCaller } from "../api/trpc/server"
 
 export default async function MerchantLayout({
   children,
@@ -20,7 +20,8 @@ export default async function MerchantLayout({
   // Fetch merchant data
   let dashboardData
   try {
-    dashboardData = await api.merchant.getDashboard.query()
+    const api = await getServerCaller()
+    dashboardData = await api.merchant.getDashboard()
   } catch (error) {
     // If user is not a merchant, redirect to customer area
     redirect("/")

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button, Input, Label, Card, CardHeader, CardTitle, CardContent } from '@kitchencloud/ui'
 import { Loader2 } from 'lucide-react'
 import { validatePassword, validatePhoneNumber } from '@/lib/utils/validation'
-import { api } from '../providers/trpc-provider'
+import { api } from '@/app/api/trpc/client'
 
 export function MerchantSignupForm() {
   const router = useRouter()

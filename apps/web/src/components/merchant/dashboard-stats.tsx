@@ -1,4 +1,5 @@
-import { api } from "@/lib/trpc/server"
+
+import { getServerCaller } from "@/app/api/trpc/server"
 import { Card, CardContent } from "@kitchencloud/ui"
 import {
   TrendingUp,
@@ -68,9 +69,15 @@ function StatCard({
 
 export async function DashboardStats({ merchantId }: DashboardStatsProps) {
   // Fetch dashboard data
-  const dashboardData = await api.merchant.getDashboard.query()
+  const api = await getServerCaller()
+  const dashboardData = await api.merchant.getDashboard()
   console.log(`Merchant Id: ${merchantId}`)
   const { stats } = dashboardData
+
+  // Convert revenue to a number (in case it's a Decimal object)
+  const monthRevenue = typeof stats.revenue === 'object' && 'toNumber' in stats.revenue 
+    ? stats.revenue.toNumber() 
+    : Number(stats.revenue)
 
   // Calculate week-over-week changes (mock data for now)
   // In a real app, you'd fetch historical data and calculate actual changes
@@ -83,11 +90,16 @@ export async function DashboardStats({ merchantId }: DashboardStatsProps) {
     customersTrend: "up" as const,
   }
 
+  // Get additional data if needed
+  // For now, using the month-to-date data from getDashboard
+  const merchant = await api.merchant.get()
+  const totalCustomers = merchant._count?.reviews || 0
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <StatCard
-        title="Today's Revenue"
-        value={`$${stats.todayRevenue.toFixed(2)}`}
+        title="Month Revenue"
+        value={`$${monthRevenue.toFixed(2)}`}
         change={weeklyStats.revenueChange}
         trend={weeklyStats.revenueTrend}
         icon={DollarSign}
@@ -95,8 +107,8 @@ export async function DashboardStats({ merchantId }: DashboardStatsProps) {
         iconBgColor="bg-green-50"
       />
       <StatCard
-        title="Today's Orders"
-        value={stats.todayOrders}
+        title="Total Orders"
+        value={stats.totalOrders}
         change={weeklyStats.ordersChange}
         trend={weeklyStats.ordersTrend}
         icon={ShoppingBag}
@@ -111,8 +123,8 @@ export async function DashboardStats({ merchantId }: DashboardStatsProps) {
         iconBgColor="bg-orange-50"
       />
       <StatCard
-        title="Total Customers"
-        value={stats.totalReviews} // Using reviews as a proxy for customers
+        title="Total Reviews"
+        value={totalCustomers}
         change={weeklyStats.customersChange}
         trend={weeklyStats.customersTrend}
         icon={Users}

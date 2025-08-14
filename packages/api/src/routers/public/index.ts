@@ -51,6 +51,68 @@ export const publicRouter = router({
       
       return merchant
     }),
+
+  // get product
+getProduct: publicProcedure
+  .input(z.object({
+    merchantSlug: z.string(),
+    productId: z.string(),
+  }))
+  .query(async ({ ctx, input }) => {
+    // First get merchant
+    const merchant = await ctx.db.merchant.findFirst({
+      where: { 
+        slug: input.merchantSlug,
+        status: 'ACTIVE',
+      },
+      select: { id: true },
+    })
+    
+    if (!merchant) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Merchant not found' })
+    }
+    
+    // Get product
+    const product = await ctx.db.product.findFirst({
+      where: {
+        id: input.productId,
+        merchantId: merchant.id,
+        status: 'ACTIVE',
+        deletedAt: null,
+      },
+      include: {
+        category: true,
+        ProductVariant: {
+          orderBy: { isDefault: 'desc' },
+        },
+        _count: {
+          select: {
+            orderItems: true,
+            reviews: true,
+          },
+        },
+      },
+    })
+    
+    if (!product) {
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' })
+    }
+    
+    // Track product view
+    await ctx.db.analytics.create({
+      data: {
+        merchantId: merchant.id,
+        event: 'product_view',
+        properties: {
+          productId: product.id,
+          productName: product.name,
+          price: product.price,
+        },
+      },
+    })
+    
+    return product
+  }),
     
   // Browse products
   listProducts: publicProcedure
