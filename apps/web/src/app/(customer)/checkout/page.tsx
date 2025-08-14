@@ -5,23 +5,17 @@ import { useRouter } from 'next/navigation'
 import { 
   Button, 
   Card, 
-  Alert, 
-  AlertDescription,
   useToast 
 } from '@kitchencloud/ui'
 import { 
   ArrowLeft, 
   ArrowRight, 
   ShoppingBag,
-  Truck,
-  Package,
-  CreditCard,
-  AlertCircle
 } from 'lucide-react'
 import { useCart, useCartTotal } from '@/stores/cart-store'
 import { CheckoutSteps, DeliverySection, ContactForm, PaymentSection, OrderSummary } from "@/components/checkout"
 import { useCheckoutStore } from '@/stores/checkout-store'
-import { api } from '@/lib/trpc/client'
+import { api } from '@/components/providers/trpc-provider'
 
 type CheckoutStep = 'delivery' | 'contact' | 'payment'
 
@@ -104,7 +98,7 @@ export default function CheckoutPage() {
         })
         return
       }
-      if (deliveryMethod === 'DELIVERY' && !deliveryAddress) {
+      if (deliveryMethod === 'DELIVERY' && (!deliveryAddress || !deliveryAddress.postalCode)) {
         toast({
           title: "Please enter your delivery address",
           variant: "destructive",
@@ -153,6 +147,21 @@ export default function CheckoutPage() {
     )
   }
 
+  if (!session && !sessionData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground mb-4">Session expired</p>
+          <Button onClick={() => router.push('/cart')}>
+            Return to Cart
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  const currentSessionData = session || sessionData
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container max-w-6xl py-8">
@@ -182,61 +191,41 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        {/* Progress Steps */}
-        <CheckoutSteps 
-          currentStep={currentStep}
-          steps={[
-            { id: 'delivery', label: 'Delivery', icon: Truck },
-            { id: 'contact', label: 'Contact', icon: Package },
-            { id: 'payment', label: 'Payment', icon: CreditCard },
-          ]}
-        />
+        {/* Checkout Steps */}
+        <CheckoutSteps currentStep={currentStep} />
 
-        {/* Session Expiry Warning */}
-        {session?.expiresAt && (
-          <Alert className="mt-4 mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Your checkout session will expire in{' '}
-              {Math.max(0, Math.floor((new Date(session.expiresAt).getTime() - Date.now()) / 1000 / 60))}{' '}
-              minutes. Please complete your order before the session expires.
-            </AlertDescription>
-          </Alert>
-        )}
-
+        {/* Main Content */}
         <div className="mt-8 grid gap-8 lg:grid-cols-3">
-          {/* Main Content */}
+          {/* Form Section */}
           <div className="lg:col-span-2">
-            <Card>
-              <div className="p-6">
-                {/* Delivery Step */}
+            <Card className="p-6">
+              <div className="space-y-8">
+                {/* Delivery Section */}
                 {currentStep === 'delivery' && (
-                  <DeliverySection
+                  <DeliverySection 
                     merchantId={merchantId!}
-                    merchantAddress={session?.merchant?.address ?? undefined}
+                    merchantAddress={currentSessionData.merchant?.address}
                   />
                 )}
 
-                {/* Contact Step */}
-                {currentStep === 'contact' && (
-                  <ContactForm />
-                )}
+                {/* Contact Form */}
+                {currentStep === 'contact' && <ContactForm />}
 
-                {/* Payment Step */}
-                {currentStep === 'payment' && sessionData && (
+                {/* Payment Section */}
+                {currentStep === 'payment' && (
                   <PaymentSection
                     sessionId={sessionId!}
-                    paymentReference={sessionData.paymentReference}
+                    paymentReference={currentSessionData.paymentReference}
                     amount={total}
                     merchant={{
-                      businessName: sessionData.merchant.businessName,
-                      paynowNumber: sessionData.merchant.paynowNumber,
-                      paynowQrCode: sessionData.merchant.paynowQrCode,
+                      businessName: currentSessionData.merchant.businessName,
+                      paynowNumber: currentSessionData.merchant.paynowNumber,
+                      paynowQrCode: currentSessionData.merchant.paynowQrCode,
                     }}
                     contactInfo={contactInfo!}
                     deliveryAddress={deliveryAddress}
                     deliveryMethod={deliveryMethod!}
-                    onSuccess={(orderId: any, orderNumber: any) => {
+                    onSuccess={(orderId: string, orderNumber: string) => {
                       clearCart()
                       resetCheckout()
                       router.push(`/checkout/confirmation?orderId=${orderId}&orderNumber=${orderNumber}`)

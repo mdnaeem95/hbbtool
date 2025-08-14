@@ -23,7 +23,7 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import confetti from 'canvas-confetti'
-import { api } from '@/lib/trpc/client'
+import { api } from '@/components/providers/trpc-provider'
 
 const num = (v: unknown) =>
   typeof v === "number" ? v : v ? Number(v as any) : 0
@@ -38,7 +38,7 @@ export default function OrderConfirmationPage() {
   
   // Fetch order details
   const { data: order, isLoading } = api.order.get.useQuery(
-    { id: orderId || undefined, orderNumber: orderNumber || undefined },
+    { orderNumber: orderNumber || undefined },
     { enabled: !!(orderId || orderNumber) }
   )
   

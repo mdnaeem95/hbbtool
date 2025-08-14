@@ -15,7 +15,7 @@ import {
   Loader2
 } from 'lucide-react'
 import { PaynowQR, PaymentUpload, PaymentInstructionsDialog } from "@/components/checkout"
-import { api } from '@/lib/trpc/client'
+import { api } from '@/components/providers/trpc-provider'
 
 interface PaymentSectionProps {
   sessionId: string
@@ -51,14 +51,13 @@ export function PaymentSection({
   const [isUploading, setIsUploading] = useState(false)
   const [isCompleting, setIsCompleting] = useState(false)
   const [showInstructions, setShowInstructions] = useState(false)
-  const uploadProof = api.payment.uploadProof.useMutation()
   
   const completeCheckout = api.checkout.complete.useMutation({
     onSuccess: async (data) => {
       // Upload payment proof if available
       if (paymentProof) {
         try {
-          await uploadProof.mutateAsync({
+          await api.payment.uploadProof.mutate({
             orderId: data.orderId,
             fileUrl: paymentProof,
             fileName: 'payment-proof.jpg',
@@ -83,6 +82,7 @@ export function PaymentSection({
         description: error.message,
         variant: "destructive",
       })
+      setIsCompleting(false)
     }
   })
   
@@ -110,10 +110,17 @@ export function PaymentSection({
     
     setIsCompleting(true)
     
+    const deliveryAddressData = deliveryMethod === 'DELIVERY' && deliveryAddress ? {
+      line1: deliveryAddress.line1,
+      line2: deliveryAddress.line2,
+      postalCode: deliveryAddress.postalCode,
+      notes: deliveryAddress.notes,
+    } : undefined
+    
     completeCheckout.mutate({
       sessionId,
       contactInfo,
-      deliveryAddress: deliveryMethod === 'DELIVERY' ? deliveryAddress : undefined,
+      deliveryAddress: deliveryAddressData,
       deliveryNotes: deliveryAddress?.notes,
     })
   }
@@ -151,9 +158,7 @@ export function PaymentSection({
             </li>
             <li>
               Include this reference in payment description:{' '}
-              <span className="font-mono font-semibold bg-gray-100 px-1 rounded">
-                {paymentReference}
-              </span>
+              <span className="font-mono font-semibold">{paymentReference}</span>
             </li>
             <li>Complete the payment and take a screenshot</li>
             <li>Upload the screenshot below</li>
@@ -161,105 +166,77 @@ export function PaymentSection({
         </AlertDescription>
       </Alert>
       
-      {/* Show detailed instructions button */}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setShowInstructions(true)}
-        className="w-full"
-      >
-        <Smartphone className="mr-2 h-4 w-4" />
-        View Step-by-Step Instructions
-      </Button>
-      
-      {/* PayNow QR Code */}
-      {merchant.paynowQrCode && (
-        <div className="space-y-4">
-          <PaynowQR
-            qrCodeUrl={merchant.paynowQrCode}
-            amount={amount}
-            reference={paymentReference}
-            merchantName={merchant.businessName}
-          />
-        </div>
-      )}
-      
-      {/* Manual PayNow Details */}
-      <Card>
-        <div className="p-4 space-y-3">
-          <h3 className="font-medium text-sm">Manual Payment Details</h3>
-          
-          <div className="space-y-2">
-            <div className="flex justify-between items-center py-2">
-              <span className="text-sm text-muted-foreground">PayNow Number:</span>
-              <div className="flex items-center gap-2">
-                <span className="font-mono font-semibold">
-                  {merchant.paynowNumber || 'Not available'}
-                </span>
-                {merchant.paynowNumber && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleCopy(merchant.paynowNumber!, 'PayNow number')}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
+      {/* PayNow Details */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* QR Code */}
+        {merchant.paynowQrCode && (
+          <Card>
+            <div className="p-6">
+              <h3 className="font-medium mb-4 text-center">Scan QR Code</h3>
+              <PaynowQR qrCode={merchant.paynowQrCode} />
             </div>
-            
-            <Separator />
-            
-            <div className="flex justify-between items-center py-2">
-              <span className="text-sm text-muted-foreground">Payment Reference:</span>
-              <div className="flex items-center gap-2">
-                <span className="font-mono font-semibold bg-yellow-100 px-2 py-1 rounded">
-                  {paymentReference}
-                </span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => handleCopy(paymentReference, 'Payment reference')}
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
-              </div>
-            </div>
-          </div>
-          
-          <Alert className="mt-3">
-            <AlertDescription className="text-xs">
-              <strong>Important:</strong> Please include the payment reference in your transfer description. 
-              This helps the merchant identify your payment quickly.
-            </AlertDescription>
-          </Alert>
-        </div>
-      </Card>
-      
-      {/* Payment Proof Upload */}
-      <div className="space-y-4">
-        <div>
-          <h3 className="font-medium mb-2">Upload Payment Proof</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Take a screenshot after completing your PayNow transfer
-          </p>
-        </div>
+          </Card>
+        )}
         
+        {/* PayNow Number */}
+        {merchant.paynowNumber && (
+          <Card>
+            <div className="p-6">
+              <h3 className="font-medium mb-4">PayNow Details</h3>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">PayNow Number</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-mono font-medium">{merchant.paynowNumber}</p>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleCopy(merchant.paynowNumber!, 'PayNow number')}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Payment Reference</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-mono font-medium text-sm">{paymentReference}</p>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleCopy(paymentReference, 'Payment reference')}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+        )}
+      </div>
+      
+      {/* Upload Payment Proof */}
+      <div>
+        <h3 className="font-medium mb-3">Upload Payment Proof</h3>
         <PaymentUpload
           onUpload={handleProofUpload}
           isUploading={isUploading}
           setIsUploading={setIsUploading}
           uploadedUrl={paymentProof}
         />
-        
-        {paymentProof && (
-          <Alert className="bg-green-50 border-green-200">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-green-800">
-              Payment proof uploaded successfully. You can now complete your order.
-            </AlertDescription>
-          </Alert>
-        )}
+      </div>
+      
+      {/* Help Button */}
+      <div className="flex items-center justify-between">
+        <Button
+          variant="link"
+          onClick={() => setShowInstructions(true)}
+          className="text-sm"
+        >
+          Need help with payment?
+        </Button>
       </div>
       
       {/* Complete Order Button */}
@@ -267,29 +244,23 @@ export function PaymentSection({
         size="lg"
         className="w-full"
         onClick={handleCompleteOrder}
-        disabled={!paymentProof || isCompleting || isUploading}
+        disabled={!paymentProof || isCompleting}
       >
         {isCompleting ? (
           <>
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             Placing Order...
           </>
         ) : (
           <>
-            <CheckCircle className="mr-2 h-5 w-5" />
+            <CheckCircle className="mr-2 h-4 w-4" />
             Complete Order
           </>
         )}
       </Button>
       
-      {/* Security Note */}
-      <p className="text-xs text-center text-muted-foreground">
-        Your payment information is secure. The merchant will verify your payment 
-        and confirm your order shortly.
-      </p>
-      
-      {/* Instructions Dialog */}
-      <PaymentInstructionsDialog 
+      {/* Payment Instructions Dialog */}
+      <PaymentInstructionsDialog
         open={showInstructions}
         onOpenChange={setShowInstructions}
       />

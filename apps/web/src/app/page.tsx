@@ -5,8 +5,8 @@ import { MerchantMap } from '@/components/map/merchant-map'
 import { MapSearchHeader, FilterState } from '@/components/map/map-search-header'
 import { MerchantListSidebar } from '@/components/map/merchant-list-sidebar'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@kitchencloud/ui'
-import { api } from '@/lib/trpc/client'
 import type { LngLatBounds } from 'react-map-gl/mapbox'
+import { api } from '@/components/providers/trpc-provider'
 
 export default function HomePage() {
   const [selectedMerchantId, setSelectedMerchantId] = useState<string | null>(null)

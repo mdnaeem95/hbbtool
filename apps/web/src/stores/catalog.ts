@@ -212,7 +212,7 @@ export const useCatalogStore = create<CatalogState & CatalogActions>()(
         return products.filter((product) => {
           // Category filter
           if (filters.categories.length > 0) {
-            if (!filters.categories.includes(product.categoryId)) {
+            if (!filters.categories.includes(product.categoryId!)) {
               return false
             }
           }
@@ -258,7 +258,7 @@ export const useCatalogStore = create<CatalogState & CatalogActions>()(
 
           // Available filter
           if (filters.available) {
-            if (product.status !== "ACTIVE" || product.inventory === 0) {
+            if (product.status !== "ACTIVE" || product.quantity === 0) {
               return false
             }
           }

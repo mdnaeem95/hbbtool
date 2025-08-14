@@ -11,7 +11,8 @@ import {
 } from '@kitchencloud/ui'
 import { Truck, Package, MapPin, Clock } from 'lucide-react'
 import { useCheckoutStore } from '@/stores/checkout-store'
-import { api } from '@/lib/trpc/client'
+import { api } from '../providers/trpc-provider'
+
 
 interface DeliverySectionProps {
   merchantId: string

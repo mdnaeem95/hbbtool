@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button, Input, Label } from '@kitchencloud/ui'
 import { Loader2 } from 'lucide-react'
 import Link from 'next/link'
-import { validatePassword } from '@kitchencloud/auth'
+import { validatePassword } from '@/lib/utils/validation'
 
 export function SignupForm() {
   const router = useRouter()
