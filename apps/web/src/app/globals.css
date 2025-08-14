@@ -1,5 +1,40 @@
+/* apps/web/src/app/globals.css */
 @import "tailwindcss";
+@plugin "tailwindcss-animate";
 
+/* include UI package (and add more sources if needed) */
+@source "../../packages/ui/src/**/*.{ts,tsx}";
+
+/* Tailwind v4 design tokens (map your CSS vars -> utility names) */
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  /* radius tokens used by rounded-{sm|md|lg} utilities */
+  --radius: 0.5rem;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+}
+
+/* === Your theme variables (light/dark) === */
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -8,9 +43,9 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 17 95% 55%; /* Warm orange */
+    --primary: 17 95% 55%;            /* Warm orange */
     --primary-foreground: 0 0% 98%;
-    --secondary: 257 72% 55%; /* Deep purple */
+    --secondary: 257 72% 55%;         /* Deep purple */
     --secondary-foreground: 0 0% 98%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
@@ -47,106 +82,43 @@
   }
 }
 
+/* === Base resets & globals === */
 @layer base {
-  * {
-    @apply border-border;
-  }
-  
-  body {
-    @apply bg-background text-foreground;
-  }
-  
+  * { @apply border-border; }
+
+  body { @apply bg-background text-foreground; }
+
   /* Custom scrollbar */
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-  
-  ::-webkit-scrollbar-track {
-    @apply bg-muted;
-  }
-  
-  ::-webkit-scrollbar-thumb {
-    @apply bg-muted-foreground/20 rounded-md;
-  }
-  
-  ::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground/30;
-  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { @apply bg-muted; }
+  ::-webkit-scrollbar-thumb { @apply bg-muted-foreground/20 rounded-md; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-muted-foreground/30; }
 }
 
+/* === Components === */
 @layer components {
-  /* Custom utility classes */
-  .container {
-    @apply mx-auto px-4 sm:px-6 lg:px-8;
-  }
-  
-  .section-padding {
-    @apply py-12 md:py-16 lg:py-20;
-  }
-  
-  /* Loading skeleton animation */
-  .skeleton {
-    @apply animate-pulse bg-muted;
-  }
-  
-  /* Card hover effects */
-  .card-hover {
-    @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5;
-  }
-  
-  /* Focus styles */
-  .focus-ring {
-    @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2;
-  }
+  .container { @apply mx-auto px-4 sm:px-6 lg:px-8; }
+  .section-padding { @apply py-12 md:py-16 lg:py-20; }
+  .skeleton { @apply animate-pulse bg-muted; }
+  .card-hover { @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5; }
+  .focus-ring { @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2; }
 }
 
+/* === Utilities === */
 @layer utilities {
-  /* Hide scrollbar but allow scrolling */
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-  
-  /* Text balance for better typography */
-  .text-balance {
-    text-wrap: balance;
-  }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .text-balance { text-wrap: balance; }
 }
 
-/* Mapbox popup customization */
-.mapboxgl-popup-content {
-  padding: 0 !important;
-  border-radius: 0.5rem;
-  overflow: hidden;
-}
-
-.mapboxgl-popup-close-button {
-  font-size: 1.25rem;
-  padding: 0.5rem;
-  color: #666;
-}
-
-.mapboxgl-popup-close-button:hover {
-  background-color: #f3f4f6;
-  color: #000;
-}
+/* === Misc (non-TW CSS) === */
+.mapboxgl-popup-content { padding: 0 !important; border-radius: 0.5rem; overflow: hidden; }
+.mapboxgl-popup-close-button { font-size: 1.25rem; padding: 0.5rem; color: #666; }
+.mapboxgl-popup-close-button:hover { background-color: #f3f4f6; color: #000; }
 
 /* Resizable panels */
 [data-panel-group-direction="horizontal"] > [data-panel-resize-handle] {
-  width: 4px;
-  background-color: #e5e7eb;
-  transition: background-color 0.2s;
+  width: 4px; background-color: #e5e7eb; transition: background-color 0.2s;
 }
-
-[data-panel-group-direction="horizontal"] > [data-panel-resize-handle]:hover {
-  background-color: #d1d5db;
-}
-
-[data-panel-group-direction="horizontal"] > [data-panel-resize-handle]:active {
-  background-color: #9ca3af;
-}
+[data-panel-group-direction="horizontal"] > [data-panel-resize-handle]:hover { background-color: #d1d5db; }
+[data-panel-group-direction="horizontal"] > [data-panel-resize-handle]:active { background-color: #9ca3af; }
