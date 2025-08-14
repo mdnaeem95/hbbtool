@@ -1,7 +1,7 @@
 'use client'
 
 import { Card } from '@kitchencloud/ui'
-import { Star, Clock, MapPin, DollarSign } from 'lucide-react'
+import { Clock, MapPin, DollarSign } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import type { MerchantMapMarker } from '@/types/merchant'
@@ -87,19 +87,19 @@ export function MerchantListSidebar({
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold truncate">{merchant.businessName}</h3>
                   
-                  {merchant.cuisine && merchant.cuisine.length > 0 && (
+                  {merchant.cuisineType && merchant.cuisineType.length > 0 && (
                     <p className="text-sm text-muted-foreground truncate">
-                      {merchant.cuisine.join(' • ')}
+                      {merchant.cuisineType.join(' • ')}
                     </p>
                   )}
 
                   <div className="flex items-center gap-3 mt-2 text-sm">
-                    {merchant.rating && (
+                    {/* {merchant.rating && (
                       <div className="flex items-center gap-1">
                         <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
                         <span>{merchant.rating}</span>
                       </div>
-                    )}
+                    )} */}
                     
                     {merchant.preparationTime && (
                       <div className="flex items-center gap-1 text-muted-foreground">
@@ -111,7 +111,7 @@ export function MerchantListSidebar({
                     {merchant.minimumOrder && (
                       <div className="flex items-center gap-1 text-muted-foreground">
                         <DollarSign className="h-3.5 w-3.5" />
-                        <span>{merchant.minimumOrder}</span>
+                        <span>{Number(merchant.minimumOrder).toFixed(2)}</span>
                       </div>
                     )}
                   </div>

@@ -5,7 +5,7 @@ import { DashboardStats, RecentOrders, PopularProducts, QuickStats } from "@/com
 import { AlertCircle, ArrowUpRight } from "lucide-react"
 import { Alert, AlertDescription, Button, Card, CardContent, CardHeader, Skeleton } from "@kitchencloud/ui"
 import Link from "next/link"
-import { api } from "@/lib/trpc/server"
+import { getServerCaller } from "@/app/api/trpc/server"
 
 export default async function DashboardPage() {
   // Verify authentication
@@ -16,8 +16,10 @@ export default async function DashboardPage() {
     redirect("/login?redirect=/dashboard")
   }
 
+  const api = await getServerCaller()
+
   // Fetch dashboard data
-  const dashboardData = await api.merchant.getDashboard.query()
+  const dashboardData = await api.merchant.getDashboard()
 
   return (
     <div className="space-y-8">
@@ -49,25 +51,25 @@ export default async function DashboardPage() {
 
       {/* Stats Grid */}
       <Suspense fallback={<DashboardStatsSkeleton />}>
-        <DashboardStats merchantId={dashboardData.merchant.id} />
+        <DashboardStats merchantId={dashboardData.merchantId} />
       </Suspense>
 
       {/* Content Grid */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Recent Orders */}
         <Suspense fallback={<RecentOrdersSkeleton />}>
-          <RecentOrders merchantId={dashboardData.merchant.id} />
+          <RecentOrders merchantId={dashboardData.merchantId} />
         </Suspense>
 
         {/* Popular Products */}
         <Suspense fallback={<PopularProductsSkeleton />}>
-          <PopularProducts merchantId={dashboardData.merchant.id} />
+          <PopularProducts merchantId={dashboardData.merchantId} />
         </Suspense>
       </div>
 
       {/* Quick Stats */}
       <Suspense fallback={<QuickStatsSkeleton />}>
-        <QuickStats merchantId={dashboardData.merchant.id} />
+        <QuickStats merchantId={dashboardData.merchantId} />
       </Suspense>
     </div>
   )

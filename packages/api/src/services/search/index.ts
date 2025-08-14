@@ -203,7 +203,7 @@ export class SearchService {
     return suggestions.slice(0, limit)
   }
   
-  private static calculateDistance(
+  static calculateDistance(
     lat1: number,
     lon1: number,
     lat2: number,
@@ -223,7 +223,7 @@ export class SearchService {
     return R * c
   }
   
-  private static toRad(degrees: number): number {
+  static toRad(degrees: number): number {
     return degrees * (Math.PI / 180)
   }
 }

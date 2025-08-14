@@ -4,12 +4,10 @@ import { QrCode } from 'lucide-react'
 
 interface PaynowQRProps {
   qrCodeUrl: string
-  amount: number
-  reference: string
   merchantName: string
 }
 
-export function PaynowQR({ qrCodeUrl, amount, reference, merchantName }: PaynowQRProps) {
+export function PaynowQR({ qrCodeUrl, merchantName }: PaynowQRProps) {
   return (
     <Card className="overflow-hidden">
       <div className="bg-primary/5 p-4 text-center">
@@ -32,13 +30,6 @@ export function PaynowQR({ qrCodeUrl, amount, reference, merchantName }: PaynowQ
               <QrCode className="h-32 w-32 text-gray-300" />
             </div>
           )}
-        </div>
-        
-        <div className="mt-6 space-y-2 text-center">
-          <p className="text-2xl font-bold">${amount.toFixed(2)}</p>
-          <p className="text-sm text-muted-foreground">
-            Reference: <span className="font-mono font-medium">{reference}</span>
-          </p>
         </div>
       </div>
     </Card>

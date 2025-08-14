@@ -1,12 +1,20 @@
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@kitchencloud/ui"
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogHeader, 
+  DialogTitle 
+} from "@kitchencloud/ui"
+
+interface PaymentInstructionsDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
 
 export function PaymentInstructionsDialog({ 
   open, 
   onOpenChange 
-}: { 
-  open: boolean
-  onOpenChange: (open: boolean) => void 
-}) {
+}: PaymentInstructionsDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -56,6 +64,17 @@ export function PaymentInstructionsDialog({
               <li>Verify and confirm payment</li>
               <li>Screenshot the confirmation page</li>
             </ol>
+          </div>
+          
+          {/* Important Notes */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <h4 className="font-semibold text-amber-900 mb-2">Important Notes</h4>
+            <ul className="list-disc list-inside space-y-1 text-sm text-amber-800">
+              <li>Always include the payment reference for faster verification</li>
+              <li>Ensure the payment amount matches exactly</li>
+              <li>Upload a clear screenshot showing the transaction details</li>
+              <li>Keep the original receipt for your records</li>
+            </ul>
           </div>
         </div>
       </DialogContent>

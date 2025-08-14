@@ -6,7 +6,7 @@ import { MapSearchHeader, FilterState } from '@/components/map/map-search-header
 import { MerchantListSidebar } from '@/components/map/merchant-list-sidebar'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@kitchencloud/ui'
 import type { LngLatBounds } from 'react-map-gl/mapbox'
-import { api } from '@/components/providers/trpc-provider'
+import { api } from './api/trpc/client'
 
 export default function HomePage() {
   const [selectedMerchantId, setSelectedMerchantId] = useState<string | null>(null)
@@ -27,7 +27,6 @@ export default function HomePage() {
       } : undefined
     }
   }, {
-    keepPreviousData: true,
     refetchInterval: 30000 // Refresh every 30 seconds for open/closed status
   })
 

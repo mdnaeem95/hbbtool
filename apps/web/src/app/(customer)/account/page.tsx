@@ -1,10 +1,7 @@
-"use client"
-
-
-import { db } from '@kitchencloud/database'
 import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import { db } from '@kitchencloud/database'
 import { AccountContent } from "./account-content"
-import { createClient } from '@/lib/supabase/client'
 
 export default async function AccountPage() {
   const supabase = createClient()
@@ -14,7 +11,7 @@ export default async function AccountPage() {
     redirect('/login')
   }
 
-    // Get customer data
+  // Get customer data
   const customer = await db.customer.findUnique({
     where: { id: user.id },
     include: {

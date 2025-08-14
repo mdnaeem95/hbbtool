@@ -11,7 +11,6 @@ import {
 } from '@kitchencloud/ui'
 import { 
   CheckCircle, 
-  Clock, 
   Phone,
   Mail,
   Copy,
@@ -21,9 +20,8 @@ import {
   Truck,
   Package
 } from 'lucide-react'
-import { format } from 'date-fns'
 import confetti from 'canvas-confetti'
-import { api } from '@/components/providers/trpc-provider'
+import { api } from '@/app/api/trpc/client'
 
 const num = (v: unknown) =>
   typeof v === "number" ? v : v ? Number(v as any) : 0
@@ -38,10 +36,10 @@ export default function OrderConfirmationPage() {
   
   // Fetch order details
   const { data: order, isLoading } = api.order.get.useQuery(
-    { orderNumber: orderNumber || undefined },
+    { id: orderId || '' },
     { enabled: !!(orderId || orderNumber) }
   )
-  
+
   // Trigger confetti on mount
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -172,43 +170,24 @@ export default function OrderConfirmationPage() {
                       {order.deliveryAddress.line2 && (
                         <p className="font-medium">{order.deliveryAddress.line2}</p>
                       )}
-                      <p className="font-medium">
-                        Singapore {order.deliveryAddress.postalCode}
-                      </p>
+                      <p className="font-medium">Singapore {order.deliveryAddress.postalCode}</p>
                     </div>
                     {order.deliveryNotes && (
                       <div>
                         <p className="text-sm text-muted-foreground">Delivery Notes</p>
-                        <p>{order.deliveryNotes}</p>
+                        <p className="font-medium">{order.deliveryNotes}</p>
                       </div>
                     )}
                   </>
                 ) : (
-                  <>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Pickup Location</p>
-                      <p className="font-medium">{order.merchant.businessName}</p>
-                      <p>{order.merchant.address || 'Address will be provided'}</p>
-                    </div>
-                    {order.merchant.phone && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">Contact</p>
-                        <p className="font-medium">{order.merchant.phone}</p>
-                      </div>
-                    )}
-                  </>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Pickup Location</p>
+                    <p className="font-medium">Please check your order confirmation email for pickup details</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      The merchant will contact you when your order is ready
+                    </p>
+                  </div>
                 )}
-                
-                <div>
-                  <p className="text-sm text-muted-foreground">Estimated Ready Time</p>
-                  <p className="font-medium flex items-center gap-1">
-                    <Clock className="h-4 w-4" />
-                    {order.estimatedReady 
-                      ? format(new Date(order.estimatedReady), 'h:mm a')
-                      : 'Will be confirmed'
-                    }
-                  </p>
-                </div>
               </div>
             </div>
           </Card>
@@ -219,20 +198,20 @@ export default function OrderConfirmationPage() {
               <h3 className="font-semibold mb-4">Contact Information</h3>
               
               <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-muted-foreground flex items-center gap-1">
-                    <Phone className="h-3 w-3" />
-                    Phone
-                  </p>
-                  <p className="font-medium">{order.customerPhone}</p>
+                <div className="flex items-center gap-3">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Phone</p>
+                    <p className="font-medium">{order.customerPhone}</p>
+                  </div>
                 </div>
                 
-                <div>
-                  <p className="text-sm text-muted-foreground flex items-center gap-1">
-                    <Mail className="h-3 w-3" />
-                    Email
-                  </p>
-                  <p className="font-medium">{order.customerEmail}</p>
+                <div className="flex items-center gap-3">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Email</p>
+                    <p className="font-medium">{order.customerEmail}</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -244,36 +223,40 @@ export default function OrderConfirmationPage() {
           <div className="p-6">
             <h3 className="font-semibold mb-4">Order Summary</h3>
             
-            <div className="space-y-3">
+            {/* Order Items */}
+            <div className="space-y-3 mb-4">
               {order.items.map((item) => (
                 <div key={item.id} className="flex justify-between">
-                  <div className="flex-1">
+                  <div>
                     <p className="font-medium">{item.productName}</p>
                     <p className="text-sm text-muted-foreground">
                       Qty: {item.quantity} × ${num(item.price).toFixed(2)}
                     </p>
                   </div>
-                  <p className="font-medium">${num(item.total).toFixed(2)}</p>
+                  <p className="font-medium">
+                    ${(num(item.price) * item.quantity).toFixed(2)}
+                  </p>
                 </div>
               ))}
-              
-              <Separator />
-              
-              <div className="space-y-2">
+            </div>
+            
+            <Separator className="my-4" />
+            
+            {/* Totals */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Subtotal</span>
+                <span>${num(order.subtotal).toFixed(2)}</span>
+              </div>
+              {isDelivery && (
                 <div className="flex justify-between text-sm">
-                  <span>Subtotal</span>
-                  <span>${num(order.subtotal).toFixed(2)}</span>
+                  <span>Delivery Fee</span>
+                  <span>${num(order.deliveryFee).toFixed(2)}</span>
                 </div>
-                {num(order.deliveryFee) > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span>Delivery Fee</span>
-                    <span>${num(order.deliveryFee).toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-semibold text-lg pt-2">
-                  <span>Total Paid</span>
-                  <span className="text-primary">${num(order.total).toFixed(2)}</span>
-                </div>
+              )}
+              <div className="flex justify-between font-semibold text-lg pt-2">
+                <span>Total Paid</span>
+                <span className="text-primary">${num(order.total).toFixed(2)}</span>
               </div>
             </div>
           </div>

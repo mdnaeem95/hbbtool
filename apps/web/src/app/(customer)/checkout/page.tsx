@@ -15,7 +15,7 @@ import {
 import { useCart, useCartTotal } from '@/stores/cart-store'
 import { CheckoutSteps, DeliverySection, ContactForm, PaymentSection, OrderSummary } from "@/components/checkout"
 import { useCheckoutStore } from '@/stores/checkout-store'
-import { api } from '@/components/providers/trpc-provider'
+import { api } from '@/app/api/trpc/client'
 
 type CheckoutStep = 'delivery' | 'contact' | 'payment'
 
@@ -61,7 +61,7 @@ export default function CheckoutPage() {
         items: items.map(item => ({
           productId: item.productId,
           quantity: item.quantity,
-          variant: item.variant,
+          variant: item.variant ? JSON.stringify(item.variant): undefined,
           notes: item.notes,
         })),
       })

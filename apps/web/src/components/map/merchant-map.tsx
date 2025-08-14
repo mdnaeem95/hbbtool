@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Card } from '@kitchencloud/ui'
-import { MapPin, Star, Clock, DollarSign } from 'lucide-react'
+import { MapPin, Clock, DollarSign } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -45,7 +45,7 @@ export function MerchantMap({
       const merchant = merchants.find(m => m.id === selectedMerchantId)
       if (merchant) {
         mapRef.current.flyTo({
-          center: [merchant.location.lng, merchant.location.lat],
+          center: [merchant.longitude, merchant.latitude],
           zoom: 14,
           duration: 1000
         })
@@ -84,8 +84,8 @@ export function MerchantMap({
       {merchants.map((merchant) => (
         <Marker
           key={merchant.id}
-          longitude={merchant.location.lng}
-          latitude={merchant.location.lat}
+          longitude={merchant.longitude!}
+          latitude={merchant.latitude!}
           anchor="bottom"
           onClick={(e: any) => {
             e.originalEvent.stopPropagation()
@@ -112,8 +112,8 @@ export function MerchantMap({
       {/* Popup */}
       {popupMerchant && (
         <Popup
-          longitude={popupMerchant.location.lng}
-          latitude={popupMerchant.location.lat}
+          longitude={popupMerchant.longitude!}
+          latitude={popupMerchant.latitude!}
           anchor="bottom"
           onClose={() => {
             setPopupMerchant(null)
@@ -144,19 +144,19 @@ export function MerchantMap({
                     {popupMerchant.businessName}
                   </h3>
                   
-                  {popupMerchant.cuisine && popupMerchant.cuisine.length > 0 && (
+                  {popupMerchant.cuisineType && popupMerchant.cuisineType.length > 0 && (
                     <p className="text-sm text-muted-foreground">
-                      {popupMerchant.cuisine.join(' • ')}
+                      {popupMerchant.cuisineType.join(' • ')}
                     </p>
                   )}
                   
                   <div className="flex items-center gap-4 text-sm">
-                    {popupMerchant.rating && (
+                    {/* {popupMerchant && (
                       <div className="flex items-center gap-1">
                         <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                         <span>{popupMerchant.rating}</span>
                       </div>
-                    )}
+                    )} */}
                     
                     {popupMerchant.preparationTime && (
                       <div className="flex items-center gap-1 text-muted-foreground">
@@ -168,7 +168,7 @@ export function MerchantMap({
                     {popupMerchant.minimumOrder && (
                       <div className="flex items-center gap-1 text-muted-foreground">
                         <DollarSign className="h-4 w-4" />
-                        <span>Min ${popupMerchant.minimumOrder}</span>
+                        <span>Min ${Number(popupMerchant.minimumOrder).toFixed(2)}</span>
                       </div>
                     )}
                   </div>

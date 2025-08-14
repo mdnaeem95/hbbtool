@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { api } from '@/lib/trpc/server'
+import { getServerCaller } from '../api/trpc/server'
 
 export async function verifyMerchantAccess() {
   const supabase = createClient()
@@ -18,7 +18,8 @@ export async function verifyMerchantAccess() {
 
   // Verify merchant exists and is active
   try {
-    const merchant = await api.merchant.get.query()
+    const trpc = await getServerCaller()
+    const merchant = await trpc.merchant.get()
     if (!merchant || merchant.status !== 'ACTIVE') {
       throw new Error('Merchant account is not active')
     }
@@ -37,7 +38,8 @@ export async function getMerchantSession() {
   }
 
   try {
-    const merchant = await api.merchant.get.query()
+    const trpc = await getServerCaller()
+    const merchant = await trpc.merchant.get()
     return {
       user: {
         id: user.id,
