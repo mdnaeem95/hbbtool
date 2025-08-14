@@ -24,4 +24,5 @@ export { useAuth } from './hooks/use-auth'
 export { useMerchant } from './hooks/use-merchant'
 
 // Middleware
-export { authMiddleware } from './middleware'
+export { middleware } from './middleware'
+export { config as middlewareConfig } from './middleware'

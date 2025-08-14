@@ -1,7 +1,6 @@
 import { createBrowserClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-// Create browser Supabase client
 export function createBrowserSupabaseClient(): SupabaseClient {
   return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,65 +8,42 @@ export function createBrowserSupabaseClient(): SupabaseClient {
   )
 }
 
-// Sign in merchant
-export async function signInMerchant(
-  email: string,
-  password: string
-) {
+export async function signInMerchant(email: string, password: string) {
   const supabase = createBrowserSupabaseClient()
-  
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  })
-  
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) throw error
-  
-  // Verify user is a merchant
   if (data.user?.user_metadata?.userType !== 'merchant') {
+    // Sign out to avoid a "stuck" non-merchant session
+    await supabase.auth.signOut()
     throw new Error('Not a merchant account')
   }
-  
-  return data
+  return { userId: data.user.id, email: data.user.email! }
 }
 
-// Sign up merchant
-export async function signUpMerchant(
-  email: string,
-  password: string
-) {
+export async function signUpMerchant(email: string, password: string) {
   const supabase = createBrowserSupabaseClient()
-  
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: {
-      data: {
-        userType: 'merchant',
-      },
-    },
+    options: { data: { userType: 'merchant' } },
   })
-  
   if (error) throw error
-  
-  return data
+  return { userId: data.user?.id ?? null, email: data.user?.email ?? email }
 }
 
-// Sign in customer (simplified for MVP)
-export async function signInCustomer(
-  phone: string
-) {
-  // For MVP, we're using a simplified flow
-  // In production, this would integrate with SMS OTP
-  return {
-    phone,
-    requiresOtp: true,
-  }
+// MVP customer sign-in stub
+export async function signInCustomer(phone: string) {
+  return { phone, requiresOtp: true as const }
 }
 
-// Sign out
 export async function signOut() {
   const supabase = createBrowserSupabaseClient()
   const { error } = await supabase.auth.signOut()
   if (error) throw error
+}
+
+/** Optional: force-refresh current session in the browser */
+export async function refreshSession() {
+  const supabase = createBrowserSupabaseClient()
+  return supabase.auth.getSession()
 }

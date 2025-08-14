@@ -1,19 +1,26 @@
 'use client'
 
-import { useAuth } from './use-auth'
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
+import { useAuth } from './use-auth'
 
 export function useMerchant() {
   const { user, loading, isMerchant } = useAuth()
   const router = useRouter()
-  
+  const pathname = usePathname()
+
   useEffect(() => {
-    if (!loading && (!user || !isMerchant)) {
-      router.push('/merchant/login')
+    if (loading) return
+
+    // Don’t redirect if we’re already on the merchant login page
+    if (pathname?.startsWith('/merchant/login')) return
+
+    if (!user || !isMerchant) {
+      const next = encodeURIComponent(pathname ?? '/merchant')
+      router.replace(`/merchant/login?next=${next}`)
     }
-  }, [user, loading, isMerchant, router])
-  
+  }, [user, isMerchant, loading, pathname, router])
+
   return {
     user,
     loading,
