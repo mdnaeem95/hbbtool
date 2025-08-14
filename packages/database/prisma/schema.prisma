@@ -1,17 +1,16 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [vector]
 }
 
 // ==================== ENUMS ====================
@@ -56,11 +55,14 @@ enum PaymentMethod {
   BANK_TRANSFER
   CASH
   CREDIT_CARD
+  GRABPAY
+  SHOPEE_PAY
 }
 
 enum DeliveryMethod {
   PICKUP
   DELIVERY
+  DINE_IN
 }
 
 enum NotificationType {
@@ -71,6 +73,51 @@ enum NotificationType {
   ORDER_CANCELLED
   PAYMENT_RECEIVED
   REVIEW_RECEIVED
+  LOW_STOCK_ALERT
+  SUBSCRIPTION_EXPIRING
+  PROMOTION_ENDING
+}
+
+enum SubscriptionTier {
+  FREE
+  STARTER // $29/month - 200 orders
+  GROWTH // $79/month - 1000 orders
+  PREMIUM // $199/month - unlimited
+  ENTERPRISE // Custom pricing
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  PAUSED
+}
+
+enum InventoryLogType {
+  ADJUSTMENT
+  SALE
+  RETURN
+  EXPIRED
+  RESTOCK
+  DAMAGE
+}
+
+enum PromotionType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  BOGO
+  FREE_DELIVERY
+  BUNDLE
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  VIEW
+  LOGIN
+  LOGOUT
 }
 
 // ==================== MODELS ====================
@@ -86,63 +133,165 @@ model Merchant {
   bannerUrl    String?
 
   // Business Details
-  businessType String?
-  cuisineType  String[] @default([]) // e.g., ["Malay","Indian"]
-  halal        Boolean  @default(false)
+  businessType               String?
+  businessRegistrationNumber String? // Singapore ACRA/UEN number
+  cuisineType                String[] @default([])
+  halal                      Boolean  @default(false)
+
+  // Legal & Compliance
+  licenseNumber       String? // SFA food license
+  licenseExpiryDate   DateTime?
+  insuranceExpiryDate DateTime?
+  nric                String? // For individual sellers (encrypted)
+
+  // Banking & Finance
+  bankAccountName   String?
+  bankAccountNumber String? // Encrypted
+  bankName          String?
+  gstRegistered     Boolean @default(false)
+  gstNumber         String?
+
+  // Contact & Social
+  whatsappNumber  String?
+  instagramHandle String?
+  facebookPage    String?
+  tiktokHandle    String?
+  websiteUrl      String?
 
   // Address & Location
   address           String?
   postalCode        String? @db.VarChar(6)
   unitNumber        String? @db.VarChar(20)
   buildingName      String? @db.VarChar(255)
+  country           String  @default("SG")
   latitude          Float?  @db.DoublePrecision
   longitude         Float?  @db.DoublePrecision
-  showExactLocation Boolean @default(false) // show exact pin vs general area
+  showExactLocation Boolean @default(false)
 
   // Operating Hours (JSON)
   operatingHours Json? // { monday: { open: "09:00", close: "18:00" }, ... }
+  holidayDates   DateTime[] // Dates when closed
 
   // Delivery Settings
-  deliveryEnabled Boolean @default(true)
-  pickupEnabled   Boolean @default(true)
-  deliveryFee     Decimal @default(0) @db.Decimal(10, 2)
-  minimumOrder    Decimal @default(0) @db.Decimal(10, 2)
-  deliveryRadius  Int     @default(5) // in km
-  preparationTime Int     @default(30) // in minutes
+  deliveryEnabled Boolean  @default(true)
+  pickupEnabled   Boolean  @default(true)
+  dineInEnabled   Boolean  @default(false)
+  deliveryFee     Decimal  @default(0) @db.Decimal(10, 2)
+  minimumOrder    Decimal  @default(0) @db.Decimal(10, 2)
+  deliveryRadius  Int      @default(5) // in km
+  preparationTime Int      @default(30) // default prep time in minutes
+  deliveryAreas   String[] // Specific areas served
 
   // Payment Settings
   paymentMethods PaymentMethod[] @default([PAYNOW, CASH])
   paynowNumber   String?
   paynowQrCode   String?
 
-  // Status
-  status     MerchantStatus @default(PENDING_VERIFICATION)
-  verified   Boolean        @default(false)
-  verifiedAt DateTime?
+  // Subscription & Billing
+  subscriptionTier      SubscriptionTier   @default(FREE)
+  subscriptionStatus    SubscriptionStatus @default(TRIAL)
+  subscriptionExpiresAt DateTime?
+  monthlyOrderLimit     Int                @default(100)
+  currentMonthOrders    Int                @default(0)
+  trialEndsAt           DateTime?
 
-  // Metadata
-  settings  Json?
+  // Analytics & Performance
+  averageRating       Decimal? @db.Decimal(2, 1)
+  totalReviews        Int      @default(0)
+  totalOrders         Int      @default(0)
+  totalRevenue        Decimal  @default(0) @db.Decimal(12, 2)
+  responseRate        Decimal? @db.Decimal(3, 2) // % of messages responded
+  averageResponseTime Int? // in minutes
+  completionRate      Decimal? @db.Decimal(3, 2) // % of orders completed
+
+  // Merchant Preferences
+  autoAcceptOrders       Boolean @default(false)
+  autoConfirmPayment     Boolean @default(false)
+  orderNotificationEmail String?
+  orderNotificationPhone String?
+  language               String  @default("en") // en, zh, ms, ta
+  timezone               String  @default("Asia/Singapore")
+  emailNotifications     Boolean @default(true)
+  smsNotifications       Boolean @default(true)
+  whatsappNotifications  Boolean @default(true)
+
+  // Security
+  password            String
+  twoFactorEnabled    Boolean   @default(false)
+  twoFactorSecret     String?
+  lastLoginAt         DateTime?
+  lastLoginIp         String?
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  emailVerified       Boolean   @default(false)
+  phoneVerified       Boolean   @default(false)
+
+  // Status & Metadata
+  status           MerchantStatus               @default(PENDING_VERIFICATION)
+  verified         Boolean                      @default(false)
+  verifiedAt       DateTime?
+  verifiedBy       String? // Admin ID who verified
+  suspensionReason String?
+  settings         Json? // Flexible settings storage
+  cachedStats      Json? // Revenue, orders, etc.
+  statsUpdatedAt   DateTime?
+  tags             String[] // For categorization
+  searchVector     Unsupported("vector(1536)")? // For semantic search
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  // Relations (assumes other models reference Merchant via foreign keys)
-  categories           Category[]
-  products             Product[]
-  orders               Order[]
-  reviews              Review[]
-  sessions             Session[]
-  analytics            Analytics[]
-  notifications        Notification[]
-  paymentVerifications Payment[]         @relation("PaymentVerifications")
-  checkoutSessions     CheckoutSession[]
+  // Relations
+  categories        Category[]
+  products          Product[]
+  orders            Order[]
+  reviews           Review[]
+  sessions          Session[]
+  notifications     Notification[]
+  analytics         Analytics[]
+  checkoutSessions  CheckoutSession[]
+  subscription      Subscription?
+  whatsappTemplates WhatsAppTemplate[]
+  loyaltyProgram    LoyaltyProgram?
+  customerLoyalty   CustomerLoyalty[]
+  promotions        Promotion[]
+  auditLogs         AuditLog[]
+  merchantSettings  MerchantSettings?
 
-  // Indexes
-  @@index([slug, deletedAt])
   @@index([status, deletedAt])
+  @@index([slug])
   @@index([email])
-  @@index([latitude, longitude], map: "merchants_latitude_longitude_idx")
-  @@index([postalCode], map: "merchants_postal_code_idx")
+  @@index([phone])
+  @@index([postalCode])
+  @@index([cuisineType])
+  @@index([averageRating])
+}
+
+model MerchantSettings {
+  id         String @id @default(cuid())
+  merchantId String @unique
+
+  // Order Settings
+  orderPrefix          String  @default("ORD")
+  orderNumberFormat    String  @default("SEQUENTIAL") // SEQUENTIAL, RANDOM
+  requireOrderApproval Boolean @default(true)
+  maxAdvanceOrderDays  Int     @default(7)
+
+  // Notification Templates
+  orderConfirmationMessage String?
+  orderReadyMessage        String?
+  orderDeliveredMessage    String?
+
+  // Display Settings
+  showSoldOutItems    Boolean @default(true)
+  showPreparationTime Boolean @default(true)
+  showCalories        Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
 }
 
 model Category {
@@ -152,8 +301,9 @@ model Category {
   slug        String
   description String?
   imageUrl    String?
-  sortOrder   Int     @default(0)
-  isActive    Boolean @default(true)
+
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -164,83 +314,116 @@ model Category {
   products Product[]
 
   @@unique([merchantId, slug])
-  @@index([merchantId])
+  @@index([merchantId, isActive])
 }
 
 model Product {
-  id         String  @id @default(cuid())
-  merchantId String
-  categoryId String?
-  sortOrder  Int  @default(0)
-
+  id          String   @id @default(cuid())
+  merchantId  String
+  categoryId  String?
+  sku         String?
   name        String
   slug        String
   description String?
+  images      String[] @default([])
 
   // Pricing
-  price        Decimal  @db.Decimal(10, 2)
-  comparePrice Decimal? @db.Decimal(10, 2) // Original price for discounts
-  cost         Decimal? @db.Decimal(10, 2) // Cost to merchant
+  price          Decimal  @db.Decimal(10, 2)
+  compareAtPrice Decimal? @db.Decimal(10, 2) // Original price for sale items
+  cost           Decimal? @db.Decimal(10, 2) // Cost to merchant
+  profitMargin   Decimal? @db.Decimal(5, 2)
 
-  // Inventory
-  sku           String?
-  trackQuantity Boolean @default(false)
-  quantity      Int     @default(0)
-  lowStockAlert Int     @default(5)
-  maxOrderQty   Int?
-
-  // Media
-  images String[] @default([])
-
-  // Variants & Options
-  hasVariants Boolean @default(false)
-  variants    Json? // Flexible variant structure
+  // Inventory Management
+  trackInventory    Boolean @default(false)
+  inventory         Int     @default(0)
+  lowStockThreshold Int?
+  allowBackorder    Boolean @default(false)
 
   // Status
-  status   ProductStatus @default(DRAFT)
-  featured Boolean       @default(false)
+  status    ProductStatus @default(DRAFT)
+  featured  Boolean       @default(false)
+  sortOrder Int           @default(0)
+
+  // Food Specific Info
+  allergens     String[] // ["nuts", "dairy", "gluten", "shellfish", etc.]
+  dietaryInfo   String[] // ["vegetarian", "vegan", "halal", "keto", etc.]
+  spiceLevel    Int? // 0-5
+  servingSize   String? // "Serves 2-3"
+  calories      Int?
+  nutritionInfo Json? // Detailed nutrition facts
+  ingredients   String[] // List of ingredients
+
+  // Preparation & Storage
+  preparationTime       Int? // Override merchant default (minutes)
+  preparationMethod     String? // "Baked fresh", "Pre-made", etc.
+  shelfLife             String? // "Best consumed within 3 days"
+  storageInstructions   String? // "Keep refrigerated"
+  reheatingInstructions String? // "Microwave for 2 mins"
+
+  // Scheduling & Availability
+  availableDays      Int[]      @default([0, 1, 2, 3, 4, 5, 6]) // 0=Sun, 6=Sat
+  availableTimeSlots Json? // { "monday": ["09:00-12:00", "14:00-18:00"] }
+  blackoutDates      DateTime[] // Specific dates not available
+  maxDailyQuantity   Int?
+  maxPerOrder        Int?
+  minPerOrder        Int        @default(1)
+  requirePreorder    Boolean    @default(false)
+  preorderDays       Int? // Days in advance required
 
   // SEO
   metaTitle       String?
   metaDescription String?
 
-  // Metadata
-  tags         String[] @default([])
-  customFields Json?
+  // Analytics
+  viewCount       Int       @default(0)
+  orderCount      Int       @default(0)
+  lastOrderedAt   DateTime?
+  popularityScore Int       @default(0) // Calculated based on views, orders, etc.
+  conversionRate  Decimal?  @db.Decimal(5, 2) // % of views that convert
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  publishedAt     DateTime?
-  deletedAt       DateTime?
-  availableFrom   DateTime?
-  availableTo     DateTime?
-  preparationTime String? // "15-20 mins"
+  // Metadata
+  tags         String[]                     @default([])
+  customFields Json? // Flexible fields
+  searchVector Unsupported("vector(1536)")? // For semantic search
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  publishedAt   DateTime?
+  deletedAt     DateTime?
+  availableFrom DateTime?
+  availableTo   DateTime?
 
   // Relations
-  merchant       Merchant         @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  category       Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  orderItems     OrderItem[]
-  reviews        Review[]
-  ProductVariant ProductVariant[]
-  ProductView    ProductView[]
+  merchant      Merchant         @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  category      Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  orderItems    OrderItem[]
+  reviews       Review[]
+  variants      ProductVariant[]
+  views         ProductView[]
+  inventoryLogs InventoryLog[]
+  promotions    String[] // Promotion IDs this product is eligible for
 
   @@unique([merchantId, slug])
+  @@unique([merchantId, sku])
   @@index([merchantId, status, deletedAt])
   @@index([categoryId, status, deletedAt])
   @@index([featured, status, deletedAt])
   @@index([name])
   @@index([tags])
+  @@index([popularityScore])
 }
 
 model ProductVariant {
   id              String  @id @default(cuid())
   productId       String
   sku             String?
-  name            String // "Large, Spicy"
+  name            String // "Large", "Spicy", "Large + Spicy"
   options         Json // { size: "L", spiceLevel: "Hot" }
   priceAdjustment Decimal @default(0) @db.Decimal(10, 2)
   inventory       Int     @default(0)
   isDefault       Boolean @default(false)
+  sortOrder       Int     @default(0)
+  imageUrl        String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -251,12 +434,13 @@ model ProductVariant {
   @@index([productId])
 }
 
-// Add view tracking for popularity
 model ProductView {
   id         String   @id @default(cuid())
   productId  String
   customerId String?
   sessionId  String?
+  source     String? // "web", "qr", "social"
+  referrer   String?
   viewedAt   DateTime @default(now())
 
   product  Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -267,24 +451,39 @@ model ProductView {
 }
 
 model Customer {
-  id       String  @id @default(cuid())
-  email    String? @unique
-  phone    String  @unique
-  name     String
+  id    String  @id @default(cuid())
+  email String? @unique
+  phone String  @unique
+  name  String
 
   // Profile
-  dateOfBirth DateTime?
-  avatarUrl   String?
+  dateOfBirth   DateTime?
+  avatarUrl     String?
+  preferredName String?
 
   // Preferences
-  emailVerified  Boolean @default(false)
-  phoneVerified  Boolean @default(false)
-  marketingOptIn Boolean @default(false)
+  emailVerified      Boolean  @default(false)
+  phoneVerified      Boolean  @default(false)
+  marketingOptIn     Boolean  @default(false)
+  language           String   @default("en")
+  dietaryPreferences String[] // ["vegetarian", "no-nuts", etc.]
+
+  // Favorites & History
+  merchantFavorites String[] // Merchant IDs
+  productFavorites  String[] // Product IDs
+  searchHistory     Json? // Recent searches with timestamps
+
+  // Loyalty & Engagement
+  referralCode   String? @unique
+  referredBy     String? // Another customer's referral code
+  totalReferrals Int     @default(0)
 
   // Metadata
-  lastOrderAt DateTime?
-  totalOrders Int       @default(0)
-  totalSpent  Decimal   @default(0) @db.Decimal(10, 2)
+  lastOrderAt       DateTime?
+  totalOrders       Int       @default(0)
+  totalSpent        Decimal   @default(0) @db.Decimal(10, 2)
+  averageOrderValue Decimal   @default(0) @db.Decimal(10, 2)
+  tags              String[] // For segmentation
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -295,11 +494,14 @@ model Customer {
   orders           Order[]
   reviews          Review[]
   sessions         Session[]
-  ProductView      ProductView[]
+  productViews     ProductView[]
   checkoutSessions CheckoutSession[]
+  loyaltyPoints    CustomerLoyalty[]
+  notifications    CustomerNotification[]
 
   @@index([email])
   @@index([phone])
+  @@index([referralCode])
 }
 
 model Address {
@@ -310,12 +512,19 @@ model Address {
   line1      String
   line2      String?
   postalCode String
+  country    String  @default("SG")
 
-  // Coordinates for delivery
+  // Coordinates for delivery validation
   latitude  Float?
   longitude Float?
 
+  // Delivery instructions
+  deliveryInstructions String? // "Ring doorbell", "Leave with security"
+  contactName          String? // Different recipient
+  contactPhone         String?
+
   isDefault Boolean @default(false)
+  isValid   Boolean @default(true) // Validated address
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -325,6 +534,7 @@ model Address {
   orders   Order[]
 
   @@index([customerId])
+  @@index([postalCode])
 }
 
 model Order {
@@ -339,29 +549,73 @@ model Order {
   deliveryFee       Decimal        @db.Decimal(10, 2)
   deliveryNotes     String?
 
+  // Delivery Tracking
+  deliveryPartner     String? // "Grab", "Lalamove", "Self", "Walker"
+  deliveryTrackingId  String?
+  deliveryTrackingUrl String?
+  driverName          String?
+  driverPhone         String?
+
   // Scheduling
+  orderType      String    @default("immediate") // "immediate", "scheduled", "preorder"
   scheduledFor   DateTime? // For pre-orders
   estimatedReady DateTime?
+  actualReadyAt  DateTime?
 
   // Pricing
-  subtotal Decimal @db.Decimal(10, 2)
-  discount Decimal @default(0) @db.Decimal(10, 2)
-  tax      Decimal @default(0) @db.Decimal(10, 2)
-  total    Decimal @db.Decimal(10, 2)
+  subtotal  Decimal @db.Decimal(10, 2)
+  discount  Decimal @default(0) @db.Decimal(10, 2)
+  tax       Decimal @default(0) @db.Decimal(10, 2)
+  gstAmount Decimal @default(0) @db.Decimal(10, 2)
+  total     Decimal @db.Decimal(10, 2)
+
+  // Platform Fees
+  platformFee          Decimal @default(0) @db.Decimal(10, 2)
+  paymentProcessingFee Decimal @default(0) @db.Decimal(10, 2)
+  merchantPayout       Decimal @default(0) @db.Decimal(10, 2)
 
   // Status
   status        OrderStatus    @default(PENDING)
   paymentStatus PaymentStatus  @default(PENDING)
   paymentMethod PaymentMethod?
 
+  // Payment Details
+  paymentReference   String?
+  paymentProof       String? // Screenshot URL for PayNow
+  paymentConfirmedAt DateTime?
+  paymentConfirmedBy String? // Manual confirmation by merchant
+
   // Customer Info (for guest checkout)
   customerName  String?
   customerPhone String?
   customerEmail String?
 
+  // Rating & Feedback
+  rating   Int? // 1-5
+  feedback String?
+  ratedAt  DateTime?
+
+  // Source & Attribution
+  source       String  @default("web") // web, whatsapp, instagram, phone
+  referralCode String?
+  utmSource    String?
+  utmMedium    String?
+  utmCampaign  String?
+
+  // Cancellation
+  cancellationReason String?
+  cancelledBy        String? // "customer", "merchant", "system"
+  refundAmount       Decimal?  @db.Decimal(10, 2)
+  refundedAt         DateTime?
+  refundReference    String?
+
   // Metadata
-  notes    String? // Internal notes
-  metadata Json? // Flexible data storage
+  notes         String? // Internal merchant notes
+  customerNotes String? // Special requests from customer
+  kitchenNotes  String? // Notes for kitchen staff
+  invoiceNumber String?
+  invoiceUrl    String?
+  metadata      Json? // Flexible data storage
 
   // Timestamps
   createdAt   DateTime  @default(now())
@@ -369,17 +623,19 @@ model Order {
   confirmedAt DateTime?
   preparedAt  DateTime?
   readyAt     DateTime?
+  pickedUpAt  DateTime?
   deliveredAt DateTime?
-  cancelledAt DateTime?
   completedAt DateTime?
+  cancelledAt DateTime?
 
   // Relations
-  merchant        Merchant     @relation(fields: [merchantId], references: [id])
-  customer        Customer?    @relation(fields: [customerId], references: [id])
-  deliveryAddress Address?     @relation(fields: [deliveryAddressId], references: [id])
+  merchant        Merchant         @relation(fields: [merchantId], references: [id])
+  customer        Customer?        @relation(fields: [customerId], references: [id])
+  deliveryAddress Address?         @relation(fields: [deliveryAddressId], references: [id])
   items           OrderItem[]
   payment         Payment?
   events          OrderEvent[]
+  promotions      OrderPromotion[]
 
   @@index([merchantId, status, createdAt])
   @@index([customerId, createdAt])
@@ -387,6 +643,7 @@ model Order {
   @@index([createdAt])
   @@index([scheduledFor])
   @@index([paymentStatus])
+  @@index([source])
 }
 
 model OrderItem {
@@ -396,18 +653,26 @@ model OrderItem {
 
   // Product snapshot at time of order
   productName  String
+  productSku   String?
   productPrice Decimal @db.Decimal(10, 2)
+  productImage String?
 
   // Order details
   quantity Int
-  price    Decimal @db.Decimal(10, 2) // Unit price
+  price    Decimal @db.Decimal(10, 2) // Unit price after modifiers
   total    Decimal @db.Decimal(10, 2) // quantity * price
 
   // Variants/Options
-  variant Json? // Selected variant details
-  notes   String? // Customer notes for this item
+  variant        Json? // Selected variant details
+  modifiers      Json? // Additional modifications
+  specialRequest String? // Customer notes for this item
+
+  // Status
+  isPrepared Boolean   @default(false)
+  preparedAt DateTime?
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -418,101 +683,57 @@ model OrderItem {
 }
 
 model OrderEvent {
-  id      String @id @default(cuid())
-  orderId String
-
-  event  String // status_changed, note_added, etc.
-  data   Json // Event-specific data
-  userId String? // Who triggered the event
-
+  id        String   @id @default(cuid())
+  orderId   String
+  event     String // status_changed, payment_received, etc.
+  data      Json // Event details
+  createdBy String? // User ID or "system"
   createdAt DateTime @default(now())
 
-  // Relations
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  @@index([orderId])
-  @@index([createdAt])
+  @@index([orderId, createdAt])
 }
 
 model Payment {
-  id      String @id @default(cuid())
-  orderId String @unique
-
+  id       String        @id @default(cuid())
+  orderId  String        @unique
   amount   Decimal       @db.Decimal(10, 2)
   currency String        @default("SGD")
   method   PaymentMethod
-  status   PaymentStatus @default(PENDING)
+  status   PaymentStatus
 
-  // Payment gateway details
-  gatewayId       String? // External payment ID
-  gatewayResponse Json? // Raw response from gateway
-
-  // Transaction details
-  transactionId   String?
+  // Payment Gateway Details
+  gatewayProvider String? // "stripe", "paynow", "manual"
+  transactionId   String? @unique
   referenceNumber String?
 
-  // Paynow specific fields
-  paymentProofUrl  String?
-  paymentReference String?
-  verifiedBy       String?
-  verifiedAt       DateTime?
-  verficationNotes String?
+  // Fee Breakdown
+  gatewayFee Decimal? @db.Decimal(10, 2)
+  netAmount  Decimal? @db.Decimal(10, 2)
 
-  // Refund info
-  refundAmount Decimal?  @db.Decimal(10, 2)
-  refundReason String?
-  refundedAt   DateTime?
+  // Metadata
+  metadata      Json?
+  failureReason String?
+  attemptCount  Int     @default(1)
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  paidAt    DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  processedAt DateTime?
 
-  // Relations
-  order              Order          @relation(fields: [orderId], references: [id])
-  verifiedByMerchant Merchant?      @relation("PaymentVerifications", fields: [verifiedBy], references: [id])
-  paymentProofs      PaymentProof[]
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
+  @@index([transactionId])
   @@index([status])
-  @@index([method])
-  @@index([paymentReference])
-}
-
-model PaymentProof {
-  id        String @id @default(cuid())
-  paymentId String
-
-  fileUrl  String
-  fileName String
-  fileSize Int
-  mimeType String
-
-  //upload metadata
-  uploadedAt DateTime @default(now())
-  uploadedBy String?
-  ipAddress  String?
-  userAgent  String?
-
-  // verification
-  isVerified Boolean   @default(false)
-  verifiedAt DateTime?
-
-  // relations
-  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-
-  @@index([paymentId])
-  @@index([uploadedAt])
 }
 
 model CheckoutSession {
-  id        String @id @default(cuid())
-  sessionId String @unique
-
-  // cart data
+  id         String @id @default(cuid())
+  sessionId  String @unique
   merchantId String
-  items      Json
 
-  //checkout progress
-  deliveryMethod  DeliveryMethod?
+  // Cart contents
+  items           Json // Product details, quantities, prices
   deliveryAddress Json?
   contactInfo     Json?
 
@@ -522,19 +743,24 @@ model CheckoutSession {
   discount    Decimal? @db.Decimal(10, 2)
   total       Decimal? @db.Decimal(10, 2)
 
-  // Payment
-  paymentReference String? @unique
+  // Applied promotions
+  promotionCodes String[]
 
-  // session management
+  // Payment
+  paymentMethod    PaymentMethod?
+  paymentReference String?        @unique
+
+  // Session management
   ipAddress  String?
   userAgent  String?
   customerId String?
+  source     String  @default("web")
 
   expiresAt DateTime
-  createdAt DateTime
-  updatedAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  // relations
+  // Relations
   merchant Merchant  @relation(fields: [merchantId], references: [id])
   customer Customer? @relation(fields: [customerId], references: [id])
 
@@ -551,15 +777,30 @@ model Review {
   orderId    String?
 
   rating  Int // 1-5
+  title   String?
   comment String?
   images  String[] @default([])
+
+  // Review aspects
+  foodQuality Int? // 1-5
+  delivery    Int? // 1-5
+  value       Int? // 1-5
+  packaging   Int? // 1-5
 
   // Merchant response
   response    String?
   respondedAt DateTime?
+  responseBy  String? // Merchant user ID
 
   isVerified Boolean @default(false) // Verified purchase
   isVisible  Boolean @default(true)
+  isFeatured Boolean @default(false)
+
+  // Moderation
+  flagged     Boolean   @default(false)
+  flagReason  String?
+  moderatedAt DateTime?
+  moderatedBy String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -569,10 +810,10 @@ model Review {
   customer Customer @relation(fields: [customerId], references: [id])
   product  Product? @relation(fields: [productId], references: [id])
 
-  @@index([merchantId])
+  @@index([merchantId, rating])
   @@index([customerId])
   @@index([productId])
-  @@index([rating])
+  @@index([isVisible, rating])
 }
 
 model Session {
@@ -584,12 +825,18 @@ model Session {
   customerId String?
 
   // Session data
-  ipAddress String?
-  userAgent String?
+  ipAddress  String?
+  userAgent  String?
+  deviceType String? // mobile, tablet, desktop
 
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // Location
+  country String?
+  city    String?
+
+  lastActivityAt DateTime @default(now())
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // Relations
   merchant Merchant? @relation(fields: [merchantId], references: [id], onDelete: Cascade)
@@ -598,6 +845,7 @@ model Session {
   @@index([token])
   @@index([merchantId])
   @@index([customerId])
+  @@index([expiresAt])
 }
 
 model Analytics {
@@ -605,21 +853,35 @@ model Analytics {
   merchantId String
 
   event      String // page_view, product_view, order_placed, etc.
+  category   String? // "engagement", "conversion", "revenue"
   properties Json // Event-specific properties
 
   // Context
-  sessionId String?
+  sessionId  String?
+  customerId String?
+  orderId    String?
+  productId  String?
+
+  // Source
   ipAddress String?
   userAgent String?
   referrer  String?
+  utmSource String?
+  utmMedium String?
+
+  // Metrics
+  value    Decimal? @db.Decimal(10, 2) // For revenue events
+  duration Int? // For time-based events (seconds)
 
   createdAt DateTime @default(now())
 
   // Relations
   merchant Merchant @relation(fields: [merchantId], references: [id])
 
-  @@index([merchantId, event])
-  @@index([createdAt])
+  @@index([merchantId, event, createdAt])
+  @@index([category, createdAt])
+  @@index([customerId])
+  @@index([sessionId])
 }
 
 model Notification {
@@ -629,20 +891,301 @@ model Notification {
   type    NotificationType
   title   String
   message String
-  data    Json? // Additional data
+  data    Json? // Additional data like orderId, etc.
 
   // Delivery
   channels String[] @default(["in_app"]) // in_app, email, sms, whatsapp
 
-  // Status
-  read   Boolean   @default(false)
-  readAt DateTime?
+  // Priority
+  priority String @default("normal") // low, normal, high, urgent
 
-  createdAt DateTime @default(now())
+  // Status
+  read      Boolean   @default(false)
+  readAt    DateTime?
+  delivered Boolean   @default(false)
+
+  // Action
+  actionUrl   String? // Link to relevant page
+  actionLabel String? // "View Order"
+
+  createdAt DateTime  @default(now())
+  expiresAt DateTime? // Auto-delete after this
 
   // Relations
   merchant Merchant @relation(fields: [merchantId], references: [id])
 
-  @@index([merchantId, read])
-  @@index([createdAt])
+  @@index([merchantId, read, createdAt])
+  @@index([type, createdAt])
+  @@index([expiresAt])
+}
+
+model CustomerNotification {
+  id         String @id @default(cuid())
+  customerId String
+
+  type    String // order_update, promotion, etc.
+  title   String
+  message String
+  data    Json?
+
+  channel String    @default("in_app")
+  read    Boolean   @default(false)
+  readAt  DateTime?
+
+  actionUrl String?
+  imageUrl  String?
+
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
+
+  customer Customer @relation(fields: [customerId], references: [id])
+
+  @@index([customerId, read])
+  @@index([expiresAt])
+}
+
+// ==================== PLATFORM FEATURES ====================
+
+model Subscription {
+  id         String @id @default(cuid())
+  merchantId String @unique
+
+  tier               SubscriptionTier
+  status             SubscriptionStatus @default(TRIAL)
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+
+  // Usage tracking
+  ordersThisMonth  Int     @default(0)
+  revenueThisMonth Decimal @default(0) @db.Decimal(10, 2)
+
+  // Billing
+  billingCycle String  @default("monthly") // monthly, yearly
+  amount       Decimal @db.Decimal(10, 2)
+  currency     String  @default("SGD")
+
+  // Payment
+  lastPaymentDate   DateTime?
+  lastPaymentAmount Decimal?  @db.Decimal(10, 2)
+  nextPaymentDate   DateTime?
+  paymentMethod     String?
+
+  // Trial
+  trialStart DateTime?
+  trialEnd   DateTime?
+
+  // Cancellation
+  cancelledAt        DateTime?
+  cancellationReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+
+  @@index([status])
+  @@index([tier])
+}
+
+model InventoryLog {
+  id        String @id @default(cuid())
+  productId String
+
+  type      InventoryLogType
+  quantity  Int // positive for additions, negative for subtractions
+  reason    String?
+  reference String? // Order ID, etc.
+
+  previousStock Int
+  newStock      Int
+
+  cost Decimal? @db.Decimal(10, 2) // For COGS tracking
+
+  createdAt DateTime @default(now())
+  createdBy String? // User ID or "system"
+
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([productId, createdAt])
+  @@index([type])
+}
+
+model Promotion {
+  id         String @id @default(cuid())
+  merchantId String
+
+  code        String        @unique
+  name        String
+  description String
+  type        PromotionType
+  value       Decimal       @db.Decimal(10, 2)
+
+  // Display
+  imageUrl    String?
+  highlighted Boolean @default(false)
+
+  // Conditions
+  minimumOrder   Decimal? @db.Decimal(10, 2)
+  maxDiscount    Decimal? @db.Decimal(10, 2)
+  usageLimit     Int? // Total uses allowed
+  usageCount     Int      @default(0)
+  customerLimit  Int      @default(1) // Uses per customer
+  firstOrderOnly Boolean  @default(false)
+
+  // Applicable to
+  applicableProducts   String[] // Product IDs
+  applicableCategories String[] // Category IDs
+  excludedProducts     String[] // Product IDs to exclude
+
+  // Schedule
+  validFrom  DateTime
+  validTo    DateTime
+  validDays  Int[]    @default([0, 1, 2, 3, 4, 5, 6]) // Days of week
+  validHours Json? // { "start": "10:00", "end": "14:00" }
+
+  isActive Boolean @default(true)
+  isPublic Boolean @default(true) // Visible to customers
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  merchant Merchant         @relation(fields: [merchantId], references: [id])
+  orders   OrderPromotion[]
+
+  @@index([merchantId, isActive])
+  @@index([code])
+  @@index([validFrom, validTo])
+}
+
+model OrderPromotion {
+  orderId     String
+  promotionId String
+
+  discountAmount Decimal @db.Decimal(10, 2)
+
+  appliedAt DateTime @default(now())
+
+  order     Order     @relation(fields: [orderId], references: [id])
+  promotion Promotion @relation(fields: [promotionId], references: [id])
+
+  @@id([orderId, promotionId])
+}
+
+model WhatsAppTemplate {
+  id         String @id @default(cuid())
+  merchantId String
+
+  name     String
+  type     String // order_confirmation, order_ready, etc.
+  language String @default("en")
+  template String // Template with {{variables}}
+
+  // WhatsApp Business API
+  wabaTemplateId   String?
+  wabaTemplateName String?
+  status           String  @default("pending") // pending, approved, rejected
+
+  isActive  Boolean @default(true)
+  isDefault Boolean @default(false)
+
+  lastUsedAt DateTime?
+  usageCount Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+
+  @@unique([merchantId, type, language])
+  @@index([type])
+}
+
+model LoyaltyProgram {
+  id         String @id @default(cuid())
+  merchantId String @unique
+
+  name        String
+  description String?
+
+  // Earning
+  pointsPerDollar Decimal @default(1) @db.Decimal(5, 2)
+  bonusPoints     Json? // Special rules for bonus points
+
+  // Redemption
+  redeemRate      Decimal  @db.Decimal(5, 2) // Points per $1 discount
+  minimumRedeem   Int      @default(100) // Minimum points to redeem
+  maximumDiscount Decimal? @db.Decimal(5, 2) // Max discount percentage
+
+  // Tiers
+  tiers Json? // Bronze, Silver, Gold with benefits
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  merchant       Merchant          @relation(fields: [merchantId], references: [id])
+  customerPoints CustomerLoyalty[]
+}
+
+model CustomerLoyalty {
+  customerId String
+  merchantId String
+
+  points         Int     @default(0)
+  lifetimePoints Int     @default(0)
+  tier           String  @default("Bronze")
+  tierProgress   Decimal @default(0) @db.Decimal(5, 2) // % to next tier
+
+  // Stats
+  totalRedeemed  Int       @default(0)
+  lastEarnedAt   DateTime?
+  lastRedeemedAt DateTime?
+
+  // Expiry
+  pointsExpiry DateTime? // Points expire after X months
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customer Customer       @relation(fields: [customerId], references: [id])
+  merchant Merchant       @relation(fields: [merchantId], references: [id], map: "CustomerLoyalty_merchant_fkey")
+  program  LoyaltyProgram @relation(fields: [merchantId], references: [merchantId], map: "CustomerLoyalty_program_fkey")
+
+  @@id([customerId, merchantId])
+  @@index([merchantId])
+  @@index([points])
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  entityType String // "Order", "Product", "Merchant", etc.
+  entityId   String
+  action     AuditAction
+
+  // Changes
+  oldValues Json?
+  newValues Json?
+  changes   Json? // Specific fields that changed
+
+  // Context
+  userId    String?
+  userType  String? // "merchant", "customer", "admin", "system"
+  userName  String?
+  ipAddress String?
+  userAgent String?
+
+  // Additional info
+  reason   String? // For manual actions
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  merchant Merchant? @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId, createdAt])
+  @@index([userId, createdAt])
+  @@index([action])
 }

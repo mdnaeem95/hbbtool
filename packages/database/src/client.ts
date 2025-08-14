@@ -1,5 +1,5 @@
 // packages/database/src/client.ts
-import { PrismaClient } from "@prisma/client"
+import { Prisma, PrismaClient } from "@prisma/client"
 import { softDeleteExtension } from "./extensions"
 
 // Global singleton for Prisma client
@@ -40,11 +40,7 @@ export type ExtendedPrismaClient = typeof db
 // })
 
 // Soft delete utilities
-export const excludeDeleted = {
-  where: {
-    deletedAt: null,
-  },
-} as const
+export const excludeDeleted: Prisma.MerchantWhereInput = { deletedAt: null }
 
 // Common includes with proper type safety
 export const merchantIncludes = {

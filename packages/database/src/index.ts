@@ -42,7 +42,6 @@ export type {
   Customer,
   Address,
   Payment,
-  PaymentProof,
   Review,
   Session,
   CheckoutSession,
