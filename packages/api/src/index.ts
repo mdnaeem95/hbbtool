@@ -1,23 +1,28 @@
-import { router } from './trpc'
-import { authRouter } from './routers/auth'
-import { merchantRouter } from './routers/merchant'
-import { productRouter } from './routers/product'
-import { orderRouter } from './routers/order'
-import { publicRouter } from './routers/public'
-import { checkoutRouter } from './routers/checkout'
-import { paymentRouter } from './routers/payment'
+// sub-routers
+import { publicProcedure, router } from './trpc/core'
+import { authRouter } from './trpc/routers/auth'
+import { checkoutRouter } from './trpc/routers/checkout'
+import { merchantRouter } from './trpc/routers/merchant'
+import { orderRouter } from './trpc/routers/order'
+import { paymentRouter } from './trpc/routers/payment'
+import { productRouter } from './trpc/routers/product'
+import { publicRouter } from './trpc/routers/public'
 
+// (optional) tiny health route for smoke tests
 export const appRouter = router({
+  health: publicProcedure.query(({ ctx }) => ({
+    ok: true,
+    time: new Date().toISOString(),
+    ip: ctx.ip ?? null,
+  })),
   auth: authRouter,
   merchant: merchantRouter,
   product: productRouter,
-  order: orderRouter,
-  public: publicRouter,
   checkout: checkoutRouter,
-  payment: paymentRouter
+  order: orderRouter,
+  payment: paymentRouter,
+  public: publicRouter,
 })
 
 export type AppRouter = typeof appRouter
-
-// Export utilities
-export * from './types'
+export { default as transformer } from 'superjson'

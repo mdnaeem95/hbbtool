@@ -1,4 +1,4 @@
-import { middleware } from "../trpc"
+import { middleware } from '../trpc/core'
 
 export const performanceMiddleware = middleware(async ({ next, ctx, path }) => {
   const start = Date.now()

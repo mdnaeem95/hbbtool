@@ -1,4 +1,4 @@
-import { middleware } from '../trpc'
+import { middleware } from '../trpc/core'
 
 interface CacheConfig {
   ttl: number // seconds
