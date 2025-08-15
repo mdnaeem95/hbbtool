@@ -51,10 +51,32 @@ const isCustomer = isAuthed.unstable_pipe(({ ctx, next }) => {
   return next({ ctx })
 })
 
-// ---------- Exports ----------
+// (optional) global middleware
+import { timeoutMiddleware } from '../middleware/timeout'
+import { batchingMiddleware } from '../middleware/batching'
+
 export const middleware = t.middleware
 export const router = t.router
-export const publicProcedure = t.procedure.use(loggerMiddleware)
-export const protectedProcedure = t.procedure.use(loggerMiddleware).use(isAuthed)
-export const merchantProcedure = t.procedure.use(loggerMiddleware).use(isMerchant)
-export const customerProcedure = t.procedure.use(loggerMiddleware).use(isCustomer)
+
+export const publicProcedure = t.procedure
+  .use(loggerMiddleware)
+  .use(timeoutMiddleware)
+  .use(batchingMiddleware)
+
+export const protectedProcedure = t.procedure
+  .use(loggerMiddleware)
+  .use(timeoutMiddleware)
+  .use(isAuthed)
+  .use(batchingMiddleware)
+
+export const merchantProcedure = t.procedure
+  .use(loggerMiddleware)
+  .use(timeoutMiddleware)
+  .use(isMerchant)
+  .use(batchingMiddleware)
+
+export const customerProcedure = t.procedure
+  .use(loggerMiddleware)
+  .use(timeoutMiddleware)
+  .use(isCustomer)
+  .use(batchingMiddleware)

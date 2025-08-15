@@ -8,6 +8,9 @@ import { paymentRouter } from './trpc/routers/payment'
 import { productRouter } from './trpc/routers/product'
 import { publicRouter } from './trpc/routers/public'
 
+export { createTRPCContext } from './trpc/context'
+export type { TRPCContext } from './trpc/context'
+
 // (optional) tiny health route for smoke tests
 export const appRouter = router({
   health: publicProcedure.query(({ ctx }) => ({
