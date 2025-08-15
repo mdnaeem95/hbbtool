@@ -52,8 +52,11 @@ const isCustomer = isAuthed.unstable_pipe(({ ctx, next }) => {
 })
 
 // (optional) global middleware
-import { timeoutMiddleware } from '../middleware/timeout'
-import { batchingMiddleware } from '../middleware/batching'
+import { buildTimeoutMiddleware } from '../middleware/timeout'
+import { buildBatchingMiddleware } from '../middleware/batching'
+
+const timeoutMiddleware = buildTimeoutMiddleware(t.middleware)
+const batchingMiddleware = buildBatchingMiddleware(t.middleware)
 
 export const middleware = t.middleware
 export const router = t.router

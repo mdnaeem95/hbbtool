@@ -5,6 +5,7 @@ import type {
   Context as BaseContext,
   Session as AppSession,
   SupabaseLike,
+  SupabaseAuthAPI,
 } from '../types'
 
 type HeadersLike = Headers | (Record<string, string> & { get?: never })
@@ -18,20 +19,51 @@ function makeHeaderReader(h?: HeadersLike) {
   }
 }
 
+// Minimal Supabase stub for environments without Next request scope (tests/smoke)
+function makeSupabaseStub(): SupabaseLike {
+  const auth: SupabaseAuthAPI = {
+    async signUp() {
+      return { data: { user: null, session: null }, error: null }
+    },
+    async signInWithPassword() {
+      // Return a benign response; callers will handle null session.
+      return { data: { user: null, session: null }, error: null }
+    },
+    async signOut() {
+      return { error: null }
+    },
+  }
+  return { auth }
+}
+
 /**
- * Create tRPC context for fetch adapter (works in Next.js App Router).
- * - Attaches Prisma client
- * - Hydrates Supabase server client
- * - Resolves current session (if any)
- * - Exposes request, resHeaders (for setting cookies), ip, and a header() helper
+ * Create tRPC context for the Fetch adapter (Next.js App Router).
+ * Falls back to a no-auth stub if Next request scope isn't available
+ * (e.g. when invoked by an in-memory smoke script).
  */
 export async function createTRPCContext(
   opts: FetchCreateContextFnOptions
 ): Promise<BaseContext<AppSession, SupabaseLike>> {
-  const { req } = opts
-  const resHeaders = new Headers()
-  const supabase = createServerSupabaseClient()
-  const session = await getServerSession() // -> { user } | null
+  const { req, resHeaders } = opts
+
+  let supabase: SupabaseLike
+  let session: AppSession | null = null
+
+  try {
+    // This will throw if called outside a Next request scope
+    const sb = createServerSupabaseClient()
+    supabase = sb as unknown as SupabaseLike
+    session = (await getServerSession()) as AppSession | null
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(
+        '[context] Falling back to Supabase stub (likely running outside Next request scope):',
+        (err as Error)?.message
+      )
+    }
+    supabase = makeSupabaseStub()
+    session = null
+  }
 
   const ip =
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
@@ -40,8 +72,8 @@ export async function createTRPCContext(
 
   return {
     db,
-    session: (session as AppSession | null),
-    supabase: supabase as unknown as SupabaseLike,
+    session,
+    supabase,
     req,
     resHeaders,
     ip,
@@ -49,5 +81,4 @@ export async function createTRPCContext(
   }
 }
 
-/** Strongly-typed context type (no deprecated inferAsyncReturnType) */
 export type TRPCContext = Awaited<ReturnType<typeof createTRPCContext>>
