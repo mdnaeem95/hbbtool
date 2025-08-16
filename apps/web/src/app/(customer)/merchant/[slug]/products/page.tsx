@@ -1,32 +1,40 @@
 import { Metadata } from "next"
-import { notFound } from "next/navigation"
-import { Suspense } from "react"
-
-
-import { ProductCatalog } from "@/components/product/product-catalog"
-import { getServerCaller } from "@/app/api/trpc/server"
-import { ProductCatalogSkeleton } from "@/components/product/product-catalog-skeleton"
-
+import { db } from "@kitchencloud/database"
+import { ProductsPageClient } from "./products-client"
 
 interface ProductsPageProps {
-  params: {
+  params: Promise<{
     slug: string
-  }
-  searchParams: {
+  }>
+  searchParams: Promise<{
     category?: string
     sort?: string
     min?: string
     max?: string
     search?: string
     page?: string
-  }
+  }>
 }
 
+// Server-side metadata generation
 export async function generateMetadata({
   params,
 }: ProductsPageProps): Promise<Metadata> {
-  const api = await getServerCaller()
-  const merchant = await api.public.getMerchant({ slug: params.slug })
+  const { slug } = await params
+  
+  // Direct database query for metadata only
+  const merchant = await db.merchant.findFirst({
+    where: { 
+      slug: slug, 
+      status: 'ACTIVE', 
+      deletedAt: null 
+    },
+    select: {
+      businessName: true,
+      description: true,
+      logoUrl: true,
+    }
+  })
 
   if (!merchant) {
     return {
@@ -45,71 +53,18 @@ export async function generateMetadata({
   }
 }
 
+// Minimal server component that just passes props
 export default async function ProductsPage({
   params,
   searchParams,
 }: ProductsPageProps) {
-  const api = await getServerCaller()
-  const merchant = await api.public.getMerchant({ slug: params.slug })
-
-  if (!merchant) {
-    notFound()
-  }
-
+  const { slug } = await params
+  const resolvedSearchParams = await searchParams
+  
   return (
-    <div className="min-h-screen bg-background">
-      {/* Merchant Header */}
-      <div className="border-b bg-card">
-        <div className="container py-8">
-          <div className="flex items-start gap-6">
-            {merchant.logoUrl && (
-              <img
-                src={merchant.logoUrl}
-                alt={merchant.businessName}
-                className="h-20 w-20 rounded-lg object-cover"
-              />
-            )}
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold">{merchant.businessName}</h1>
-              {merchant.description && (
-                <p className="mt-2 text-muted-foreground">
-                  {merchant.description}
-                </p>
-              )}
-              <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
-                {/* {merchant.rating && (
-                  <div className="flex items-center gap-1">
-                    <span className="font-medium">{merchant.rating}</span>
-                    <span className="text-muted-foreground">
-                      ({merchant.reviewCount} reviews)
-                    </span>
-                  </div>
-                )} */}
-                {merchant.preparationTime && (
-                  <span className="text-muted-foreground">
-                    {merchant.preparationTime}
-                  </span>
-                )}
-                {merchant.minimumOrder && (
-                  <span className="text-muted-foreground">
-                    Min order: ${Number(merchant.minimumOrder).toFixed(2)}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Product Catalog */}
-      <Suspense fallback={<ProductCatalogSkeleton />}>
-        <ProductCatalog
-          merchantId={merchant.id}
-          merchantSlug={merchant.slug}
-          categories={merchant.categories}
-          searchParams={searchParams}
-        />
-      </Suspense>
-    </div>
+    <ProductsPageClient 
+      slug={slug} 
+      searchParams={resolvedSearchParams} 
+    />
   )
 }

@@ -474,6 +474,7 @@ export const merchantRouter = router({
       withStatus.sort((a: any, b: any) => {
         if (a.isOpen !== b.isOpen) return a.isOpen ? -1 : 1
         if (a.distance != null && b.distance != null) return a.distance - b.distance
+        if (a.rating !== b.rating !== null) return b.rating - a.rating
         return (b._count?.orders ?? 0) - (a._count?.orders ?? 0)
       })
 

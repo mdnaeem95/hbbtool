@@ -1,7 +1,7 @@
 'use client'
 
 import { Card } from '@kitchencloud/ui'
-import { Clock, MapPin, DollarSign } from 'lucide-react'
+import { Clock, MapPin, DollarSign, Star } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import type { MerchantMapMarker } from '@/types/merchant'
@@ -59,7 +59,7 @@ export function MerchantListSidebar({
           `}
           onClick={() => onMerchantSelect?.(merchant.id)}
         >
-          <Link href={`/merchant/${merchant.slug}`}>
+          <Link href={`/merchant/${merchant.slug}/products`}>
             <div className="p-4">
               <div className="flex gap-4">
                 {/* Merchant Image */}
@@ -94,12 +94,19 @@ export function MerchantListSidebar({
                   )}
 
                   <div className="flex items-center gap-3 mt-2 text-sm">
-                    {/* {merchant.rating && (
+                    {merchant.rating && (
                       <div className="flex items-center gap-1">
                         <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-                        <span>{merchant.rating}</span>
+                        {merchant.rating ? (
+                        <>
+                          <span className="font-medium">{merchant.rating}</span>
+                          <span className="text-muted-foreground">({merchant.reviewCount || 0})</span>
+                        </>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">No reviews</span>
+                        )}
                       </div>
-                    )} */}
+                    )}
                     
                     {merchant.preparationTime && (
                       <div className="flex items-center gap-1 text-muted-foreground">

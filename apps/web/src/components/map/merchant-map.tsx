@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Card } from '@kitchencloud/ui'
-import { MapPin, Clock, DollarSign } from 'lucide-react'
+import { MapPin, Clock, DollarSign, Star } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -39,6 +39,14 @@ export function MerchantMap({
     }
   }, [onBoundsChange])
 
+  // trigger initial bounds on map load
+  const handleMapLoad = useCallback(() => {
+    if (mapRef.current && onBoundsChange) {
+      const bounds = mapRef.current.getBounds()
+      onBoundsChange(bounds)
+    }
+  }, [onBoundsChange])
+
   // Center on selected merchant
   useEffect(() => {
     if (selectedMerchantId && mapRef.current) {
@@ -65,6 +73,7 @@ export function MerchantMap({
       {...viewState}
       onMove={(evt: any) => setViewState(evt.viewState)}
       onMoveEnd={handleMoveEnd}
+      onLoad={handleMapLoad}
       mapStyle="mapbox://styles/mapbox/light-v11"
       mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN}
       maxBounds={[
@@ -125,7 +134,7 @@ export function MerchantMap({
           maxWidth="320px"
         >
           <Card className="border-0 shadow-none">
-            <Link href={`/merchant/${popupMerchant.slug}`}>
+            <Link href={`/merchant/${popupMerchant.slug}/products`}>
               <div className="space-y-3">
                 {/* Header with image */}
                 {popupMerchant.logoUrl && (
@@ -151,12 +160,19 @@ export function MerchantMap({
                   )}
                   
                   <div className="flex items-center gap-4 text-sm">
-                    {/* {popupMerchant && (
+                    {popupMerchant && (
                       <div className="flex items-center gap-1">
                         <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        <span>{popupMerchant.rating}</span>
+                        {popupMerchant.rating ? (
+                        <>
+                          <span className="font-medium">{popupMerchant.rating}</span>
+                          <span className="text-muted-foreground">({popupMerchant.reviewCount || 0})</span>
+                        </>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">No reviews</span>
+                        )}
                       </div>
-                    )} */}
+                    )}
                     
                     {popupMerchant.preparationTime && (
                       <div className="flex items-center gap-1 text-muted-foreground">

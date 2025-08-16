@@ -86,10 +86,10 @@ export function ProductFilters({
           value={localFilters.sort || "featured"}
           onValueChange={(value) => handleFilterChange("sort", value)}
         >
-          <SelectTrigger className="mt-2">
+          <SelectTrigger className="mt-2 w-full">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="w-full">
             {sortOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}

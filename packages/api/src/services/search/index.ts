@@ -111,12 +111,33 @@ export class SearchService {
             reviews: true,
           },
         },
+        reviews: {
+          where: { isVisible: true },
+          select: { rating: true }
+        }
       },
+    })
+
+    // calculate average ratings and transform results
+    const merchantsWithRatings = merchants.map(merchant => {
+      const { reviews, ...merchantData } = merchant
+
+      // calculate average rating
+      const avgRating = reviews.length > 0
+        ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+        : null
+
+      return { 
+        ...merchantData,
+        rating: avgRating ? parseFloat(avgRating.toFixed(1)) : null,
+        reviewCount: merchantData._count.reviews
+      }
     })
     
     // Filter by distance if location provided
+    let filtered = merchantsWithRatings
     if (latitude && longitude) {
-      merchants = merchants.filter(merchant => {
+      filtered = merchantsWithRatings.filter(merchant => {
         if (!merchant.latitude || !merchant.longitude) return false
         
         const distance = this.calculateDistance(
@@ -131,7 +152,7 @@ export class SearchService {
     }
     
     // Sort by relevance/popularity
-    merchants.sort((a, b) => {
+    filtered.sort((a, b) => {
       // Prioritize verified merchants
       if (a.verified !== b.verified) {
         return a.verified ? -1 : 1
@@ -141,7 +162,7 @@ export class SearchService {
       return b._count.orders - a._count.orders
     })
     
-    return merchants.slice(0, limit)
+    return filtered.slice(0, limit)
   }
   
   static async getSuggestions(params: {

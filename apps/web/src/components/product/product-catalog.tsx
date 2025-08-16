@@ -10,11 +10,12 @@ import {
   ActiveFilters,
   Input,
   useToast,
+  Spinner,
 } from "@kitchencloud/ui"
 import { Search } from "lucide-react"
 import { QuickViewModal } from "./quick-view-modal"
 import { useCartStore } from "@/stores/cart-store"
-import { api } from "@/app/api/trpc/client"
+import { api } from "@/lib/trpc/client"
 
 interface ProductCatalogProps {
   merchantId: string
@@ -43,25 +44,59 @@ export function ProductCatalog({
 
   const debouncedSearch = useDebounce(search, 300)
 
+  // Read filters from URL
+  const [urlParams, setUrlParams] = React.useState(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search)
+    }
+    return new URLSearchParams()
+  })
+
+  // Update URL params when window location changes
+  React.useEffect(() => {
+    const handleUrlChange = () => {
+      setUrlParams(new URLSearchParams(window.location.search))
+    }
+    
+    window.addEventListener('popstate', handleUrlChange)
+    return () => window.removeEventListener('popstate', handleUrlChange)
+  }, [])
+
   const filters = React.useMemo(() => ({
-    categories: searchParams.category?.split(",").filter(Boolean) || [],
-    minPrice: searchParams.min ? Number(searchParams.min) : undefined,
-    maxPrice: searchParams.max ? Number(searchParams.max) : undefined,
+    categories: urlParams.get("category")?.split(",").filter(Boolean) || [],
+    minPrice: urlParams.get("min") ? Number(urlParams.get("min")) : undefined,
+    maxPrice: urlParams.get("max") ? Number(urlParams.get("max")) : undefined,
     search: debouncedSearch || undefined,
-  }), [searchParams.category, searchParams.min, searchParams.max, debouncedSearch])
+  }), [urlParams, debouncedSearch])
 
-  const sort = searchParams.sort || "featured"
+  const sort = urlParams.get("sort") || "featured"
 
-  // Page-based fetch
-  const { data, isLoading, isError } = api.public.listProducts.useQuery(
+  // Debug logging
+  React.useEffect(() => {
+    console.log('Current filters:', filters)
+    console.log('Search params:', searchParams)
+  }, [filters, searchParams])
+
+  // Page-based fetch - include all filters
+  const { data, isLoading, isError, error } = api.public.listProducts.useQuery(
     {
       merchantSlug,
-      categoryId: filters.categories[0],
+      categoryId: filters.categories[0], // API only supports single category
       search: filters.search,
       page,
       limit: 20,
     },
   )
+
+  // Log for debugging
+  React.useEffect(() => {
+    if (data) {
+      console.log('Products data:', data)
+    }
+    if (error) {
+      console.error('Error fetching products:', error)
+    }
+  }, [data, error])
 
   // Merge/replace items + compute hasMore
   React.useEffect(() => {
@@ -87,50 +122,88 @@ export function ProductCatalog({
     enabled: hasMore && !isLoadingMore,
   })
 
+  // Convert Decimal prices to numbers for UI components
+  const productsWithNumberPrices = React.useMemo(() => {
+    return products.map(product => ({
+      ...product,
+      price: typeof product.price === 'number' 
+        ? product.price 
+        : Number(product.price),
+      compareAtPrice: product.compareAtPrice 
+        ? (typeof product.compareAtPrice === 'number' 
+          ? product.compareAtPrice 
+          : Number(product.compareAtPrice))
+        : undefined
+    }))
+  }, [products])
+
   // Price range from loaded items
   const priceRange = React.useMemo(() => {
-    if (products.length === 0) return undefined
-    const prices = products.map((p: any) => Number(p.price)).filter(n => !Number.isNaN(n))
+    if (productsWithNumberPrices.length === 0) return undefined
+    const prices = productsWithNumberPrices.map(p => p.price).filter(n => !Number.isNaN(n))
     if (prices.length === 0) return undefined
     const min = Math.floor(Math.min(...prices))
     const max = Math.ceil(Math.max(...prices))
     return { min, max, current: [filters.minPrice ?? min, filters.maxPrice ?? max] as [number, number] }
-  }, [products, filters.minPrice, filters.maxPrice])
+  }, [productsWithNumberPrices, filters.minPrice, filters.maxPrice])
 
   // Update URL + reset pagination on filter changes
-  const updateFilters = (newFilters: {
+  const updateFilters = React.useCallback((newFilters: {
     categories?: string[]
     priceRange?: [number, number]
     sort?: string
     search?: string
   }) => {
-    const params = new URLSearchParams()
-    if (newFilters.categories?.length) params.set("category", newFilters.categories.join(","))
-    if (newFilters.sort && newFilters.sort !== "featured") params.set("sort", newFilters.sort)
-    if (newFilters.priceRange) {
+    const params = new URLSearchParams(window.location.search)
+    
+    // Preserve existing search if not explicitly changing it
+    const currentSearch = params.get("search") || ""
+    
+    // Clear all params first
+    params.delete("category")
+    params.delete("sort")
+    params.delete("min")
+    params.delete("max")
+    params.delete("search")
+    
+    // Set new params
+    if (newFilters.categories?.length) {
+      params.set("category", newFilters.categories.join(","))
+    }
+    if (newFilters.sort && newFilters.sort !== "featured") {
+      params.set("sort", newFilters.sort)
+    }
+    if (newFilters.priceRange && newFilters.priceRange[0] !== priceRange?.min) {
       params.set("min", String(newFilters.priceRange[0]))
+    }
+    if (newFilters.priceRange && newFilters.priceRange[1] !== priceRange?.max) {
       params.set("max", String(newFilters.priceRange[1]))
     }
-    if (newFilters.search) params.set("search", newFilters.search)
+    // Preserve search unless explicitly changed
+    if (newFilters.search !== undefined) {
+      if (newFilters.search) params.set("search", newFilters.search)
+    } else if (currentSearch) {
+      params.set("search", currentSearch)
+    }
 
     const qs = params.toString()
-    router.push(`/merchant/${merchantSlug}/products${qs ? `?${qs}` : ""}`)
+    // Use replace to update URL without adding to history
+    router.replace(`/merchant/${merchantSlug}/products${qs ? `?${qs}` : ""}`)
 
     // reset paging & list
     setPage(1)
     setProducts([])
     setHasMore(true)
-  }
+  }, [merchantSlug, router, priceRange])
 
   const handleAddToCart = (productId: string, quantity = 1) => {
-    const product = products.find((p: any) => p.id === productId)
+    const product = productsWithNumberPrices.find((p: any) => p.id === productId)
     if (!product) return
-    const price = Number(product.price)
     addToCart({
       productId: product.id,
       merchantId: product.merchantId,
       name: product.name,
-      price: Number.isNaN(price) ? 0 : price,
+      price: product.price,
       image: product.images?.[0],
       quantity,
     })
@@ -170,91 +243,92 @@ export function ProductCatalog({
   return (
     <div className="container py-8">
       <div className="grid gap-8 lg:grid-cols-4">
-        {/* Desktop Filters */}
+        {/* Desktop Filters - Always visible */}
         <div className="hidden lg:block">
           <ProductFilters
             categories={categoryOptions}
             priceRange={priceRange}
             selectedFilters={{
               categories: filters.categories,
-              priceRange: filters.minPrice || filters.maxPrice ? [filters.minPrice ?? 0, filters.maxPrice ?? 999] : undefined,
-              sort,
+              priceRange: filters.minPrice || filters.maxPrice 
+                ? [filters.minPrice ?? priceRange?.min ?? 0, filters.maxPrice ?? priceRange?.max ?? 100] 
+                : undefined,
+              sort: sort,
             }}
-            onChange={updateFilters}
-            onClear={() => {
-              setSearch("")
-              router.push(`/merchant/${merchantSlug}/products`)
-              setPage(1)
-              setProducts([])
-              setHasMore(true)
+            onChange={(newFilters) => {
+              console.log('Filter change:', newFilters)
+              // Update URL params and trigger re-render
+              updateFilters({
+                categories: newFilters.categories,
+                priceRange: newFilters.priceRange,
+                sort: newFilters.sort,
+                search: search || filters.search,
+              })
+              // Trigger URL params update
+              setUrlParams(new URLSearchParams(window.location.search))
             }}
           />
         </div>
 
-        {/* Main Content */}
-        <div className="lg:col-span-3">
-          {/* Search + Mobile Filters */}
-          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative flex-1 sm:max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search products..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-
-            <div className="lg:hidden">
-              <ProductFilters
-                variant="mobile"
-                categories={categoryOptions}
-                priceRange={priceRange}
-                selectedFilters={{
-                  categories: filters.categories,
-                  priceRange: filters.minPrice || filters.maxPrice ? [filters.minPrice ?? 0, filters.maxPrice ?? 999] : undefined,
-                  sort,
-                }}
-                onChange={updateFilters}
-                onClear={() => {
-                  setSearch("")
-                  router.push(`/merchant/${merchantSlug}/products`)
-                  setPage(1)
-                  setProducts([])
-                  setHasMore(true)
-                }}
-              />
-            </div>
+        {/* Main Content - Always in grid structure */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Search Bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search products..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+            />
           </div>
 
           {/* Active Filters */}
           {activeFilters.length > 0 && (
-            <div className="mb-4">
-              <ActiveFilters filters={activeFilters} onRemove={removeFilter} />
-            </div>
+            <ActiveFilters
+              filters={activeFilters}
+              onRemove={removeFilter}
+            />
           )}
 
-          {/* Product Grid */}
-          <ProductGrid
-            products={products}
-            loading={isLoading}
-            loadingMore={isLoadingMore}
-            hasMore={hasMore}
-            onLoadMore={loadMore}
-            onAddToCart={(productId) => handleAddToCart(productId)}
-            onQuickView={setQuickViewProductId}
-            emptyState={
-              isError ? (
-                <div className="text-center">
-                  <p className="text-lg font-medium">Something went wrong</p>
-                  <p className="mt-2 text-sm text-muted-foreground">Please try refreshing the page</p>
-                </div>
-              ) : undefined
-            }
-          />
+          {/* Loading State */}
+          {isLoading && page === 1 ? (
+            <div className="flex items-center justify-center h-64">
+              <Spinner className="h-8 w-8" />
+            </div>
+          ) : isError ? (
+            // Error State
+            <div className="text-center py-16">
+              <p className="text-muted-foreground">Failed to load products. Please try again.</p>
+            </div>
+          ) : productsWithNumberPrices.length === 0 ? (
+            // Empty State
+            <div className="text-center py-16">
+              <p className="text-lg text-muted-foreground mb-2">No products found</p>
+              <p className="text-sm text-muted-foreground">
+                {filters.search || filters.categories.length > 0 
+                  ? "Try adjusting your filters or search query"
+                  : "This merchant hasn't added any products yet"}
+              </p>
+            </div>
+          ) : (
+            // Product Grid
+            <>
+              <ProductGrid
+                products={productsWithNumberPrices}
+                onAddToCart={handleAddToCart}
+                onQuickView={setQuickViewProductId}
+              />
 
-          {/* Infinite scroll trigger */}
-          {hasMore && !isLoadingMore && <div ref={infiniteScrollRef} className="h-10" />}
+              {/* Load More */}
+              {hasMore && (
+                <div ref={infiniteScrollRef} className="flex justify-center py-8">
+                  {isLoadingMore && <Spinner className="h-6 w-6" />}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 

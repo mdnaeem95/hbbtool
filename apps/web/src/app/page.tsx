@@ -16,17 +16,42 @@ export default function HomePage() {
   const [filters, setFilters] = useState<FilterState>({})
   const [mapBounds, setMapBounds] = useState<LngLatBounds | null>(null)
 
+  // Calculate search radius from map bounds
+  const calculateRadiusFromBounds = (bounds: LngLatBounds | null) => {
+    if (!bounds) return 10 // default 10km for initial load
+    
+    // Calculate distance between bounds corners to get diagonal
+    const north = bounds.getNorth()
+    const south = bounds.getSouth()
+    const east = bounds.getEast()
+    const west = bounds.getWest()
+    
+    // Simple approximation: use the larger of width or height
+    // Convert degrees to km (rough approximation at Singapore's latitude)
+    const latDiff = Math.abs(north - south) * 111 // 1 degree latitude ≈ 111km
+    const lngDiff = Math.abs(east - west) * 111 * Math.cos((north + south) / 2 * Math.PI / 180)
+    
+    // Use diagonal distance and add some buffer
+    const diagonal = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff)
+    return Math.min(Math.max(diagonal * 0.75, 2), 20) // Between 2-20km
+  }
+
   // Fetch merchants with filters
   const { data, isLoading } = api.merchant.searchNearby.useQuery({
     query: searchQuery,
     filters: {
-      ...filters,
+      cuisineType: filters.cuisineType,
+      dietaryOptions: filters.dietaryOptions,
+      priceRange: filters.priceRange,
+      deliveryOnly: filters.deliveryOnly,
+      pickupOnly: filters.pickupOnly,
       bounds: mapBounds ? {
         north: mapBounds.getNorth(),
         south: mapBounds.getSouth(),
         east: mapBounds.getEast(),
         west: mapBounds.getWest()
-      } : undefined
+      } : undefined,
+      radius: calculateRadiusFromBounds(mapBounds)
     }
   }, {
     refetchInterval: 30000 // Refresh every 30 seconds for open/closed status
@@ -62,16 +87,19 @@ export default function HomePage() {
       <div className="bg-primary/10 border-b border-primary/20">
         <div className="container mx-auto px-4 py-2">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-            <div className="flex items-center gap-3 text-sm">
-              <Store className="h-5 w-5 text-primary flex-shrink-0" />
-              <span className="font-medium text-primary">Are you a home-based food business?</span>
+            <div className="flex items-center gap-2 text-sm">
+              <Store className="h-4 w-4" />
+              <span className="font-medium">Are you a home-based food business?</span>
+              <span className="hidden sm:inline text-muted-foreground">
+                Join KitchenCloud and start accepting orders online!
+              </span>
             </div>
-            <Link href="/auth">
-              <Button size="sm" variant="default" className="gap-2">
-                Start Selling Today
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
+            <Button size="sm" variant="outline" asChild>
+              <Link href="/merchant/register">
+                Register Now
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
           </div>
         </div>
       </div>
@@ -84,27 +112,20 @@ export default function HomePage() {
         isLoading={isLoading}
       />
 
-      {/* Map and List */}
+      {/* Main Content */}
       <div className="flex-1 relative">
         <ResizablePanelGroup direction="horizontal">
-          {/* Merchant List Sidebar */}
-          <ResizablePanel
-            defaultSize={30}
-            minSize={20}
-            maxSize={40}
-            className="hidden md:block"
-          >
-            <div className="h-full overflow-y-auto">
-              <MerchantListSidebar
-                merchants={merchants}
-                selectedMerchantId={selectedMerchantId}
-                onMerchantSelect={handleMerchantSelect}
-                isLoading={isLoading}
-              />
-            </div>
+          {/* Sidebar */}
+          <ResizablePanel defaultSize={30} minSize={25} maxSize={40}>
+            <MerchantListSidebar
+              merchants={merchants}
+              selectedMerchantId={selectedMerchantId}
+              onMerchantSelect={handleMerchantSelect}
+              isLoading={isLoading}
+            />
           </ResizablePanel>
 
-          <ResizableHandle className="hidden md:block" />
+          <ResizableHandle />
 
           {/* Map */}
           <ResizablePanel defaultSize={70}>
@@ -116,25 +137,7 @@ export default function HomePage() {
             />
           </ResizablePanel>
         </ResizablePanelGroup>
-
-        {/* Mobile Merchant List - Bottom Sheet */}
-        <div className="md:hidden absolute bottom-0 left-0 right-0 bg-background max-h-[40vh] overflow-y-auto rounded-t-xl shadow-lg border-t">
-          <MerchantListSidebar
-            merchants={merchants}
-            selectedMerchantId={selectedMerchantId}
-            onMerchantSelect={handleMerchantSelect}
-            isLoading={isLoading}
-          />
-        </div>
       </div>
-
-      {/* Optional: Floating Merchant CTA for Mobile */}
-      <Link href="/auth" className="md:hidden fixed bottom-4 right-4 z-20">
-        <Button size="sm" className="shadow-lg gap-2">
-          <Store className="h-4 w-4" />
-          Sell on KitchenCloud
-        </Button>
-      </Link>
     </div>
   )
 }
