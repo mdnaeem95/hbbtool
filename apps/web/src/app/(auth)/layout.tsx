@@ -1,5 +1,11 @@
+import { Metadata } from "next"
+import Image from "next/image"
 import Link from "next/link"
-import { ChefHat } from "lucide-react"
+
+export const metadata: Metadata = {
+  title: "KitchenCloud - Sign In",
+  description: "Order delicious home-cooked meals from local home-based businesses",
+}
 
 export default function AuthLayout({
   children,
@@ -8,32 +14,30 @@ export default function AuthLayout({
 }) {
   return (
     <div className="min-h-screen flex">
-      {/* Left side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-primary/5 items-center justify-center p-12">
-        <div className="max-w-md">
-          <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold">
-            <ChefHat className="h-8 w-8 text-primary" />
-            KitchenCloud
-          </Link>
-          <h1 className="mt-8 text-4xl font-bold">
-            Order homemade meals from local cooks
-          </h1>
-          <p className="mt-4 text-lg text-muted-foreground">
-            Join Singapore&apos;s largest community of home-based food businesses 
-            and food lovers.
-          </p>
+      {/* Left side - Auth form */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-md space-y-8">
+          <div className="text-center">
+            <Link href="/" className="inline-block">
+              <h1 className="text-3xl font-bold text-primary">KitchenCloud</h1>
+            </Link>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Singapore's home-based F&B platform
+            </p>
+          </div>
+          {children}
         </div>
       </div>
 
-      {/* Right side - Auth form */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
-          <Link href="/" className="lg:hidden inline-flex items-center gap-2 text-xl font-bold mb-8">
-            <ChefHat className="h-6 w-6 text-primary" />
-            KitchenCloud
-          </Link>
-          {children}
-        </div>
+      {/* Right side - Hero image */}
+      <div className="hidden lg:block lg:flex-1 relative bg-muted">
+        <Image
+          src="/images/auth-hero.jpg"
+          alt="Delicious home-cooked food"
+          fill
+          className="object-cover"
+          priority
+        />
       </div>
     </div>
   )

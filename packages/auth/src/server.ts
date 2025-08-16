@@ -19,8 +19,8 @@ export type CustomerSession = {
   customer: Prisma.CustomerGetPayload<{}>
 } | null
 
-export function createServerSupabaseClient(): SupabaseClient {
-  const store = cookies()
+export async function createServerSupabaseClient(): Promise<SupabaseClient> {
+  const store = await cookies()
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -42,7 +42,7 @@ export function createServerSupabaseClient(): SupabaseClient {
 }
 
 export async function getServerSession(): Promise<{ user: AuthUser } | null> {
-  const supabase = createServerSupabaseClient()
+  const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   return {

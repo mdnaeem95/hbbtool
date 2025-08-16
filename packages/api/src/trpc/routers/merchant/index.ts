@@ -9,23 +9,6 @@ import { SearchService } from '../../../services/search'
 /* =========================
    Types & Schemas
    ========================= */
-type DayKey =
-  | 'sunday'
-  | 'monday'
-  | 'tuesday'
-  | 'wednesday'
-  | 'thursday'
-  | 'friday'
-  | 'saturday'
-
-type DayRange = { open: string; close: string; closed?: boolean }
-type OperatingHours = Partial<Record<DayKey, DayRange>>
-
-function toDayIndex(n: number): DayIndex {
-  const x = n % 7;
-  return (x < 0 ? (x + 7) : x) as DayIndex;
-}
-
 const dayRangeZ = z.object({
   open: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:mm (24h)'),
   close: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:mm (24h)'),
@@ -80,13 +63,40 @@ async function ensureUniqueSlug(db: any, base: string, currentId?: string) {
 }
 
 function sgtNow(): Date {
-  return new Date(new Date().toLocaleString('en-SG', { timeZone: 'Asia/Singapore' }))
-}
-
-function sgtDayKey(date: Date = sgtNow()): DayKey {
-  const i = date.getDay();
-  if (!isDayIndex(i)) throw new Error(`Invalid day index: ${i}`);
-  return DAY_KEY_BY_INDEX[i]; // ✅ now typed as DayKey, not DayKey | undefined
+  // Create a date in Singapore timezone
+  const date = new Date()
+  // Use Intl.DateTimeFormat to get Singapore time components
+  const formatter = new Intl.DateTimeFormat('en-SG', {
+    timeZone: 'Asia/Singapore',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
+  
+  const parts = formatter.formatToParts(date)
+  const dateParts: any = {}
+  
+  parts.forEach(part => {
+    if (part.type !== 'literal') {
+      dateParts[part.type] = part.value
+    }
+  })
+  
+  // Create a new date with Singapore time components
+  const sgDate = new Date(
+    parseInt(dateParts.year),
+    parseInt(dateParts.month) - 1, // Months are 0-indexed
+    parseInt(dateParts.day),
+    parseInt(dateParts.hour),
+    parseInt(dateParts.minute),
+    parseInt(dateParts.second)
+  )
+  
+  return sgDate
 }
 
 function hhmmToMinutes(hhmm: string): number {
@@ -102,39 +112,117 @@ function minutesNowSGT(): number {
 /* =========================
    “Open now” helpers (SGT)
    ========================= */
-function checkIfMerchantOpen(merchant: { operatingHours?: OperatingHours | null }): boolean {
-  if (!merchant.operatingHours) return true // treat as always open if unset
-  const today = sgtDayKey()
-  const hours = merchant.operatingHours?.[today]
-  if (!hours || hours.closed) return false
-  const nowMin = minutesNowSGT()
-  return nowMin >= hhmmToMinutes(hours.open) && nowMin <= hhmmToMinutes(hours.close)
+function checkIfMerchantOpen(merchant: { operatingHours?: any }): boolean {
+  try {
+    // Return true if no operating hours (treat as always open)
+    if (!merchant.operatingHours) return true
+    
+    // Check if operatingHours is a valid object
+    if (typeof merchant.operatingHours !== 'object') return true
+    
+    const now = sgtNow()
+    
+    // Validate the date
+    if (isNaN(now.getTime())) {
+      console.error('Invalid date from sgtNow()')
+      return true // Default to open
+    }
+    
+    const dayIndex = now.getDay()
+    
+    // Extra validation
+    if (!isDayIndex(dayIndex)) {
+      console.error(`Invalid day index from getDay(): ${dayIndex}`)
+      return true // Default to open
+    }
+    
+    const dayKey = DAY_KEY_BY_INDEX[dayIndex]
+    
+    // Check if the day key exists in operating hours
+    if (!merchant.operatingHours[dayKey]) return true
+    
+    const hours = merchant.operatingHours[dayKey]
+    
+    // Check if the merchant is closed on this day
+    if (!hours || hours.closed) return false
+    
+    // If no open/close times specified, check if it has isOpen property
+    if (!hours.open || !hours.close) {
+      // Handle different formats of operating hours
+      if ('isOpen' in hours) return hours.isOpen
+      return true // Default to open if format is unclear
+    }
+    
+    const nowMin = minutesNowSGT()
+    const openMin = hhmmToMinutes(hours.open)
+    const closeMin = hhmmToMinutes(hours.close)
+    
+    // Handle overnight hours (e.g., 22:00 - 02:00)
+    if (closeMin < openMin) {
+      return nowMin >= openMin || nowMin <= closeMin
+    }
+    
+    return nowMin >= openMin && nowMin <= closeMin
+  } catch (error) {
+    console.error('Error checking merchant open status:', error)
+    // Default to open if there's an error
+    return true
+  }
 }
 
-function getNextOpenTime(merchant: { operatingHours?: OperatingHours | null }): Date | null {
-  if (!merchant.operatingHours) return null
-  const now = sgtNow()
-  const nowMin = minutesNowSGT()
-  const todayIdx = toDayIndex(now.getDay())
-
-  for (let offset = 0 as DayIndex; offset < 7; offset = toDayIndex(offset + 1)) {
-    const idx = toDayIndex(todayIdx + offset);
-    const dayKey = DAY_KEY_BY_INDEX[idx]
-    const hours = merchant.operatingHours?.[dayKey]
-    if (!hours || hours.closed) continue
-
-    const openDate = sgtNow()
-    openDate.setDate(openDate.getDate() + offset)
-    const [oh, om] = hours.open.split(':').map(Number)
-    openDate.setHours(oh || 0, om || 0, 0, 0)
-
-    if (offset === 0) {
-      if (nowMin < hhmmToMinutes(hours.open)) return openDate
-    } else {
-      return openDate
+function getNextOpenTime(merchant: { operatingHours?: any }): Date | null {
+  try {
+    if (!merchant.operatingHours || typeof merchant.operatingHours !== 'object') return null
+    
+    const now = sgtNow()
+    
+    // Validate the date
+    if (isNaN(now.getTime())) {
+      console.error('Invalid date from sgtNow()')
+      return null
     }
+    
+    const nowMin = minutesNowSGT()
+    const todayIdx = now.getDay()
+    
+    if (!isDayIndex(todayIdx)) {
+      console.error(`Invalid day index: ${todayIdx}`)
+      return null
+    }
+    
+    // Check next 7 days
+    for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+      const checkIdx = (todayIdx + dayOffset) % 7
+      if (!isDayIndex(checkIdx)) continue
+      
+      const dayKey = DAY_KEY_BY_INDEX[checkIdx]
+      const hours = merchant.operatingHours[dayKey]
+      
+      if (!hours || hours.closed || !hours.open) continue
+      
+      const [openHour, openMin] = hours.open.split(':').map(Number)
+      if (isNaN(openHour) || isNaN(openMin)) continue
+      
+      const openDate = new Date(now)
+      openDate.setDate(openDate.getDate() + dayOffset)
+      openDate.setHours(openHour, openMin, 0, 0)
+      
+      // If this is today and we haven't reached opening time yet
+      if (dayOffset === 0 && nowMin < hhmmToMinutes(hours.open)) {
+        return openDate
+      }
+      
+      // If this is a future day
+      if (dayOffset > 0) {
+        return openDate
+      }
+    }
+    
+    return null
+  } catch (error) {
+    console.error('Error getting next open time:', error)
+    return null
   }
-  return null
 }
 
 /* =========================

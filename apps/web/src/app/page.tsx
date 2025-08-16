@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import Link from 'next/link'
 import { MerchantMap } from '@/components/map/merchant-map'
 import { MapSearchHeader, FilterState } from '@/components/map/map-search-header'
 import { MerchantListSidebar } from '@/components/map/merchant-list-sidebar'
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@kitchencloud/ui'
-import type { LngLatBounds } from 'react-map-gl/mapbox'
-import { api } from './api/trpc/client'
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup, Button } from '@kitchencloud/ui'
+import { Store, ArrowRight } from 'lucide-react'
+import { api } from '@/lib/trpc/client'
+import { LngLatBounds } from 'react-map-gl/mapbox'
 
 export default function HomePage() {
   const [selectedMerchantId, setSelectedMerchantId] = useState<string | null>(null)
@@ -56,6 +58,24 @@ export default function HomePage() {
 
   return (
     <div className="h-screen flex flex-col">
+      {/* Merchant Registration Banner */}
+      <div className="bg-primary/10 border-b border-primary/20">
+        <div className="container mx-auto px-4 py-2">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div className="flex items-center gap-3 text-sm">
+              <Store className="h-5 w-5 text-primary flex-shrink-0" />
+              <span className="font-medium text-primary">Are you a home-based food business?</span>
+            </div>
+            <Link href="/auth">
+              <Button size="sm" variant="default" className="gap-2">
+                Start Selling Today
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+
       {/* Search Header */}
       <MapSearchHeader
         onSearch={handleSearch}
@@ -107,6 +127,14 @@ export default function HomePage() {
           />
         </div>
       </div>
+
+      {/* Optional: Floating Merchant CTA for Mobile */}
+      <Link href="/auth" className="md:hidden fixed bottom-4 right-4 z-20">
+        <Button size="sm" className="shadow-lg gap-2">
+          <Store className="h-4 w-4" />
+          Sell on KitchenCloud
+        </Button>
+      </Link>
     </div>
   )
 }
