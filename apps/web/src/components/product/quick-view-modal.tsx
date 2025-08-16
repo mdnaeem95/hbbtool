@@ -60,6 +60,12 @@ export function QuickViewModal({
   return (
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="sr-only">
+          <DialogTitle>
+            {product?.name || "Product Details"}
+          </DialogTitle>
+        </DialogHeader>
+
         {isLoading ? (
           <div className="flex h-96 items-center justify-center">
             <Spinner className="h-8 w-8" />
@@ -111,7 +117,7 @@ export function QuickViewModal({
             <div className="space-y-6">
               <div>
                 <DialogHeader>
-                  <DialogTitle className="text-2xl">{product.name}</DialogTitle>
+                  <h2 className="text-2xl">{product.name}</h2>
                 </DialogHeader>
                 
                 {product.category && (

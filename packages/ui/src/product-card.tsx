@@ -68,7 +68,7 @@ export function ProductCard({
 
   return (
     <Card
-      className={cn(productCardVariants({ variant }), className)}
+      className={cn(productCardVariants({ variant }), "flex flex-col h-full", className)}
       {...props}
     >
       {/* Image Container */}
@@ -130,32 +130,29 @@ export function ProductCard({
         />
       </div>
 
-      <CardContent className="p-4">
-        {/* Merchant Name */}
-        {showMerchant && product.merchant && (
-          <p className="mb-1 text-xs text-muted-foreground">
-            {product.merchant.name}
-          </p>
-        )}
+      <CardContent className="flex flex-col flex-1 p-4">
+        {/* Product info section - flex-1 to take available space */}
+        <div className="flex-1 space-y-1">
+          <h3 className="font-semibold line-clamp-1">{product.name}</h3>
+          
+          {variant === "default" && product.description && (
+            <p className="text-sm text-muted-foreground line-clamp-2">
+              {product.description}
+            </p>
+          )}
+          
+          {showMerchant && product.merchant && (
+            <p className="text-xs text-muted-foreground">by {product.merchant.name}</p>
+          )}
+          
+          {isLowStock && isAvailable && (
+            <p className="text-xs font-medium text-orange-600">
+              Only {product.inventory} left
+            </p>
+          )}
+        </div>
 
-        {/* Product Name */}
-        <h3 className="font-semibold line-clamp-1">{product.name}</h3>
-
-        {/* Description */}
-        {variant === "default" && product.description && (
-          <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-            {product.description}
-          </p>
-        )}
-
-        {/* Stock Indicator */}
-        {isLowStock && (
-          <p className="mt-1 text-xs text-orange-600">
-            Only {product.inventory} left
-          </p>
-        )}
-
-        {/* Price and Actions */}
+        {/* Price and Actions - Always at bottom */}
         <div className="mt-3 flex items-center justify-between">
           <div>
             <span className="text-lg font-bold">${product.price.toFixed(2)}</span>

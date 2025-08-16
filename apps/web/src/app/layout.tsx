@@ -55,6 +55,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <TRPCProvider>
           {children}
+          <div id="portal-root"></div>
           <Toaster />
         </TRPCProvider>
       </body>
