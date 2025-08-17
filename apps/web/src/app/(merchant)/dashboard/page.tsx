@@ -1,25 +1,54 @@
-import { Suspense } from "react"
+'use client'
+
+import { useEffect } from "react"
 import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
 import { DashboardStats, RecentOrders, PopularProducts, QuickStats } from "@/components/merchant"
-import { AlertCircle, ArrowUpRight } from "lucide-react"
+import { AlertCircle, ArrowUpRight, Loader2 } from "lucide-react"
 import { Alert, AlertDescription, Button, Card, CardContent, CardHeader, Skeleton } from "@kitchencloud/ui"
 import Link from "next/link"
-import { getServerCaller } from "@/app/api/trpc/server"
+import { api } from "@/lib/trpc/client"
+import { useAuth } from "@/hooks/use-auth"
 
-export default async function DashboardPage() {
-  // Verify authentication
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+export default function DashboardPage() {
+  const { user, isLoading: authLoading, userType } = useAuth()
+  
+  // Fetch dashboard data
+  const { data: dashboardData, isLoading, error } = api.merchant.getDashboard.useQuery(
+    undefined,
+    {
+      enabled: !!user && userType === 'merchant',
+    }
+  )
 
-  if (!user) {
-    redirect("/login?redirect=/dashboard")
+  // Handle authentication
+  useEffect(() => {
+    if (!authLoading && (!user || userType !== 'merchant')) {
+      redirect("/login?redirect=/dashboard")
+    }
+  }, [authLoading, user, userType])
+
+  // Show loading state
+  if (authLoading || isLoading) {
+    return <DashboardLoadingState />
   }
 
-  const api = await getServerCaller()
+  // Handle errors
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Failed to load dashboard data. Please try refreshing the page.
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
 
-  // Fetch dashboard data
-  const dashboardData = await api.merchant.getDashboard()
+  if (!dashboardData) {
+    return null
+  }
 
   return (
     <div className="space-y-8">
@@ -27,7 +56,7 @@ export default async function DashboardPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Welcome back! Here's what's happening with your business today.
+          Welcome back, {dashboardData.merchant.businessName}! Here's what's happening with your business today.
         </p>
       </div>
 
@@ -50,32 +79,56 @@ export default async function DashboardPage() {
       )}
 
       {/* Stats Grid */}
-      <Suspense fallback={<DashboardStatsSkeleton />}>
-        <DashboardStats merchantId={dashboardData.merchantId} />
-      </Suspense>
+      <DashboardStats stats={dashboardData.stats} />
 
       {/* Content Grid */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Recent Orders */}
-        <Suspense fallback={<RecentOrdersSkeleton />}>
-          <RecentOrders merchantId={dashboardData.merchantId} />
-        </Suspense>
+        <RecentOrders orders={dashboardData.recentOrders} />
 
         {/* Popular Products */}
-        <Suspense fallback={<PopularProductsSkeleton />}>
-          <PopularProducts merchantId={dashboardData.merchantId} />
-        </Suspense>
+        <PopularProducts topProducts={dashboardData.topProducts} />
       </div>
 
       {/* Quick Stats */}
-      <Suspense fallback={<QuickStatsSkeleton />}>
-        <QuickStats merchantId={dashboardData.merchantId} />
-      </Suspense>
+      <QuickStats stats={dashboardData.stats} />
     </div>
   )
 }
 
-// Loading skeletons
+// Full page loading state
+function DashboardLoadingState() {
+  return (
+    <div className="space-y-8">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Loading your dashboard...
+        </p>
+      </div>
+
+      {/* Loading spinner */}
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+
+      {/* Stats Grid Skeleton */}
+      <DashboardStatsSkeleton />
+
+      {/* Content Grid Skeleton */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <RecentOrdersSkeleton />
+        <PopularProductsSkeleton />
+      </div>
+
+      {/* Quick Stats Skeleton */}
+      <QuickStatsSkeleton />
+    </div>
+  )
+}
+
+// Loading skeletons - exported from here
 export function DashboardStatsSkeleton() {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

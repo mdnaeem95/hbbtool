@@ -7,6 +7,7 @@ import type {
   SupabaseLike,
   SupabaseAuthAPI,
 } from '../types'
+import { SupabaseClient } from '@supabase/supabase-js'
 
 type HeadersLike = Headers | (Record<string, string> & { get?: never })
 
@@ -36,6 +37,53 @@ function makeSupabaseStub(): SupabaseLike {
   return { auth }
 }
 
+// adapter to convert real supabase client to supabaselike interface
+function adaptSupabaseClient(client: SupabaseClient): SupabaseLike {
+  return {
+    auth: {
+      async signUp(args: { email: string; password: string; options?: { data?: Record<string, unknown> } }) {
+        const { data, error } = await client.auth.signUp({
+          email: args.email,
+          password: args.password,
+          options: args.options,
+        })
+        return {
+          data: {
+            user: data.user ? {
+              id: data.user.id,
+              email: data.user.email,
+              user_metadata: data.user.user_metadata,
+            } : null,
+            session: data.session as any, // Keep session loose
+          },
+          error: error ? { message: error.message } : null,
+        }
+      },
+      async signInWithPassword(args: { email: string; password: string }) {
+        const { data, error } = await client.auth.signInWithPassword({
+          email: args.email,
+          password: args.password,
+        })
+        return {
+          data: {
+            user: data.user ? {
+              id: data.user.id,
+              email: data.user.email,
+              user_metadata: data.user.user_metadata,
+            } : null,
+            session: data.session as any, // Keep session loose
+          },
+          error: error ? { message: error.message } : null,
+        }
+      },
+      async signOut() {
+        const { error } = await client.auth.signOut()
+        return { error: error ? { message: error.message } : null }
+      },
+    },
+  }
+}
+
 /**
  * Create tRPC context for the Fetch adapter (Next.js App Router).
  * Falls back to a no-auth stub if Next request scope isn't available
@@ -51,8 +99,9 @@ export async function createTRPCContext(
 
   try {
     // This will throw if called outside a Next request scope
-    const sb = createServerSupabaseClient()
-    supabase = sb as unknown as SupabaseLike
+    const sb = await createServerSupabaseClient()
+    // use th adapter to convert real supabase client to supabaseLike
+    supabase = adaptSupabaseClient(sb)
     session = (await getServerSession()) as AppSession | null
   } catch (err) {
     if (process.env.NODE_ENV !== 'production') {

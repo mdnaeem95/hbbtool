@@ -1,36 +1,71 @@
+'use client'
+
+import { useEffect } from "react"
 import { redirect } from "next/navigation"
 import { MerchantSidebar, MerchantHeader, MerchantMobileNav } from "@/components/merchant"
+import { useAuth } from "@/hooks/use-auth"
+import { api } from "@/lib/trpc/client"
+import { Loader2 } from "lucide-react"
 
-import { createClient } from "@/lib/supabase/server"
-import { getServerCaller } from "../api/trpc/server"
-
-export default async function MerchantLayout({
+export default function MerchantLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  // Check authentication
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { user, isLoading: authLoading, userType } = useAuth()
+  
+  // Fetch merchant dashboard data
+  const { data: dashboardData, isLoading: dashboardLoading, error } = api.merchant.getDashboard.useQuery(
+    undefined,
+    {
+      enabled: !!user && userType === 'merchant',
+    }
+  )
 
-  if (!user) {
-    redirect("/login?redirect=/dashboard")
+  // Handle authentication
+  useEffect(() => {
+    if (!authLoading && (!user || userType !== 'merchant')) {
+      redirect("/login?redirect=/dashboard")
+    }
+  }, [authLoading, user, userType])
+
+  // Handle merchant verification errors (user is not a merchant)
+  useEffect(() => {
+    if (error?.data?.code === 'FORBIDDEN' || error?.data?.code === 'UNAUTHORIZED') {
+      redirect("/")
+    }
+  }, [error])
+
+  // Show loading state
+  if (authLoading || dashboardLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-4" />
+          <p className="text-sm text-muted-foreground">Loading your dashboard...</p>
+        </div>
+      </div>
+    )
   }
 
-  // Fetch merchant data
-  let dashboardData
-  try {
-    const api = await getServerCaller()
-    dashboardData = await api.merchant.getDashboard()
-  } catch (error) {
-    // If user is not a merchant, redirect to customer area
-    redirect("/")
+  // If no dashboard data at this point, something went wrong
+  if (!dashboardData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">Unable to load merchant data</p>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Desktop sidebar */}
-      <MerchantSidebar dashboardData={dashboardData} className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:block lg:w-64" />
+      <MerchantSidebar 
+        dashboardData={dashboardData} 
+        className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:block lg:w-64" 
+      />
       
       {/* Mobile navigation */}
       <MerchantMobileNav dashboardData={dashboardData} />

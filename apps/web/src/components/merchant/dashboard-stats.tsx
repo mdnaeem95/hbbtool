@@ -1,5 +1,5 @@
+'use client'
 
-import { getServerCaller } from "@/app/api/trpc/server"
 import { Card, CardContent } from "@kitchencloud/ui"
 import {
   TrendingUp,
@@ -11,7 +11,11 @@ import {
 } from "lucide-react"
 
 interface DashboardStatsProps {
-  merchantId: string
+  stats: {
+    totalOrders: number
+    pendingOrders: number
+    revenue: any // Can be number or Prisma Decimal
+  }
 }
 
 interface StatCardProps {
@@ -22,6 +26,15 @@ interface StatCardProps {
   icon: React.ElementType
   iconColor: string
   iconBgColor: string
+}
+
+// Helper function to convert Prisma Decimal to number
+function toNumber(value: any): number {
+  if (typeof value === 'number') return value
+  if (value && typeof value === 'object' && 'toNumber' in value) {
+    return value.toNumber()
+  }
+  return Number(value || 0)
 }
 
 function StatCard({
@@ -67,20 +80,11 @@ function StatCard({
   )
 }
 
-export async function DashboardStats({ merchantId }: DashboardStatsProps) {
-  // Fetch dashboard data
-  const api = await getServerCaller()
-  const dashboardData = await api.merchant.getDashboard()
-  console.log(`Merchant Id: ${merchantId}`)
-  const { stats } = dashboardData
-
-  // Convert revenue to a number (in case it's a Decimal object)
-  const monthRevenue = typeof stats.revenue === 'object' && 'toNumber' in stats.revenue 
-    ? stats.revenue.toNumber() 
-    : Number(stats.revenue)
+export function DashboardStats({ stats }: DashboardStatsProps) {
+  // Convert revenue to a number
+  const monthRevenue = toNumber(stats.revenue)
 
   // Calculate week-over-week changes (mock data for now)
-  // In a real app, you'd fetch historical data and calculate actual changes
   const weeklyStats = {
     revenueChange: "+12.5%",
     revenueTrend: "up" as const,
@@ -90,10 +94,8 @@ export async function DashboardStats({ merchantId }: DashboardStatsProps) {
     customersTrend: "up" as const,
   }
 
-  // Get additional data if needed
-  // For now, using the month-to-date data from getDashboard
-  const merchant = await api.merchant.get()
-  const totalCustomers = merchant._count?.reviews || 0
+  // Mock review count for now
+  const totalReviews = 20
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -124,7 +126,7 @@ export async function DashboardStats({ merchantId }: DashboardStatsProps) {
       />
       <StatCard
         title="Total Reviews"
-        value={totalCustomers}
+        value={totalReviews}
         change={weeklyStats.customersChange}
         trend={weeklyStats.customersTrend}
         icon={Users}

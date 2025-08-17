@@ -247,7 +247,19 @@ export const merchantRouter = router({
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
-    const [ordersByStatus, revenueAgg, recentOrders, topProducts] = await Promise.all([
+    const [merchant, ordersByStatus, revenueAgg, recentOrders, topProducts] = await Promise.all([
+      // add merchant query
+      ctx.db.merchant.findUnique({
+        where: { id: merchantId },
+        select: {
+          id: true,
+          businessName: true,
+          logoUrl: true,
+          email: true,
+          phone: true,
+          status: true
+        }
+      }),
       ctx.db.order.groupBy({
         by: ['status'],
         where: { merchantId, createdAt: { gte: startOfMonth } },
@@ -272,12 +284,15 @@ export const merchantRouter = router({
       }),
     ])
 
+    if (!merchant) throw new TRPCError({ code: "NOT_FOUND", message: "Merchant not found" })
+
     const totalOrders = ordersByStatus.reduce((s, o) => s + (o._count?._all ?? 0), 0)
     const pendingOrders = ordersByStatus.find(o => o.status === 'PENDING')?._count?._all ?? 0
     const revenue = revenueAgg._sum.total ? Number(revenueAgg._sum.total) : 0
 
     return {
       merchantId,
+      merchant,
       stats: { totalOrders, pendingOrders, revenue },
       ordersByStatus,
       recentOrders,

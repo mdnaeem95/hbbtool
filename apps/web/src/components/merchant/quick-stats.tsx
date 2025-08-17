@@ -1,4 +1,5 @@
-import { getServerCaller } from "@/app/api/trpc/server"
+'use client'
+
 import { Card, CardContent } from "@kitchencloud/ui"
 import {
   CheckCircle,
@@ -10,7 +11,9 @@ import {
 } from "lucide-react"
 
 interface QuickStatsProps {
-  merchantId: string
+  stats: {
+    pendingOrders: number
+  }
 }
 
 interface StatItemProps {
@@ -46,20 +49,14 @@ function StatItem({
   )
 }
 
-export async function QuickStats({ merchantId }: QuickStatsProps) {
-  // Fetch dashboard data and additional stats
-  const api = await getServerCaller()
-  const dashboardData = await api.merchant.getDashboard()
-  const { stats } = dashboardData
-  console.log(`Merchant Id: ${merchantId}`)
-
-  // Calculate completion rate (mock data for now)
+export function QuickStats({ stats }: QuickStatsProps) {
+  // Mock data for now - in a real app, these would come from the API
   const completionRate = 98.5
   const avgPreparationTime = 45
   const avgRating = 4.8
-
-  // Calculate monthly growth (mock data)
   const monthlyGrowth = 15.2
+  const activeProducts = 10
+  const reviewCount = 20
 
   return (
     <Card>
@@ -85,7 +82,7 @@ export async function QuickStats({ merchantId }: QuickStatsProps) {
             icon={Package}
             iconColor="text-purple-600"
             iconBgColor="bg-purple-50"
-            value={10}
+            value={activeProducts}
             label="Active Products"
           />
           <StatItem
@@ -94,7 +91,7 @@ export async function QuickStats({ merchantId }: QuickStatsProps) {
             iconBgColor="bg-yellow-50"
             value={avgRating}
             label="Average Rating"
-            subLabel={`${20} reviews`}
+            subLabel={`${reviewCount} reviews`}
           />
           <StatItem
             icon={TrendingUp}
