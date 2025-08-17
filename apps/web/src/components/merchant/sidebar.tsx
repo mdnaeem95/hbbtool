@@ -33,7 +33,7 @@ export function MerchantSidebar({ dashboardData, className }: MerchantSidebarPro
     },
     {
       name: "Orders",
-      href: "/orders",
+      href: "/dashboard/orders",
       icon: ShoppingBag,
       badge: dashboardData.stats.pendingOrders,
     },

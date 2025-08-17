@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { getServerCaller } from '../api/trpc/server'
+import { db } from '@kitchencloud/database'
 
 export async function verifyMerchantAccess() {
   const supabase = createClient()
@@ -16,13 +16,20 @@ export async function verifyMerchantAccess() {
     redirect('/')
   }
 
-  // Verify merchant exists and is active
+  // Verify merchant exists and is active directly from database
   try {
-    const trpc = await getServerCaller()
-    const merchant = await trpc.merchant.get()
-    if (!merchant || merchant.status !== 'ACTIVE') {
+    const merchant = await db.merchant.findFirst({
+      where: { 
+        id: user.id, 
+        deletedAt: null,
+        status: 'ACTIVE'
+      }
+    })
+    
+    if (!merchant) {
       throw new Error('Merchant account is not active')
     }
+    
     return merchant
   } catch (error) {
     redirect('/merchant/inactive')
@@ -38,8 +45,18 @@ export async function getMerchantSession() {
   }
 
   try {
-    const trpc = await getServerCaller()
-    const merchant = await trpc.merchant.get()
+    const merchant = await db.merchant.findFirst({
+      where: { 
+        id: user.id, 
+        deletedAt: null,
+        status: 'ACTIVE'
+      }
+    })
+    
+    if (!merchant) {
+      return null
+    }
+    
     return {
       user: {
         id: user.id,
