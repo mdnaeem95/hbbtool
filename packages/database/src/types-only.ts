@@ -6,6 +6,7 @@
 export enum ProductStatus {
   ACTIVE = "ACTIVE",
   DRAFT = "DRAFT",
+  SOLD_OUT = "SOLD_OUT",
   DISCONTINUED = "DISCONTINUED"
 }
 
