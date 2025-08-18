@@ -11,7 +11,6 @@ import { OrderStatus } from "@kitchencloud/database"
 import { RouterOutputs } from "@/lib/trpc/types"
 import { KanbanCard } from "./kanban-card"
 
-
 type Order = RouterOutputs["order"]["list"]["items"][0]
 
 interface KanbanColumnProps {
@@ -26,9 +25,17 @@ interface KanbanColumnProps {
   isLoading: boolean
   isDragging?: boolean
   activeOrder?: Order | null
+  onOrderClick?: (order: Order) => void
 }
 
-export function KanbanColumn({ column, orders, isLoading, isDragging = false, activeOrder }: KanbanColumnProps) {
+export function KanbanColumn({ 
+  column, 
+  orders, 
+  isLoading, 
+  isDragging = false, 
+  activeOrder,
+  onOrderClick 
+}: KanbanColumnProps) {
   const { setNodeRef, isOver, active } = useDroppable({
     id: column.id,
   })
@@ -48,7 +55,7 @@ export function KanbanColumn({ column, orders, isLoading, isDragging = false, ac
   // Check if this column can accept the dragging order
   const canAcceptDrop = useMemo(() => {
     if (!activeOrder) return false
-    return column.acceptsFrom.includes(activeOrder.status)
+    return column.acceptsFrom.includes(activeOrder.status as OrderStatus)
   }, [activeOrder, column.acceptsFrom])
 
   const isValidDropTarget = isDragging && canAcceptDrop
@@ -108,7 +115,9 @@ export function KanbanColumn({ column, orders, isLoading, isDragging = false, ac
               </div>
             ) : (
               orders.map((order) => (
-                <KanbanCard key={order.id} order={order} />
+                <div key={order.id} onClick={() => onOrderClick?.(order)}>
+                  <KanbanCard order={order} />
+                </div>
               ))
             )}
           </div>

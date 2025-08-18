@@ -1,5 +1,5 @@
 import { Badge, BadgeProps } from "@kitchencloud/ui"
-import { OrderStatus } from "@kitchencloud/database"
+import { OrderStatus } from "@kitchencloud/database/types"
 
 interface OrderStatusBadgeProps {
   status: OrderStatus

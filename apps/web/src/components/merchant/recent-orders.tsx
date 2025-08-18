@@ -4,7 +4,7 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge, BadgeProps } from "@kitchencloud/ui"
 import { formatDistanceToNow } from "date-fns"
 import { ArrowUpRight } from "lucide-react"
-import { OrderStatus } from "@kitchencloud/database"
+import { OrderStatus } from "@kitchencloud/database/types"
 
 interface RecentOrdersProps {
   orders: Array<{

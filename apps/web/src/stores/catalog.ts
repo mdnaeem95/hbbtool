@@ -258,7 +258,7 @@ export const useCatalogStore = create<CatalogState & CatalogActions>()(
 
           // Available filter
           if (filters.available) {
-            if (product.status !== "ACTIVE" || product.quantity === 0) {
+            if (product.status !== "ACTIVE" || product.inventory === 0) {
               return false
             }
           }
@@ -275,7 +275,7 @@ export const useCatalogStore = create<CatalogState & CatalogActions>()(
 
           // Preparation time filter
           if (filters.preparationTime) {
-            if (product.preparationTime !== filters.preparationTime) {
+            if (product.preparationTime !== Number(filters.preparationTime)) {
               return false
             }
           }

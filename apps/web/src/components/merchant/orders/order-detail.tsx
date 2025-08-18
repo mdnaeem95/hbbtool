@@ -26,7 +26,7 @@ import {
   ChefHat,
 } from "lucide-react"
 import { api } from "@/lib/trpc/client"
-import { OrderStatus } from "@kitchencloud/database"
+import { OrderStatus } from "@kitchencloud/database/types"
 import { RouterOutputs } from "@/lib/trpc/types"
 import { OrderStatusBadge } from "./order-status-badge"
 import { useOrderStore } from "@/stores/order-store"

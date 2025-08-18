@@ -16,7 +16,7 @@ import {
   Badge,
 } from "@kitchencloud/ui"
 import { Search, X, Calendar, Download } from "lucide-react"
-import { OrderStatus } from "@kitchencloud/database"
+import { OrderStatus } from "@kitchencloud/database/types"
 import { format } from "date-fns"
 import { Calendar as CalendarComponent } from "@kitchencloud/ui"
 
@@ -33,15 +33,15 @@ interface OrderFiltersProps {
 }
 
 const statusOptions: { value: OrderStatus; label: string; color: string }[] = [
-  { value: "PENDING", label: "Pending", color: "bg-yellow-100 text-yellow-800" },
-  { value: "CONFIRMED", label: "Confirmed", color: "bg-blue-100 text-blue-800" },
-  { value: "PREPARING", label: "Preparing", color: "bg-purple-100 text-purple-800" },
-  { value: "READY", label: "Ready", color: "bg-green-100 text-green-800" },
-  { value: "OUT_FOR_DELIVERY", label: "Out for Delivery", color: "bg-orange-100 text-orange-800" },
-  { value: "DELIVERED", label: "Delivered", color: "bg-teal-100 text-teal-800" },
-  { value: "COMPLETED", label: "Completed", color: "bg-gray-100 text-gray-800" },
-  { value: "CANCELLED", label: "Cancelled", color: "bg-red-100 text-red-800" },
-  { value: "REFUNDED", label: "Refunded", color: "bg-pink-100 text-pink-800" },
+  { value: OrderStatus.PENDING, label: "Pending", color: "bg-yellow-100 text-yellow-800" },
+  { value: OrderStatus.CONFIRMED, label: "Confirmed", color: "bg-blue-100 text-blue-800" },
+  { value: OrderStatus.PREPARING, label: "Preparing", color: "bg-purple-100 text-purple-800" },
+  { value: OrderStatus.READY, label: "Ready", color: "bg-green-100 text-green-800" },
+  { value: OrderStatus.OUT_FOR_DELIVERY, label: "Out for Delivery", color: "bg-orange-100 text-orange-800" },
+  { value: OrderStatus.DELIVERED, label: "Delivered", color: "bg-teal-100 text-teal-800" },
+  { value: OrderStatus.COMPLETED, label: "Completed", color: "bg-gray-100 text-gray-800" },
+  { value: OrderStatus.CANCELLED, label: "Cancelled", color: "bg-red-100 text-red-800" },
+  { value: OrderStatus.REFUNDED, label: "Refunded", color: "bg-pink-100 text-pink-800" },
 ]
 
 export function OrderFilters({

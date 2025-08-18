@@ -4,7 +4,15 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
-    "./client": "./src/client.ts"
+    "./client": "./src/client.ts",
+    "./types": "./src/types-only.ts"
+  },
+    "typesVersions": {
+    "*": {
+      "types": ["src/types-only.ts"],
+      "client": ["src/client.ts"],
+      "*": ["src/index.ts"]
+    }
   },
   "scripts": {
     "db:migrate:dev": "prisma migrate dev",

@@ -8,6 +8,7 @@ import { Alert, AlertDescription, Button, Card, CardContent, CardHeader, Skeleto
 import Link from "next/link"
 import { api } from "@/lib/trpc/client"
 import { useAuth } from "@/hooks/use-auth"
+import { OrderStreamProvider } from "@/providers/order-stream-provider"
 
 export default function DashboardPage() {
   const { user, isLoading: authLoading, userType } = useAuth()
@@ -51,48 +52,50 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Welcome back, {dashboardData.merchant.businessName}! Here's what's happening with your business today.
-        </p>
+    <OrderStreamProvider>
+      <div className="space-y-8">
+        {/* Page Header */}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Welcome back, {dashboardData.merchant.businessName}! Here's what's happening with your business today.
+          </p>
+        </div>
+
+        {/* Pending Orders Alert */}
+        {dashboardData.stats.pendingOrders > 0 && (
+          <Alert className="border-orange-200 bg-orange-50">
+            <AlertCircle className="h-4 w-4 text-orange-600" />
+            <AlertDescription className="flex items-center justify-between">
+              <span className="text-sm font-medium text-orange-900">
+                You have {dashboardData.stats.pendingOrders} orders waiting for confirmation
+              </span>
+              <Button asChild size="sm" variant="outline" className="ml-4">
+                <Link href="/orders?status=pending">
+                  View Orders
+                  <ArrowUpRight className="ml-1 h-4 w-4" />
+                </Link>
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Stats Grid */}
+        <DashboardStats stats={dashboardData.stats} />
+
+        {/* Content Grid */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Recent Orders */}
+          <RecentOrders orders={dashboardData.recentOrders} />
+
+          {/* Popular Products */}
+          <PopularProducts topProducts={dashboardData.topProducts} />
+        </div>
+
+        {/* Quick Stats */}
+        <QuickStats stats={dashboardData.stats} />
       </div>
-
-      {/* Pending Orders Alert */}
-      {dashboardData.stats.pendingOrders > 0 && (
-        <Alert className="border-orange-200 bg-orange-50">
-          <AlertCircle className="h-4 w-4 text-orange-600" />
-          <AlertDescription className="flex items-center justify-between">
-            <span className="text-sm font-medium text-orange-900">
-              You have {dashboardData.stats.pendingOrders} orders waiting for confirmation
-            </span>
-            <Button asChild size="sm" variant="outline" className="ml-4">
-              <Link href="/orders?status=pending">
-                View Orders
-                <ArrowUpRight className="ml-1 h-4 w-4" />
-              </Link>
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Stats Grid */}
-      <DashboardStats stats={dashboardData.stats} />
-
-      {/* Content Grid */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Recent Orders */}
-        <RecentOrders orders={dashboardData.recentOrders} />
-
-        {/* Popular Products */}
-        <PopularProducts topProducts={dashboardData.topProducts} />
-      </div>
-
-      {/* Quick Stats */}
-      <QuickStats stats={dashboardData.stats} />
-    </div>
+    </OrderStreamProvider>
   )
 }
 

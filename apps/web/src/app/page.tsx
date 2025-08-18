@@ -95,7 +95,7 @@ export default function HomePage() {
               </span>
             </div>
             <Button size="sm" variant="outline" asChild>
-              <Link href="/merchant/register">
+              <Link href="/auth">
                 Register Now
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>

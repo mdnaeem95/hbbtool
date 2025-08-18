@@ -31,9 +31,9 @@ import {
   AlertTriangle,
   Printer,
 } from "lucide-react"
-import { OrderStatus } from "@kitchencloud/database"
 import { useToast } from "@kitchencloud/ui"
 import { RouterOutputs } from "@/lib/trpc/types"
+import { OrderStatus } from "@kitchencloud/database/types"
 
 type Order = RouterOutputs["order"]["list"]["items"][0] | RouterOutputs["order"]["get"]
 
@@ -46,37 +46,37 @@ interface OrderActionsProps {
 // Define allowed transitions
 const STATUS_TRANSITIONS: Record<OrderStatus, Array<{ status: OrderStatus; label: string; icon: any; variant?: any }>> = {
   PENDING: [
-    { status: "CONFIRMED", label: "Confirm Order", icon: CheckCircle, variant: "default" },
-    { status: "CANCELLED", label: "Cancel Order", icon: XCircle, variant: "destructive" },
+    { status: OrderStatus.CONFIRMED, label: "Confirm Order", icon: CheckCircle, variant: "default" },
+    { status: OrderStatus.CANCELLED, label: "Cancel Order", icon: XCircle, variant: "destructive" },
   ],
   CONFIRMED: [
-    { status: "PREPARING", label: "Start Preparing", icon: ChefHat, variant: "default" },
-    { status: "READY", label: "Mark as Ready", icon: Package, variant: "default" },
-    { status: "CANCELLED", label: "Cancel Order", icon: XCircle, variant: "destructive" },
+    { status: OrderStatus.PREPARING, label: "Start Preparing", icon: ChefHat, variant: "default" },
+    { status: OrderStatus.READY, label: "Mark as Ready", icon: Package, variant: "default" },
+    { status: OrderStatus.CANCELLED, label: "Cancel Order", icon: XCircle, variant: "destructive" },
   ],
   PREPARING: [
-    { status: "READY", label: "Mark as Ready", icon: Package, variant: "default" },
-    { status: "CANCELLED", label: "Cancel Order", icon: XCircle, variant: "destructive" },
+    { status: OrderStatus.READY, label: "Mark as Ready", icon: Package, variant: "default" },
+    { status: OrderStatus.CANCELLED, label: "Cancel Order", icon: XCircle, variant: "destructive" },
   ],
   READY: [
-    { status: "OUT_FOR_DELIVERY", label: "Out for Delivery", icon: Truck, variant: "default" },
-    { status: "DELIVERED", label: "Mark Delivered", icon: CheckCircle, variant: "default" },
-    { status: "COMPLETED", label: "Complete Order", icon: CheckCircle, variant: "default" },
-    { status: "CANCELLED", label: "Cancel Order", icon: XCircle, variant: "destructive" },
+    { status: OrderStatus.OUT_FOR_DELIVERY, label: "Out for Delivery", icon: Truck, variant: "default" },
+    { status: OrderStatus.DELIVERED, label: "Mark Delivered", icon: CheckCircle, variant: "default" },
+    { status: OrderStatus.COMPLETED, label: "Complete Order", icon: CheckCircle, variant: "default" },
+    { status: OrderStatus.CANCELLED, label: "Cancel Order", icon: XCircle, variant: "destructive" },
   ],
   OUT_FOR_DELIVERY: [
-    { status: "DELIVERED", label: "Mark Delivered", icon: CheckCircle, variant: "default" },
-    { status: "CANCELLED", label: "Cancel Order", icon: XCircle, variant: "destructive" },
+    { status: OrderStatus.DELIVERED, label: "Mark Delivered", icon: CheckCircle, variant: "default" },
+    { status: OrderStatus.CANCELLED, label: "Cancel Order", icon: XCircle, variant: "destructive" },
   ],
   DELIVERED: [
-    { status: "COMPLETED", label: "Complete Order", icon: CheckCircle, variant: "default" },
-    { status: "REFUNDED", label: "Process Refund", icon: DollarSign, variant: "destructive" },
+    { status: OrderStatus.COMPLETED, label: "Complete Order", icon: CheckCircle, variant: "default" },
+    { status: OrderStatus.REFUNDED, label: "Process Refund", icon: DollarSign, variant: "destructive" },
   ],
   COMPLETED: [
-    { status: "REFUNDED", label: "Process Refund", icon: DollarSign, variant: "destructive" },
+    { status: OrderStatus.REFUNDED, label: "Process Refund", icon: DollarSign, variant: "destructive" },
   ],
   CANCELLED: [
-    { status: "REFUNDED", label: "Process Refund", icon: DollarSign, variant: "destructive" },
+    { status: OrderStatus.REFUNDED, label: "Process Refund", icon: DollarSign, variant: "destructive" },
   ],
   REFUNDED: [],
 }
@@ -109,7 +109,7 @@ export function OrderActions({ order, onStatusUpdate, isUpdating }: OrderActions
   }
 
   const handleCancel = () => {
-    onStatusUpdate("CANCELLED")
+    onStatusUpdate(OrderStatus.CANCELLED)
     toast({
       title: "Order Cancelled",
       description: "The order has been cancelled",
@@ -120,7 +120,7 @@ export function OrderActions({ order, onStatusUpdate, isUpdating }: OrderActions
   }
 
   const handleRefund = () => {
-    onStatusUpdate("REFUNDED")
+    onStatusUpdate(OrderStatus.REFUNDED)
     toast({
       title: "Refund Processed",
       description: "The refund has been initiated",

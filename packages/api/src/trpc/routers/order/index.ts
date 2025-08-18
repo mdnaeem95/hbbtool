@@ -8,6 +8,8 @@ import {
   orderIncludes,
   Prisma,
 } from '@kitchencloud/database'
+import { Parser } from 'json2csv'
+import { canUpdateOrderStatus } from '../../../lib/helpers/order'
 
 /* =========================
    Zod
@@ -206,4 +208,239 @@ export const orderRouter = router({
         }
       )
     }),
+
+  /** -------- Bulk update status (merchant) -------- */
+  bulkUpdateStatus: merchantProcedure
+    .input(z.object({
+      orderIds: z.array(z.string().cuid()).min(1).max(100),
+      status: z.nativeEnum(OrderStatus),
+      notes: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const merchantId = ctx.session!.user.id
+      
+      // Fetch all orders to validate ownership and transitions
+      const orders = await ctx.db.order.findMany({
+        where: {
+          id: { in: input.orderIds },
+          merchantId,
+        },
+        select: {
+          id: true,
+          status: true,
+          deliveryMethod: true,
+        },
+      })
+      
+      if (orders.length === 0) {
+        throw new TRPCError({ 
+          code: 'NOT_FOUND',
+          message: 'No valid orders found',
+        })
+      }
+      
+      // Filter orders that can be transitioned
+      const validOrders = orders.filter(order => {
+        const isPickup = order.deliveryMethod === 'PICKUP'
+        return canUpdateOrderStatus(
+          order.status as OrderStatus,
+          input.status,
+          isPickup
+        )
+      })
+      
+      if (validOrders.length === 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'No orders can be transitioned to the selected status',
+        })
+      }
+      
+      // Update in transaction with events
+      const results = await ctx.db.$transaction(async (tx) => {
+        const updatePromises = validOrders.map(order => 
+          tx.order.update({
+            where: { id: order.id },
+            data: {
+              status: input.status,
+              ...statusTimestamps(input.status),
+            },
+          })
+        )
+        
+        const eventPromises = validOrders.map(order =>
+          tx.orderEvent.create({
+            data: {
+              orderId: order.id,
+              event: `STATUS_CHANGED_FROM_${order.status}_TO_${input.status}`,
+              data: {
+                from: order.status,
+                to: input.status,
+                notes: input.notes || 'Bulk update',
+                bulk: true,
+              },
+            },
+          })
+        )
+        
+        await Promise.all([...updatePromises, ...eventPromises])
+        
+        return {
+          successCount: validOrders.length,
+          totalCount: orders.length,
+          failedCount: orders.length - validOrders.length,
+        }
+      })
+      
+      return results
+    }),
+
+  /** -------- Export orders to CSV (merchant) -------- */
+  export: merchantProcedure
+    .input(z.object({
+      orderIds: z.array(z.string().cuid()).optional(),
+      filters: z.object({
+        status: z.array(z.nativeEnum(OrderStatus)).optional(),
+        search: z.string().optional(),
+        dateFrom: z.string().optional(),
+        dateTo: z.string().optional(),
+      }).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const merchantId = ctx.session!.user.id
+      
+      // Build where clause
+      const where: any = { merchantId }
+      
+      if (input.orderIds && input.orderIds.length > 0) {
+        where.id = { in: input.orderIds }
+      } else if (input.filters) {
+        if (input.filters.status?.length) {
+          where.status = { in: input.filters.status }
+        }
+        
+        if (input.filters.search) {
+          where.OR = [
+            { orderNumber: { contains: input.filters.search, mode: 'insensitive' } },
+            { customerName: { contains: input.filters.search, mode: 'insensitive' } },
+          ]
+        }
+        
+        if (input.filters.dateFrom || input.filters.dateTo) {
+          where.createdAt = {}
+          if (input.filters.dateFrom) {
+            where.createdAt.gte = new Date(input.filters.dateFrom)
+          }
+          if (input.filters.dateTo) {
+            where.createdAt.lte = new Date(input.filters.dateTo)
+          }
+        }
+      }
+      
+      // Fetch orders with items
+      const orders = await ctx.db.order.findMany({
+        where,
+        include: {
+          items: true,
+          customer: true,
+          deliveryAddress: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 1000, // Limit to prevent memory issues
+      })
+      
+      if (orders.length === 0) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'No orders found to export',
+        })
+      }
+      
+      // Transform data for CSV
+      const csvData = orders.map(order => ({
+        'Order Number': order.orderNumber,
+        'Date': new Date(order.createdAt).toLocaleDateString('en-SG'),
+        'Time': new Date(order.createdAt).toLocaleTimeString('en-SG'),
+        'Status': order.status,
+        'Customer Name': order.customerName,
+        'Customer Phone': order.customerPhone,
+        'Customer Email': order.customerEmail || '',
+        'Delivery Method': order.deliveryMethod,
+        'Delivery Address': order.deliveryAddress 
+          ? `${order.deliveryAddress.line1} ${order.deliveryAddress.line2 || ''} ${order.deliveryAddress.postalCode}`.trim()
+          : '',
+        'Items': order.items.map(item => 
+          `${item.productName} x${item.quantity}${item.specialRequest ? ` (${item.specialRequest})` : ''}`
+        ).join('; '),
+        'Subtotal': `$${order.subtotal.toFixed(2)}`,
+        'Delivery Fee': `$${order.deliveryFee.toFixed(2)}`,
+        'Total': `$${order.total.toFixed(2)}`,
+        'Payment Method': order.paymentMethod,
+        'Payment Status': order.paymentStatus,
+        'Notes': order.deliveryNotes || '',
+      }))
+      
+      // Generate CSV
+      const parser = new Parser({
+        fields: [
+          'Order Number',
+          'Date',
+          'Time',
+          'Status',
+          'Customer Name',
+          'Customer Phone',
+          'Customer Email',
+          'Delivery Method',
+          'Delivery Address',
+          'Items',
+          'Subtotal',
+          'Delivery Fee',
+          'Total',
+          'Payment Method',
+          'Payment Status',
+          'Notes',
+        ],
+      })
+      
+      const csv = parser.parse(csvData)
+      
+      return {
+        csv,
+        count: orders.length,
+      }
+    }),
+
+  /** -------- Get orders for printing (merchant) -------- */
+  getPrintData: merchantProcedure
+    .input(z.object({
+      orderIds: z.array(z.string().cuid()).min(1).max(50),
+    }))
+    .query(async ({ ctx, input }) => {
+      const orders = await ctx.db.order.findMany({
+        where: {
+          id: { in: input.orderIds },
+          merchantId: ctx.session!.user.id,
+        },
+        include: {
+          merchant: true,
+          customer: true,
+          deliveryAddress: true,
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      })
+      
+      if (orders.length === 0) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'No orders found',
+        })
+      }
+      
+      return orders
+    }),  
 })

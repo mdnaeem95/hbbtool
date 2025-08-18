@@ -21,7 +21,8 @@
       "@/*": ["./src/*"],
       "@kitchencloud/ui": ["../../packages/ui/src"],
       "@kitchencloud/auth": ["../../packages/auth/src"],
-      "@kitchencloud/database": ["../../packages/database/src"]
+      "@kitchencloud/database": ["../../packages/database/src"],
+      "@kitchencloud/database/types": ["../../packages/database/src/types-only.ts"]
     }
   },
   "include": [
@@ -29,6 +30,6 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts"
-  ],
+, "vitest.config.mts"  ],
   "exclude": ["node_modules"]
 }
