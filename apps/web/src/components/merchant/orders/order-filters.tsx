@@ -19,6 +19,7 @@ import { Search, X, Calendar, Download } from "lucide-react"
 import { OrderStatus } from "@kitchencloud/database/types"
 import { format } from "date-fns"
 import { Calendar as CalendarComponent } from "@kitchencloud/ui"
+import "./order-filters.css"
 
 interface OrderFiltersProps {
   filters: {
@@ -75,11 +76,47 @@ export function OrderFilters({
 
   // Handle date range
   const handleDateChange = (type: "from" | "to", date: Date | undefined) => {
-    onFiltersChange({
-      ...filters,
-      dateFrom: type === "from" ? date : filters.dateFrom,
-      dateTo: type === "to" ? date : filters.dateTo,
-    })
+    if (!date) {
+      // If clearing a date
+      onFiltersChange({
+        ...filters,
+        dateFrom: type === "from" ? undefined : filters.dateFrom,
+        dateTo: type === "to" ? undefined : filters.dateTo,
+      })
+      return
+    }
+
+    if (type === "from") {
+      // If setting from date, ensure it's not after the to date
+      if (filters.dateTo && date > filters.dateTo) {
+        // Auto-adjust the to date to be the same as from date
+        onFiltersChange({
+          ...filters,
+          dateFrom: date,
+          dateTo: date,
+        })
+      } else {
+        onFiltersChange({
+          ...filters,
+          dateFrom: date,
+        })
+      }
+    } else {
+      // If setting to date, ensure it's not before the from date
+      if (filters.dateFrom && date < filters.dateFrom) {
+        // Auto-adjust the from date to be the same as to date
+        onFiltersChange({
+          ...filters,
+          dateFrom: date,
+          dateTo: date,
+        })
+      } else {
+        onFiltersChange({
+          ...filters,
+          dateTo: date,
+        })
+      }
+    }
   }
 
   // Quick date filters
@@ -163,7 +200,7 @@ export function OrderFilters({
         <div className="flex gap-2">
           <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
+              <Button variant="outline" size="sm" className="gap-2 hover:bg-muted hover:border-gray-300 transition-all">
                 <Calendar className="h-4 w-4" />
                 {filters.dateFrom || filters.dateTo ? (
                   <span className="text-xs">
@@ -176,13 +213,14 @@ export function OrderFilters({
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-4" align="end">
+            <PopoverContent className="w-auto p-4 bg-white shadow-lg border" align="end">
               <div className="space-y-4">
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setQuickDateFilter("today")}
+                    className="hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300"
                   >
                     Today
                   </Button>
@@ -190,6 +228,7 @@ export function OrderFilters({
                     variant="outline"
                     size="sm"
                     onClick={() => setQuickDateFilter("yesterday")}
+                    className="hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300"
                   >
                     Yesterday
                   </Button>
@@ -197,6 +236,7 @@ export function OrderFilters({
                     variant="outline"
                     size="sm"
                     onClick={() => setQuickDateFilter("thisWeek")}
+                    className="hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300"
                   >
                     This Week
                   </Button>
@@ -204,34 +244,110 @@ export function OrderFilters({
                     variant="outline"
                     size="sm"
                     onClick={() => setQuickDateFilter("thisMonth")}
+                    className="hover:bg-orange-50 hover:text-orange-600 hover:border-orange-300"
                   >
                     This Month
                   </Button>
                 </div>
-                <div className="grid gap-2">
-                  <div>
-                    <label className="text-sm font-medium">From</label>
-                    <CalendarComponent
-                      mode="single"
-                      selected={filters.dateFrom}
-                      onSelect={(date) => handleDateChange("from", date)}
-                      initialFocus
-                    />
+                <div className="grid gap-4">
+                  <div className="bg-white rounded-lg">
+                    <label className="text-sm font-medium mb-2 block">From</label>
+                    <div className="bg-white rounded-md border p-3">
+                      <CalendarComponent
+                        mode="single"
+                        selected={filters.dateFrom}
+                        onSelect={(date) => handleDateChange("from", date)}
+                        disabled={(date) => {
+                          // disabled future
+                          if (date > new Date()) return true
+                          // if there's a to date, disable dates after it
+                          if (filters.dateTo && date > filters.dateTo) return true
+                          return false
+                        }}
+                        modifiers={{
+                          selected: filters.dateFrom,
+                          range_start: filters.dateFrom,
+                          range_end: filters.dateTo,
+                          range_middle: filters.dateFrom && filters.dateTo ? {
+                            after: filters.dateFrom,
+                            before: filters.dateTo,
+                          } : undefined,
+                        }}
+                        modifiersStyles={{
+                          range_start: {
+                            backgroundColor: '#FF6B35',
+                            color: 'white',
+                            borderRadius: '6px 0 0 6px',
+                          },
+                          range_end: {
+                            backgroundColor: '#FF6B35',
+                            color: 'white',
+                            borderRadius: '0 6px 6px 0',
+                          },
+                          range_middle: {
+                            backgroundColor: '#FFF5F1',
+                          },
+                          selected: {
+                            backgroundColor: filters.dateTo ? 'transparent' : '#FF6B35',
+                            color: filters.dateTo ? 'inherit' : 'white',
+                            borderRadius: filters.dateTo ? '0' : '6px',
+                          },
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium">To</label>
-                    <CalendarComponent
-                      mode="single"
-                      selected={filters.dateTo}
-                      onSelect={(date) => handleDateChange("to", date)}
-                    />
+                  <div className="bg-white rounded-lg">
+                    <label className="text-sm font-medium mb-2 block">To</label>
+                    <div className="bg-white rounded-md border p-3">
+                      <CalendarComponent
+                        mode="single"
+                        selected={filters.dateTo}
+                        onSelect={(date) => handleDateChange("to", date)}
+                        disabled={(date) => {
+                          // Disable future dates
+                          if (date > new Date()) return true
+                          // If there's a from date, disable dates before it
+                          if (filters.dateFrom && date < filters.dateFrom) return true
+                          return false
+                        }}
+                        modifiers={{
+                          selected: filters.dateTo,
+                          range_start: filters.dateFrom,
+                          range_end: filters.dateTo,
+                          range_middle: filters.dateFrom && filters.dateTo ? {
+                            after: filters.dateFrom,
+                            before: filters.dateTo,
+                          } : undefined,
+                        }}
+                        modifiersStyles={{
+                          range_start: {
+                            backgroundColor: '#FF6B35',
+                            color: 'white',
+                            borderRadius: '6px 0 0 6px',
+                          },
+                          range_end: {
+                            backgroundColor: '#FF6B35',
+                            color: 'white',
+                            borderRadius: '0 6px 6px 0',
+                          },
+                          range_middle: {
+                            backgroundColor: '#FFF5F1',
+                          },
+                          selected: {
+                            backgroundColor: filters.dateFrom ? 'transparent' : '#FF6B35',
+                            color: filters.dateFrom ? 'inherit' : 'white',
+                            borderRadius: filters.dateFrom ? '0' : '6px',
+                          },
+                        }}
+                      />
+                      </div>
                   </div>
                 </div>
               </div>
             </PopoverContent>
           </Popover>
 
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2 hover:bg-muted hover:border-gray-300 transition-all">
             <Download className="h-4 w-4" />
             Export
           </Button>
@@ -246,7 +362,7 @@ export function OrderFilters({
             <Badge variant="secondary" className="gap-1">
               {statusOptions.find(s => s.value === filters.status)?.label}
               <X
-                className="h-3 w-3 cursor-pointer"
+                className="h-3 w-3 cursor-pointer hover:text-red-500 transition-colors"
                 onClick={() => handleStatusChange("all")}
               />
             </Badge>
@@ -255,7 +371,7 @@ export function OrderFilters({
             <Badge variant="secondary" className="gap-1">
               Search: {filters.search}
               <X
-                className="h-3 w-3 cursor-pointer"
+                className="h-3 w-3 cursor-pointer hover:text-red-500 transition-colors"
                 onClick={() => handleSearch("")}
               />
             </Badge>
@@ -266,7 +382,7 @@ export function OrderFilters({
               {filters.dateFrom && filters.dateTo && " - "}
               {filters.dateTo && format(filters.dateTo, "MMM d")}
               <X
-                className="h-3 w-3 cursor-pointer"
+                className="h-3 w-3 cursor-pointer hover:text-red-500 transition-colors"
                 onClick={() => onFiltersChange({ ...filters, dateFrom: undefined, dateTo: undefined })}
               />
             </Badge>
@@ -275,6 +391,7 @@ export function OrderFilters({
             variant="ghost"
             size="sm"
             onClick={() => onFiltersChange({ status: null, search: "", dateFrom: undefined, dateTo: undefined })}
+            className="hover:bg-red-50 hover:text-red-600"
           >
             Clear all
           </Button>

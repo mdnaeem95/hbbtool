@@ -2,6 +2,8 @@ import { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
 
+import authHeroImage from '../../../public/images/auth-hero.jpg'
+
 export const metadata: Metadata = {
   title: "KitchenCloud - Sign In",
   description: "Order delicious home-cooked meals from local home-based businesses",
@@ -32,7 +34,7 @@ export default function AuthLayout({
       {/* Right side - Hero image */}
       <div className="hidden lg:block lg:flex-1 relative bg-muted">
         <Image
-          src="/images/auth-hero.jpg"
+          src={authHeroImage}
           alt="Delicious home-cooked food"
           fill
           className="object-cover"

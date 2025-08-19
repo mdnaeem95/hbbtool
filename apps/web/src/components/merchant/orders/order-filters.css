@@ -1,0 +1,49 @@
+/* Custom styles for date range calendar */
+.rdp-day_range_middle {
+  background-color: #FFF5F1 !important;
+  border-radius: 0 !important;
+}
+
+.rdp-day_range_start {
+  background-color: #FF6B35 !important;
+  color: white !important;
+  border-radius: 6px 0 0 6px !important;
+}
+
+.rdp-day_range_end {
+  background-color: #FF6B35 !important;
+  color: white !important;
+  border-radius: 0 6px 6px 0 !important;
+}
+
+.rdp-day_range_start.rdp-day_range_end {
+  border-radius: 6px !important;
+}
+
+/* Hover effect for date range */
+.rdp-day:hover:not(.rdp-day_disabled):not(.rdp-day_selected) {
+  background-color: #FFF5F1;
+}
+
+/* Today indicator */
+.rdp-day_today:not(.rdp-day_selected) {
+  font-weight: bold;
+  color: #FF6B35;
+}
+
+/* Disabled dates */
+.rdp-day_disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Animation for date selection */
+.rdp-day_selected {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Range selection preview on hover */
+.rdp-day:not(.rdp-day_disabled):not(.rdp-day_selected):hover {
+  background-color: #FFF5F1;
+  transition: background-color 0.2s ease;
+}

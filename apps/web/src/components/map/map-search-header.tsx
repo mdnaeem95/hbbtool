@@ -63,10 +63,17 @@ export function MapSearchHeader({
   }, [debouncedSearch, onSearch])
 
   // Handle filter changes
-  const handleFilterChange = (key: keyof FilterState, value: any) => {
-    const newFilters = { ...filters, [key]: value }
-    setFilters(newFilters)
-    onFilterChange(newFilters)
+  const handleFilterChange = <K extends keyof FilterState>(
+    key: K,
+    value: FilterState[K]
+  ) => {
+    setFilters(prev => {
+      const next = { ...prev, [key]: value }
+      // drop undefined keys so counts stay correct
+      if (next[key] === undefined) delete (next as any)[key]
+      onFilterChange(next)
+      return next
+    })
   }
 
   // Toggle cuisine type
@@ -85,6 +92,32 @@ export function MapSearchHeader({
       ? current.filter(d => d !== option)
       : [...current, option]
     handleFilterChange('dietaryOptions', updated.length > 0 ? updated : undefined)
+  }
+
+  const toggleDeliveryOnly = () => {
+    setFilters(prev => {
+      const deliveryOnly = !prev.deliveryOnly
+      const next = {
+        ...prev,
+        deliveryOnly: deliveryOnly || undefined, // store only when true
+        pickupOnly: undefined,                   // clear the other
+      }
+      onFilterChange(next)
+      return next
+    })
+  }
+
+  const togglePickupOnly = () => {
+    setFilters(prev => {
+      const pickupOnly = !prev.pickupOnly
+      const next = {
+        ...prev,
+        pickupOnly: pickupOnly || undefined,
+        deliveryOnly: undefined,
+      }
+      onFilterChange(next)
+      return next
+    })
   }
 
   // Clear all filters
@@ -126,7 +159,7 @@ export function MapSearchHeader({
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-96 p-0 bg-gray-100" align="end">
+            <PopoverContent className="w-96 p-0 bg-background" align="end">
               <div className="p-4 space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold">Filter Merchants</h3>
@@ -135,6 +168,7 @@ export function MapSearchHeader({
                       variant="ghost"
                       size="sm"
                       onClick={clearFilters}
+                      className='bg-muted hover:bg-muted/80'
                     >
                       Clear All
                     </Button>
@@ -190,12 +224,7 @@ export function MapSearchHeader({
                     <Button
                       variant={filters.deliveryOnly ? "default" : "outline"}
                       size="sm"
-                      onClick={() => {
-                        handleFilterChange('deliveryOnly', !filters.deliveryOnly)
-                        if (!filters.deliveryOnly) {
-                          handleFilterChange('pickupOnly', false)
-                        }
-                      }}
+                      onClick={toggleDeliveryOnly}
                       className="h-8"
                     >
                       Delivery Only
@@ -203,15 +232,10 @@ export function MapSearchHeader({
                     <Button
                       variant={filters.pickupOnly ? "default" : "outline"}
                       size="sm"
-                      onClick={() => {
-                        handleFilterChange('pickupOnly', !filters.pickupOnly)
-                        if (!filters.pickupOnly) {
-                          handleFilterChange('deliveryOnly', false)
-                        }
-                      }}
+                      onClick={togglePickupOnly}
                       className="h-8"
                     >
-                      Pickup Only
+                      Pickup Only 
                     </Button>
                   </div>
                 </div>
@@ -219,22 +243,13 @@ export function MapSearchHeader({
                 <Separator />
 
                 {/* Actions */}
-                <div className="flex gap-2 pt-2">
+                <div className="flex gap-2 pt-2 bg-muted/50 -mx-4 -mb-4 p-4 rounded-b-lg">
                   <Button
-                    variant="secondary"
+                    variant="outline"
                     onClick={() => setShowFilters(false)}
-                    className="flex-1"
+                    className="flex-1 bg-background hover:bg-muted"
                   >
                     Close
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setShowFilters(false)
-                      // Filters are already applied on change
-                    }}
-                    className="flex-1"
-                  >
-                    Apply Filters
                   </Button>
                 </div>
               </div>

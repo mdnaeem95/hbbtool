@@ -1,13 +1,12 @@
 "use client"
 
-import { Suspense, use } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@kitchencloud/ui"
-import { Package, Plus } from "lucide-react"
+import { Suspense, use, useState } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, toast } from "@kitchencloud/ui"
+import { Loader2, Package, Plus } from "lucide-react"
 import { ProductList } from "@/components/product/product-list"
 import { ProductListSkeleton } from "@/components/product/product-list-skeleton"
 import { ProductStats } from "@/components/product/product-stats"
 import { Button } from "@kitchencloud/ui"
-import Link from "next/link"
 import { useSession } from "@/hooks/use-session"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -26,6 +25,8 @@ export default function ProductsPage({
   const router = useRouter()
   const { user, loading } = useSession()
   const params = use(searchParams)
+  const [isImporting, setIsImporting] = useState(false)
+  const [isNavigating, setIsNavigating] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -41,6 +42,25 @@ export default function ProductsPage({
     return null
   }
 
+  // Handle import action
+  const handleImport = async () => {
+    setIsImporting(true)
+    
+    // Simulate import process
+    setTimeout(() => {
+      setIsImporting(false)
+      toast({
+        title: "Import feature coming soon",
+        description: "This feature will be available in the next update.",
+      })
+    }, 1500)
+  }
+
+  const handleAddProductClick = () => {
+    setIsNavigating(true)
+    router.push("/dashboard/products/new")
+  }
+
   return (
     <div className="flex-1 space-y-6 p-6">
       {/* Header */}
@@ -52,15 +72,40 @@ export default function ProductsPage({
           </p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline">
-            <Package className="mr-2 h-4 w-4" />
-            Import
+          <Button 
+            variant="outline" 
+            className="hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 cursor-pointer"
+            onClick={handleImport}
+            disabled={isImporting}
+          >
+            {isImporting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Importing...
+              </>
+            ) : (
+              <>
+                <Package className="mr-2 h-4 w-4" />
+                Import
+              </>
+            )}
           </Button>
-          <Button asChild>
-            <Link href="/dashboard/products/new">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Product
-            </Link>
+          <Button
+            onClick={handleAddProductClick}
+            disabled={isNavigating}
+            className="bg-orange-600 hover:bg-orange-700 text-white transition-all duration-200 hover:shadow-md"
+          >
+            {isNavigating ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              <>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Product
+              </>
+            )}
           </Button>
         </div>
       </div>

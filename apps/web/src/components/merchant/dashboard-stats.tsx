@@ -49,8 +49,8 @@ function StatCard({
   return (
     <Card>
       <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
+        <div className="flex items-start justify-between">
+          <div className="flex-1 space-y-2">
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
             <p className="text-2xl font-bold">{value}</p>
             {change && (
@@ -71,7 +71,7 @@ function StatCard({
               </div>
             )}
           </div>
-          <div className={`rounded-lg p-3 ${iconBgColor}`}>
+          <div className={`flex-shrink-0 rounded-lg p-3 ${iconBgColor}`}>
             <Icon className={`h-6 w-6 ${iconColor}`} />
           </div>
         </div>

@@ -192,15 +192,17 @@ export function OrderList({
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
+            className="hover:bg-muted hover:border-gray-300 transition-all"
             size="sm"
             onClick={() => onPageChange(page - 1)}
             disabled={page === 1}
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4 " />
             Previous
           </Button>
           <Button
             variant="outline"
+            className="hover:bg-muted hover:border-gray-300 transition-all"
             size="sm"
             onClick={() => onPageChange(page + 1)}
             disabled={page === totalPages}

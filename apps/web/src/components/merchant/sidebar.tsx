@@ -30,6 +30,7 @@ export function MerchantSidebar({ dashboardData, className }: MerchantSidebarPro
       name: "Dashboard",
       href: "/dashboard",
       icon: LayoutDashboard,
+      exact: true,
     },
     {
       name: "Orders",
@@ -53,6 +54,18 @@ export function MerchantSidebar({ dashboardData, className }: MerchantSidebarPro
       icon: Settings,
     },
   ]
+
+    // Helper function to check if route is active
+  const isRouteActive = (item: typeof navigation[0]) => {
+    // For exact matches (like Dashboard)
+    if (item.exact) {
+      return pathname === item.href
+    }
+    
+    // For nested routes, check if path starts with href
+    // but make sure it's either exact or followed by a slash
+    return pathname === item.href || pathname.startsWith(`${item.href}/`)
+  }
 
   return (
     <aside className={cn("flex h-full flex-col bg-white shadow-lg", className)}>
@@ -84,7 +97,7 @@ export function MerchantSidebar({ dashboardData, className }: MerchantSidebarPro
       {/* Navigation */}
       <nav className="flex-1 space-y-1 p-4">
         {navigation.map((item) => {
-          const isActive = pathname.startsWith(item.href)
+          const isActive = isRouteActive(item)
           return (
             <Link
               key={item.name}
@@ -101,7 +114,7 @@ export function MerchantSidebar({ dashboardData, className }: MerchantSidebarPro
                 <span>{item.name}</span>
               </div>
               {item.badge ? (
-                <span className="rounded-full bg-orange-500 px-2 py-0.5 text-xs text-white">
+                <span className="inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-orange-500 px-1.5 text-xs font-medium text-white">
                   {item.badge}
                 </span>
               ) : null}

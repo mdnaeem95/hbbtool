@@ -290,8 +290,8 @@ export function ProductList({ searchParams }: ProductListProps) {
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
+                      <DropdownMenuContent align="end" className="bg-white shadow-lg border z-50">
+                        <DropdownMenuItem asChild className="hover:bg-gray-100 cursor-pointer focus:bg-gray-100">
                           <Link href={`/dashboard/products/${product.id}`}>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit
@@ -299,12 +299,13 @@ export function ProductList({ searchParams }: ProductListProps) {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleDuplicate()}
+                          className="hover:bg-gray-100 cursor-pointer focus:bg-gray-100"
                         >
                           <Copy className="mr-2 h-4 w-4" />
                           Duplicate
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          className="text-red-600"
+                          className="text-red-600 hover:bg-red-50 hover:text-red-700 cursor-pointer focus:bg-red-50 focus:text-red-700"
                           onClick={() => {
                             if (confirm("Are you sure you want to delete this product?")) {
                               deleteProduct({ id: product.id })

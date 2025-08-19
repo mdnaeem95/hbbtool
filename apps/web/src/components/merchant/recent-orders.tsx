@@ -86,12 +86,12 @@ export function RecentOrders({ orders }: RecentOrdersProps) {
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center gap-2">
                     <Link
-                      href={`/orders/${order.id}`}
+                      href={`dashboard/orders/${order.id}`}
                       className="text-sm font-medium hover:underline"
                     >
                       #{order.orderNumber}
                     </Link>
-                    <Badge variant={config.variant} className="text-xs">
+                    <Badge variant={config.variant} className="text-xs px-2.5 py-0.5">
                       {config.label}
                     </Badge>
                   </div>
