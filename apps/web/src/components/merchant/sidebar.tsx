@@ -45,7 +45,7 @@ export function MerchantSidebar({ dashboardData, className }: MerchantSidebarPro
     },
     {
       name: "Analytics",
-      href: "/analytics",
+      href: "/dashboard/analytics",
       icon: BarChart3,
     },
     {

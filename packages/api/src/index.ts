@@ -7,6 +7,7 @@ import { orderRouter } from './trpc/routers/order'
 import { paymentRouter } from './trpc/routers/payment'
 import { productRouter } from './trpc/routers/product'
 import { publicRouter } from './trpc/routers/public'
+import { analyticsRouter } from './trpc/routers/analytics'
 
 export { createTRPCContext } from './trpc/context'
 export type { TRPCContext } from './trpc/context'
@@ -25,6 +26,7 @@ export const appRouter = router({
   order: orderRouter,
   payment: paymentRouter,
   public: publicRouter,
+  analytics: analyticsRouter
 })
 
 export type AppRouter = typeof appRouter
