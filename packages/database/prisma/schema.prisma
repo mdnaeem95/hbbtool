@@ -52,11 +52,7 @@ enum PaymentStatus {
 
 enum PaymentMethod {
   PAYNOW
-  BANK_TRANSFER
   CASH
-  CREDIT_CARD
-  GRABPAY
-  SHOPEE_PAY
 }
 
 enum DeliveryMethod {

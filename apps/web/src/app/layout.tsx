@@ -53,11 +53,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <TRPCProvider>
-          {children}
-          <div id="portal-root"></div>
-          <Toaster />
-        </TRPCProvider>
+          <TRPCProvider>
+            {children}
+            <div id="portal-root"></div>
+            <Toaster />
+          </TRPCProvider>
       </body>
     </html>
   )

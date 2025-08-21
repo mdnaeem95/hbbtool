@@ -50,7 +50,7 @@ export function MerchantSidebar({ dashboardData, className }: MerchantSidebarPro
     },
     {
       name: "Settings",
-      href: "/settings",
+      href: "/dashboard/settings",
       icon: Settings,
     },
   ]

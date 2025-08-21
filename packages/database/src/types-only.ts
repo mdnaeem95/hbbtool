@@ -46,7 +46,6 @@ export enum DeliveryMethod {
 export enum PaymentMethod {
   PAYNOW = "PAYNOW",
   CASH = "CASH",
-  CARD = "CARD"
 }
 
 export enum NotificationType {

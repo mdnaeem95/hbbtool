@@ -64,7 +64,7 @@ export default function MerchantLayout({
       {/* Desktop sidebar */}
       <MerchantSidebar 
         dashboardData={dashboardData} 
-        className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:block lg:w-64" 
+        className="lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:block lg:w-64" 
       />
       
       {/* Mobile navigation */}
