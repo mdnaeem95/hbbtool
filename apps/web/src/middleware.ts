@@ -2,19 +2,28 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
 export async function middleware(request: NextRequest) {
-  const response = NextResponse.next()
-  
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get: (name) => request.cookies.get(name)?.value,
-        set: (name, value, options) => {
-          response.cookies.set({ name, value, ...options })
+        getAll() {
+          return request.cookies.getAll()
         },
-        remove: (name, options) => {
-          response.cookies.set({ name, value: '', ...options })
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set({ name, value, ...options })
+            response = NextResponse.next({
+              request,
+            })
+            response.cookies.set({ name, value, ...options })
+          })
         },
       },
     }
@@ -23,24 +32,50 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const pathname = request.nextUrl.pathname
 
+  // Public routes that don't need protection
+  const publicRoutes = [
+    '/',
+    '/auth',
+    '/merchant',
+    '/api',
+    '/_next',
+    '/favicon.ico',
+  ]
+
+  const isPublicRoute = publicRoutes.some(route => 
+    pathname === route || pathname.startsWith(`${route}/`)
+  )
+
+  if (isPublicRoute) {
+    return response
+  }
+
   // Merchant routes protection
   if (pathname.startsWith('/dashboard')) {
     if (!user || user.user_metadata?.userType !== 'merchant') {
-      return NextResponse.redirect(new URL('/auth?redirect=' + pathname, request.url))
+      return NextResponse.redirect(
+        new URL(`/auth?type=merchant&redirect=${pathname}`, request.url)
+      )
     }
   }
 
   // Customer account routes (optional auth)
-  if (pathname.startsWith('/account')) {
-    if (!user) {
-      // For customers, we check localStorage token on client side
-      // Server just passes through
-    }
-  }
+  // Note: Customer auth is handled client-side with session tokens
+  // This middleware only protects Supabase-authenticated routes
 
   return response
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/).*)'],
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     * - api routes that should be public
+     */
+    '/((?!_next/static|_next/image|favicon.ico|public|api/webhook).*)',
+  ],
 }

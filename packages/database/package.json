@@ -7,7 +7,7 @@
     "./client": "./src/client.ts",
     "./types": "./src/types-only.ts"
   },
-    "typesVersions": {
+  "typesVersions": {
     "*": {
       "types": ["src/types-only.ts"],
       "client": ["src/client.ts"],
@@ -15,12 +15,15 @@
     }
   },
   "scripts": {
+    "postinstall": "prisma generate",
+    "db:generate": "prisma generate",
     "db:migrate:dev": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:status": "prisma migrate status",
     "db:seed": "tsx prisma/seed.ts",
     "db:test": "tsx src/test-db.ts",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "build": "prisma generate"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",

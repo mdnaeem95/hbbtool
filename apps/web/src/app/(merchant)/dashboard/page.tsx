@@ -7,26 +7,26 @@ import { AlertCircle, ArrowUpRight, Loader2 } from "lucide-react"
 import { Alert, AlertDescription, Button, Card, CardContent, CardHeader, Skeleton } from "@kitchencloud/ui"
 import Link from "next/link"
 import { api } from "@/lib/trpc/client"
-import { useAuth } from "@/hooks/use-auth"
+import { useAuth } from "@kitchencloud/auth"
 import { OrderStreamProvider } from "@/providers/order-stream-provider"
 
 export default function DashboardPage() {
-  const { user, isLoading: authLoading, userType } = useAuth()
+  const { user, isLoading: authLoading, isMerchant } = useAuth()
   
   // Fetch dashboard data
   const { data: dashboardData, isLoading, error } = api.merchant.getDashboard.useQuery(
     undefined,
     {
-      enabled: !!user && userType === 'merchant',
+      enabled: !!user && isMerchant,
     }
   )
 
   // Handle authentication
   useEffect(() => {
-    if (!authLoading && (!user || userType !== 'merchant')) {
+    if (!authLoading && (!user || !isMerchant)) {
       redirect("/login?redirect=/dashboard")
     }
-  }, [authLoading, user, userType])
+  }, [authLoading, user, isMerchant])
 
   // Show loading state
   if (authLoading || isLoading) {

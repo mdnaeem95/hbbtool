@@ -6,19 +6,46 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createTRPCReact } from '@trpc/react-query'
 import { httpBatchLink, loggerLink } from '@trpc/client'
 import type { AppRouter } from '@kitchencloud/api'
+import { AUTH_STORAGE_KEYS } from '@kitchencloud/auth'
 
 export const api = createTRPCReact<AppRouter>()
 
 export function TRPCProvider({ children }: { children: React.ReactNode }) {
-  const [queryClient] = React.useState(() => new QueryClient())
+  const [queryClient] = React.useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 5 * 1000,
+        refetchOnWindowFocus: false,
+      },
+    },
+  }))
+  
   const [trpcClient] = React.useState(() =>
     api.createClient({
       links: [
-        loggerLink({ enabled: () => process.env.NODE_ENV === 'development' }),
+        loggerLink({ 
+          enabled: () => process.env.NODE_ENV === 'development' 
+        }),
         httpBatchLink({
           url: '/api/trpc',
           transformer: superjson,
-          fetch: (url, opts) => fetch(url, { ...opts, credentials: 'include' }),
+          headers() {
+            const headers: Record<string, string> = {}
+            
+            // Include customer auth token if present
+            if (typeof window !== 'undefined') {
+              const customerToken = localStorage.getItem(AUTH_STORAGE_KEYS.CUSTOMER_TOKEN)
+              if (customerToken) {
+                headers['Authorization'] = `Bearer ${customerToken}`
+              }
+            }
+            
+            return headers
+          },
+          fetch: (url, opts) => fetch(url, { 
+            ...opts, 
+            credentials: 'include' 
+          }),
         }),
       ],
     })

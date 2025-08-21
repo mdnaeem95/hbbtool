@@ -1,247 +1,314 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
-import { router, publicProcedure, protectedProcedure } from '../../core'
-import { phoneSchema } from '../../../utils/validation'
+import { publicProcedure, protectedProcedure, router } from '../../core'
+import { cache } from '@kitchencloud/database'
+import { nanoid } from 'nanoid'
+import bcrypt from 'bcryptjs'
+import { slugify } from '../../../utils/slug'
 
-// --- small utils ---
-const slugify = (s: string) =>
-  s
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60) || 'merchant'
-
-async function ensureUniqueSlug(db: any, base: string) {
-  let slug = base
-  for (let i = 1; i < 50; i++) {
-    const exists = await db.merchant.findFirst({ where: { slug } })
-    if (!exists) return slug
-    slug = `${base}-${i + 1}`
-  }
-  // ultra-rare: fallback to random
-  return `${base}-${Math.random().toString(36).slice(2, 6)}`
-}
-
-// Optional header-based token reader for customer session
-function readBearerToken(header?: string | null) {
-  if (!header) return undefined
-  const m = header.match(/^Bearer\s+(.+)$/i)
-  return m?.[1]
-}
+// Validation schemas
+const phoneSchema = z.string().regex(/^(\+65)?[689]\d{7}$/, 'Invalid Singapore phone number')
+const emailSchema = z.email()
+const passwordSchema = z.string().min(8).max(100)
 
 export const authRouter = router({
-  /** ---------------- Merchant sign up ---------------- */
+  // Get current session
+  getSession: publicProcedure.query(async ({ ctx }) => {
+    if (!ctx.session) return null
+    
+    return {
+      user: ctx.session.user,
+      type: ctx.session.user.userType,
+    }
+  }),
+
+  // Merchant sign up
   merchantSignUp: publicProcedure
     .input(z.object({
-      email: z.string().email(),
-      password: z.string().min(8),
+      email: emailSchema,
+      password: passwordSchema,
       businessName: z.string().min(2).max(100),
       phone: phoneSchema,
     }))
     .mutation(async ({ input, ctx }) => {
-      // Uniqueness guard (avoid noisy constraint errors)
-      const existing = await ctx.db.merchant.findFirst({
-        where: { OR: [{ email: input.email }, { phone: input.phone }] },
-        select: { id: true, email: true, phone: true }
+      // Check if email already exists
+      const existingUser = await ctx.db.merchant.findUnique({
+        where: { email: input.email },
       })
-      if (existing) {
-        throw new TRPCError({ code: 'CONFLICT', message: 'Email or phone already registered' })
+      
+      if (existingUser) {
+        throw new TRPCError({
+          code: 'CONFLICT',
+          message: 'Email already registered',
+        })
       }
 
+      // Create Supabase user
       const { data, error } = await ctx.supabase.auth.signUp({
         email: input.email,
         password: input.password,
-        options: { data: { userType: 'merchant' } },
+        options: {
+          data: { userType: 'merchant' },
+        },
       })
+
       if (error || !data.user) {
         throw new TRPCError({
-          code: 'BAD_REQUEST',
+          code: 'INTERNAL_SERVER_ERROR',
           message: error?.message || 'Failed to create account',
         })
       }
 
-      // Create unique slug
-      const baseSlug = slugify(input.businessName)
-      const slug = await ensureUniqueSlug(ctx.db, baseSlug)
-
-      // Hash the password to satisfy schema (not used for auth)
-      const bcrypt = await import('bcryptjs')
-      const hashed = await bcrypt.hash(input.password, 10)
+      // Create merchant record
+      const slug = slugify(input.businessName)
+      const hashedPassword = await bcrypt.hash(input.password, 10)
 
       const merchant = await ctx.db.merchant.create({
         data: {
-          id: data.user.id, // keep aligned with auth user id
+          id: data.user.id, // Use Supabase user ID
           email: input.email,
           phone: input.phone,
           businessName: input.businessName,
           slug,
-          password: hashed, // schema requires this
-          // leave other fields to defaults
+          password: hashedPassword, // Store for legacy reasons
+          status: 'PENDING_VERIFICATION',
         },
       })
 
-      return { user: data.user, merchant, session: data.session }
+      return {
+        user: {
+          id: data.user.id,
+          email: data.user.email!,
+          userType: 'merchant' as const,
+        },
+        merchant,
+      }
     }),
 
-  /** ---------------- Merchant sign in ---------------- */
+  // Merchant sign in
   merchantSignIn: publicProcedure
     .input(z.object({
-      email: z.string().email(),
-      password: z.string(),
+      email: emailSchema,
+      password: passwordSchema,
     }))
     .mutation(async ({ input, ctx }) => {
       const { data, error } = await ctx.supabase.auth.signInWithPassword({
         email: input.email,
         password: input.password,
       })
+
       if (error || !data.user) {
-        throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Invalid email or password' })
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Invalid email or password',
+        })
       }
+
+      // Verify it's a merchant account
       if (data.user.user_metadata?.userType !== 'merchant') {
-        // Clean up incompatible session for safety
-        await ctx.supabase.auth.signOut().catch(() => {})
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Not a merchant account' })
+        await ctx.supabase.auth.signOut()
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Not a merchant account',
+        })
       }
-      return { user: data.user, session: data.session }
+
+      // Get merchant data
+      const merchant = await ctx.db.merchant.findUnique({
+        where: { id: data.user.id },
+      })
+
+      if (!merchant) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Merchant profile not found',
+        })
+      }
+
+      return {
+        user: {
+          id: data.user.id,
+          email: data.user.email!,
+          userType: 'merchant' as const,
+        },
+        merchant,
+      }
     }),
 
-  /** -------- Customer sign in (OTP MVP) -------- */
+  // Customer sign in (request OTP)
   customerSignIn: publicProcedure
     .input(z.object({
       phone: phoneSchema,
       name: z.string().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      let customer = await ctx.db.customer.findUnique({ where: { phone: input.phone } })
+      // Find or create customer
+      let customer = await ctx.db.customer.findUnique({
+        where: { phone: input.phone },
+      })
+
       if (!customer) {
-        // Align with schema: id is cuid() by default, but we can also set custom
         customer = await ctx.db.customer.create({
           data: {
-            // let DB generate cuid(); storing phone + minimal profile
             phone: input.phone,
             name: input.name || 'Guest',
+            phoneVerified: false,
           },
         })
       }
 
-      // Generate OTP (MVP)
+      // Generate 6-digit OTP
       const otp = Math.floor(100000 + Math.random() * 900000).toString()
 
-      // TODO (production): Store OTP server-side (Redis) with 5-min TTL
-      // import { cache } from '@kitchencloud/cache' and: await cache.set(`otp:${customer.id}`, otp, 300)
+      // Store OTP in cache (5 minute expiry)
+      await cache.set(
+        `otp:${customer.id}`,
+        { otp, attempts: 0 },
+        300 // 5 minutes
+      )
 
-      // For MVP: return it (remove in prod!)
+      // TODO: Send OTP via SMS/WhatsApp
+      // For development, log the OTP
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[DEV] OTP for ${input.phone}: ${otp}`)
+      }
+
       return {
         customerId: customer.id,
-        otp,
         message: 'OTP sent to your phone',
+        // Remove this in production!
+        ...(process.env.NODE_ENV === 'development' && { otp }),
       }
     }),
 
-  /** ---------------- Verify OTP ---------------- */
+  // Verify OTP
   verifyOtp: publicProcedure
     .input(z.object({
       customerId: z.string(),
       otp: z.string().length(6),
     }))
     .mutation(async ({ input, ctx }) => {
-      // TODO (production): verify Redis-stored OTP
-      // const stored = await cache.get<string>(`otp:${input.customerId}`)
-      // if (!stored || stored !== input.otp) throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Invalid or expired OTP' })
+      // Get stored OTP
+      const stored = await cache.get<{ otp: string; attempts: number }>(
+        `otp:${input.customerId}`
+      )
 
-      if (!/^\d{6}$/.test(input.otp)) {
-        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid OTP' })
+      if (!stored) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'OTP expired or not found',
+        })
       }
 
-      const customer = await ctx.db.customer.findUnique({ where: { id: input.customerId } })
+      // Check attempts
+      if (stored.attempts >= 3) {
+        throw new TRPCError({
+          code: 'TOO_MANY_REQUESTS',
+          message: 'Too many attempts. Please request a new OTP.',
+        })
+      }
+
+      // Verify OTP
+      if (stored.otp !== input.otp) {
+        // Increment attempts
+        await cache.set(
+          `otp:${input.customerId}`,
+          { ...stored, attempts: stored.attempts + 1 },
+          300
+        )
+        
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Invalid OTP',
+        })
+      }
+
+      // Get customer
+      const customer = await ctx.db.customer.findUnique({
+        where: { id: input.customerId },
+      })
+
       if (!customer) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Customer not found' })
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Customer not found',
+        })
       }
 
-      const sessionToken = `sess_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
-      const userAgent = ctx.header('user-agent')
-      const ip = ctx.ip
+      // Mark phone as verified
+      await ctx.db.customer.update({
+        where: { id: customer.id },
+        data: { phoneVerified: true },
+      })
 
+      // Generate session token
+      const sessionToken = `sess_${nanoid(32)}`
+      
+      // Create session
       await ctx.db.session.create({
         data: {
           token: sessionToken,
           customerId: customer.id,
-          ipAddress: ip,
-          userAgent: userAgent,
-          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30d
+          ipAddress: ctx.ip,
+          userAgent: ctx.req.headers.get('user-agent'),
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
         },
       })
 
-      // (Optional) clear OTP in Redis
-      // await cache.del(`otp:${input.customerId}`)
+      // Clear OTP
+      await cache.del(`otp:${input.customerId}`)
 
-      return { customer, sessionToken }
+      return {
+        customer,
+        sessionToken,
+      }
     }),
 
-  /** ---------------- Sign out (merchant or customer) ---------------- */
+  // Sign out
   signOut: protectedProcedure.mutation(async ({ ctx }) => {
-    // Supabase sign-out if present
-    await ctx.supabase.auth.signOut().catch(() => {})
-
-    // Customer token sign-out (if provided)
-    const token = readBearerToken(ctx.header('authorization'))
-    if (token) {
-      await ctx.db.session.deleteMany({ where: { token } })
+    try {
+      // Sign out from Supabase
+      await ctx.supabase.auth.signOut()
+    } catch (error) {
+      console.error('Supabase signout error:', error)
     }
 
-    // Best-effort: also clear any sessions tied to the current auth user id
-    if (ctx.session?.user?.id) {
+    // If customer session, invalidate token
+    if (ctx.session.user.userType === 'customer' && ctx.session.token) {
       await ctx.db.session.deleteMany({
-        where: {
-          OR: [{ merchantId: ctx.session.user.id }, { customerId: ctx.session.user.id }],
-        },
+        where: { token: ctx.session.token },
       })
     }
 
     return { success: true }
   }),
 
-  /** ---------------- Get current session ---------------- */
-  getSession: publicProcedure.query(async ({ ctx }) => {
-    // 1) Supabase-backed session (merchant or customer using Supabase)
-    if (ctx.session) {
-      if (ctx.session.user.userType === 'merchant') {
-        const merchant = await ctx.db.merchant.findUnique({ where: { id: ctx.session.user.id } })
-        return merchant
-          ? { user: ctx.session.user, merchant, type: 'merchant' as const }
-          : { user: ctx.session.user, merchant: null, type: 'merchant' as const }
-      } else {
-        const customer = await ctx.db.customer.findUnique({ where: { id: ctx.session.user.id } })
-        return customer
-          ? { user: ctx.session.user, customer, type: 'customer' as const }
-          : { user: ctx.session.user, customer: null, type: 'customer' as const }
+  // Refresh session
+  refreshSession: protectedProcedure.mutation(async ({ ctx }) => {
+    if (ctx.session.user.userType === 'merchant') {
+      // Refresh Supabase session
+      const { error } = await ctx.supabase.auth.refreshSession()
+      
+      if (error) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Failed to refresh session',
+        })
       }
-    }
 
-    // 2) Token-backed customer session (Authorization: Bearer <token>)
-    const token = readBearerToken(ctx.header('authorization'))
-    if (token) {
-      const session = await ctx.db.session.findFirst({
-        where: {
-          token,
-          expiresAt: { gt: new Date() },
-          customerId: { not: null },
-        },
-      })
-      if (session?.customerId) {
-        const customer = await ctx.db.customer.findUnique({ where: { id: session.customerId } })
-        if (customer) {
-          return {
-            user: { id: customer.id, email: customer.email ?? '', userType: 'customer' as const },
-            customer,
-            type: 'customer_token' as const,
-          }
-        }
+      return { success: true }
+    } else {
+      // For customers, extend session expiry
+      if (ctx.session.token) {
+        await ctx.db.session.update({
+          where: { token: ctx.session.token },
+          data: {
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          },
+        })
       }
-    }
 
-    return null
+      return { success: true }
+    }
   }),
 })

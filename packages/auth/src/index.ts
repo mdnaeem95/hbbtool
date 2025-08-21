@@ -1,28 +1,29 @@
+// Types
+export * from './types'
+
 // Server utilities
 export {
-  getServerSession,
-  requireMerchant,
-  getCustomerSession,
-  getMerchantById,
   createServerSupabaseClient,
-  type AuthUser,
-  type MerchantSession,
-  type CustomerSession,
+  getAuthSession,
+  requireAuth,
+  requireMerchant,
+  requireCustomer,
+  getMerchantById,
+  getCustomerById,
 } from './server'
 
-// Client utilities
+// Client utilities  
 export {
   createBrowserSupabaseClient,
   signInMerchant,
   signUpMerchant,
   signInCustomer,
   signOut,
+  refreshSession,
 } from './client'
 
-// Hooks
-export { useAuth } from './hooks/use-auth'
-export { useMerchant } from './hooks/use-merchant'
+// React Provider and Hook
+export { AuthProvider, useAuth } from './provider'
 
-// Middleware
-export { middleware } from './middleware'
-export { config as middlewareConfig } from './middleware'
+// Re-export useful Supabase types
+export type { User as SupabaseUser, Session as SupabaseSession } from '@supabase/supabase-js'

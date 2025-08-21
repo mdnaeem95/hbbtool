@@ -1,10 +1,10 @@
 import { initTRPC, TRPCError } from '@trpc/server'
 import superjson from 'superjson'
 import { ZodError } from 'zod'
-import type { Context, Session, SupabaseLike } from '../types'
+import type { Context } from './context'
+import type { AuthSession } from '@kitchencloud/auth'
 
-// 👇 Provide concrete generics so ctx.session / ctx.supabase are strongly typed
-export const t = initTRPC.context<Context<Session, SupabaseLike>>().create({
+export const t = initTRPC.context<Context>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
     return {
@@ -18,68 +18,70 @@ export const t = initTRPC.context<Context<Session, SupabaseLike>>().create({
 })
 
 // ---------- Middlewares ----------
+
 const loggerMiddleware = t.middleware(async ({ path, type, next }) => {
   const start = Date.now()
   const result = await next()
   const ms = Date.now() - start
+  
   if (process.env.NODE_ENV !== 'test') {
-    // keep it simple; log only in non-test
     console.log(`[tRPC] [${type}] ${path} - ${ms}ms`)
   }
+  
   return result
 })
 
 const isAuthed = t.middleware(({ ctx, next }) => {
-  if (!ctx.session) throw new TRPCError({ code: 'UNAUTHORIZED' })
-  // Narrow the type for subsequent handlers:
+  if (!ctx.session) {
+    throw new TRPCError({ code: 'UNAUTHORIZED' })
+  }
+  
   return next({
-    ctx: { ...ctx, session: ctx.session as Session },
+    ctx: {
+      ...ctx,
+      session: ctx.session as AuthSession,
+    },
   })
 })
 
 const isMerchant = isAuthed.unstable_pipe(({ ctx, next }) => {
   if (ctx.session.user.userType !== 'merchant') {
-    throw new TRPCError({ code: 'FORBIDDEN', message: 'Merchant access required' })
+    throw new TRPCError({ 
+      code: 'FORBIDDEN', 
+      message: 'Merchant access required' 
+    })
   }
+  
   return next({ ctx })
 })
 
 const isCustomer = isAuthed.unstable_pipe(({ ctx, next }) => {
   if (ctx.session.user.userType !== 'customer') {
-    throw new TRPCError({ code: 'FORBIDDEN', message: 'Customer access required' })
+    throw new TRPCError({ 
+      code: 'FORBIDDEN', 
+      message: 'Customer access required' 
+    })
   }
+  
   return next({ ctx })
 })
 
-// (optional) global middleware
-import { buildTimeoutMiddleware } from '../middleware/timeout'
-import { buildBatchingMiddleware } from '../middleware/batching'
+// ---------- Export procedures ----------
 
-const timeoutMiddleware = buildTimeoutMiddleware(t.middleware)
-const batchingMiddleware = buildBatchingMiddleware(t.middleware)
-
-export const middleware = t.middleware
 export const router = t.router
+export const middleware = t.middleware
 
 export const publicProcedure = t.procedure
   .use(loggerMiddleware)
-  .use(timeoutMiddleware)
-  .use(batchingMiddleware)
 
 export const protectedProcedure = t.procedure
   .use(loggerMiddleware)
-  .use(timeoutMiddleware)
   .use(isAuthed)
-  .use(batchingMiddleware)
 
 export const merchantProcedure = t.procedure
   .use(loggerMiddleware)
-  .use(timeoutMiddleware)
   .use(isMerchant)
-  .use(batchingMiddleware)
 
 export const customerProcedure = t.procedure
   .use(loggerMiddleware)
-  .use(timeoutMiddleware)
   .use(isCustomer)
-  .use(batchingMiddleware)

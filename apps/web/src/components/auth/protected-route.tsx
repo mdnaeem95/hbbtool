@@ -2,13 +2,14 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/hooks/use-auth'
+import { useAuth } from '@kitchencloud/auth/'
 import { Loader2 } from 'lucide-react'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
   requireAuth?: boolean
   requireMerchant?: boolean
+  requireCustomer?: boolean
   redirectTo?: string
 }
 
@@ -16,20 +17,23 @@ export function ProtectedRoute({
   children, 
   requireAuth = true,
   requireMerchant = false,
+  requireCustomer = false,
   redirectTo = '/auth'
 }: ProtectedRouteProps) {
   const router = useRouter()
-  const { isLoading, user, userType } = useAuth()
+  const { isLoading, isAuthenticated, isMerchant, isCustomer } = useAuth()
 
   useEffect(() => {
     if (!isLoading) {
-      if (requireAuth && !user) {
+      if (requireAuth && !isAuthenticated) {
         router.push(redirectTo)
-      } else if (requireMerchant && userType !== 'merchant') {
+      } else if (requireMerchant && !isMerchant) {
+        router.push('/')
+      } else if (requireCustomer && !isCustomer) {
         router.push('/')
       }
     }
-  }, [isLoading, user, userType, requireAuth, requireMerchant, router, redirectTo])
+  }, [isLoading, isAuthenticated, isMerchant, isCustomer, requireAuth, requireMerchant, requireCustomer, router, redirectTo])
 
   if (isLoading) {
     return (
@@ -39,11 +43,15 @@ export function ProtectedRoute({
     )
   }
 
-  if (requireAuth && !user) {
+  if (requireAuth && !isAuthenticated) {
     return null
   }
 
-  if (requireMerchant && userType !== 'merchant') {
+  if (requireMerchant && !isMerchant) {
+    return null
+  }
+
+  if (requireCustomer && !isCustomer) {
     return null
   }
 

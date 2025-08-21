@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button, Input, Label } from '@kitchencloud/ui'
 import { Loader2, Store, User } from 'lucide-react'
-import { api } from '@/lib/trpc/client'
+import { useAuth } from '@kitchencloud/auth'
 import { validatePassword, validatePhoneNumber } from '@/lib/utils/validation'
 
 export default function AuthPage() {
@@ -12,75 +12,37 @@ export default function AuthPage() {
   const searchParams = useSearchParams()
   const redirect = searchParams.get('redirect') || '/'
   
-  const [isLoading, setIsLoading] = useState(false)
+  const { 
+    signIn, 
+    signUp, 
+    verifyOtp, 
+    isLoading, 
+    error: authError,
+    isAuthenticated 
+  } = useAuth()
+  
   const [error, setError] = useState<string | null>(null)
   const [accountType, setAccountType] = useState<'customer' | 'merchant'>('customer')
   const [merchantTab, setMerchantTab] = useState<'signin' | 'signup'>('signin')
-
-  // Customer auth mutations
-  const customerSignIn = api.auth.customerSignIn.useMutation({
-    onSuccess: (data) => {
-      // customerSignIn returns { customerId, otp, message }
-      // We don't store anything here, just move to OTP step
-      setCustomerId(data.customerId)
-      setShowOtp(true)
-      setIsLoading(false)
-      setError(null)
-      // Show the OTP in dev mode (remove in production)
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Dev OTP:', data.otp)
-      }
-    },
-    onError: (error) => {
-      setError(error.message)
-      setIsLoading(false)
-    }
-  })
-
-  const verifyOtp = api.auth.verifyOtp.useMutation({
-    onSuccess: (data) => {
-      // verifyOtp returns { customer, sessionToken }
-      localStorage.setItem('customerToken', data.sessionToken)
-      router.push(redirect)
-      router.refresh()
-    },
-    onError: (error) => {
-      setError(error.message)
-      setIsLoading(false)
-    }
-  })
-
-  // Merchant auth mutations  
-  const merchantSignIn = api.auth.merchantSignIn.useMutation({
-    onSuccess: () => {
-      router.push('/dashboard')
-      router.refresh()
-    },
-    onError: (error) => {
-      setError(error.message)
-      setIsLoading(false)
-    }
-  })
-
-  const merchantSignUp = api.auth.merchantSignUp.useMutation({
-    onSuccess: () => {
-      router.push('/dashboard')
-      router.refresh()
-    },
-    onError: (error) => {
-      setError(error.message)
-      setIsLoading(false)
-    }
-  })
-
-  // Customer phone auth state
-  const [customerPhone, setCustomerPhone] = useState('')
-  const [customerId, setCustomerId] = useState<string | null>(null)
   const [showOtp, setShowOtp] = useState(false)
+  const [customerPhone, setCustomerPhone] = useState('')
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push(redirect)
+    }
+  }, [isAuthenticated, redirect, router])
+
+  // Handle auth errors
+  useEffect(() => {
+    if (authError) {
+      setError(authError.message)
+    }
+  }, [authError])
 
   async function handleCustomerAuth(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setIsLoading(true)
     setError(null)
 
     const formData = new FormData(e.currentTarget)
@@ -92,47 +54,57 @@ export default function AuthPage() {
 
       if (!validatePhoneNumber(phone)) {
         setError('Please enter a valid Singapore phone number')
-        setIsLoading(false)
         return
       }
 
       const cleanPhone = phone.replace(/[\s-]/g, '')
-      setCustomerPhone(phone) // Store the display version
+      setCustomerPhone(phone)
       
-      customerSignIn.mutate({ 
-        phone: cleanPhone,
-        name: name || undefined 
-      })
+      try {
+        await signIn({ 
+          type: 'customer',
+          phone: cleanPhone,
+          name: name || undefined 
+        })
+        setShowOtp(true)
+      } catch (err) {
+        // Error handled by provider
+      }
     } else {
       // Step 2: Verify OTP
       const otp = formData.get('otp') as string
       
-      if (!customerId) {
-        setError('Session expired. Please try again.')
-        setShowOtp(false)
-        setIsLoading(false)
-        return
+      try {
+        await verifyOtp(otp)
+        router.push(redirect)
+      } catch (err) {
+        // Error handled by provider
       }
-      
-      verifyOtp.mutate({ customerId, otp })
     }
   }
 
   async function handleMerchantSignIn(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setIsLoading(true)
     setError(null)
 
     const formData = new FormData(e.currentTarget)
     const email = formData.get('email') as string
     const password = formData.get('password') as string
 
-    merchantSignIn.mutate({ email, password })
+    try {
+      await signIn({ 
+        type: 'merchant',
+        email, 
+        password 
+      })
+      router.push('/dashboard')
+    } catch (err) {
+      // Error handled by provider
+    }
   }
 
   async function handleMerchantSignUp(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setIsLoading(true)
     setError(null)
 
     const formData = new FormData(e.currentTarget)
@@ -145,22 +117,26 @@ export default function AuthPage() {
     const passwordValidation = validatePassword(password)
     if (!passwordValidation.isValid) {
       setError(passwordValidation.errors.join('. '))
-      setIsLoading(false)
       return
     }
 
     if (!validatePhoneNumber(phone)) {
       setError('Please enter a valid Singapore phone number')
-      setIsLoading(false)
       return
     }
 
-    merchantSignUp.mutate({ 
-      email, 
-      password, 
-      businessName,
-      phone: phone.replace(/[\s-]/g, '')
-    })
+    try {
+      await signUp({ 
+        type: 'merchant',
+        email, 
+        password, 
+        businessName,
+        phone: phone.replace(/[\s-]/g, '')
+      })
+      router.push('/dashboard')
+    } catch (err) {
+      // Error handled by provider
+    }
   }
 
   return (
@@ -173,17 +149,16 @@ export default function AuthPage() {
             setAccountType('customer')
             setError(null)
             setShowOtp(false)
-            setCustomerId(null)
           }}
           className={`flex-1 p-4 rounded-lg border-2 transition-colors ${
             accountType === 'customer' 
-              ? 'border-primary bg-primary/5' 
-              : 'border-border hover:border-primary/50'
+              ? 'border-primary bg-primary/5 text-primary' 
+              : 'border-gray-200 hover:border-gray-300'
           }`}
         >
-          <User className="h-6 w-6 mx-auto mb-2 text-primary" />
-          <div className="text-sm font-medium">Customer</div>
-          <div className="text-xs text-muted-foreground">Order food</div>
+          <User className="h-6 w-6 mx-auto mb-2" />
+          <div className="font-medium">Customer</div>
+          <div className="text-sm text-muted-foreground">Order delicious food</div>
         </button>
 
         <button
@@ -191,18 +166,16 @@ export default function AuthPage() {
           onClick={() => {
             setAccountType('merchant')
             setError(null)
-            setShowOtp(false)
-            setCustomerId(null)
           }}
           className={`flex-1 p-4 rounded-lg border-2 transition-colors ${
             accountType === 'merchant' 
-              ? 'border-primary bg-primary/5' 
-              : 'border-border hover:border-primary/50'
+              ? 'border-primary bg-primary/5 text-primary' 
+              : 'border-gray-200 hover:border-gray-300'
           }`}
         >
-          <Store className="h-6 w-6 mx-auto mb-2 text-primary" />
-          <div className="text-sm font-medium">Merchant</div>
-          <div className="text-xs text-muted-foreground">Sell food</div>
+          <Store className="h-6 w-6 mx-auto mb-2" />
+          <div className="font-medium">Merchant</div>
+          <div className="text-sm text-muted-foreground">Sell your food</div>
         </button>
       </div>
 
@@ -213,7 +186,7 @@ export default function AuthPage() {
         </div>
       )}
 
-      {/* Customer Auth */}
+      {/* Customer Auth Form */}
       {accountType === 'customer' && (
         <form onSubmit={handleCustomerAuth} className="space-y-4">
           {!showOtp ? (
@@ -224,13 +197,10 @@ export default function AuthPage() {
                   id="phone"
                   name="phone"
                   type="tel"
-                  placeholder="9123 4567"
+                  placeholder="+65 9123 4567"
                   required
-                  autoFocus
+                  disabled={isLoading}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Singapore mobile number without country code
-                </p>
               </div>
               <div>
                 <Label htmlFor="name">Name (optional)</Label>
@@ -238,68 +208,88 @@ export default function AuthPage() {
                   id="name"
                   name="name"
                   type="text"
-                  placeholder="John Doe"
+                  placeholder="Your name"
+                  disabled={isLoading}
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Send OTP
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending OTP...
+                  </>
+                ) : (
+                  'Send OTP'
+                )}
               </Button>
             </>
           ) : (
             <>
-              <div className="text-center space-y-2">
+              <div className="text-center mb-4">
                 <p className="text-sm text-muted-foreground">
-                  Enter the 6-digit code sent to
+                  We've sent a 6-digit code to
                 </p>
                 <p className="font-medium">{customerPhone}</p>
               </div>
               <div>
-                <Label htmlFor="otp">Verification Code</Label>
+                <Label htmlFor="otp">Enter OTP</Label>
                 <Input
                   id="otp"
                   name="otp"
                   type="text"
                   placeholder="123456"
                   maxLength={6}
-                  pattern="[0-9]{6}"
                   required
-                  autoFocus
-                  className="text-center text-2xl tracking-widest"
+                  disabled={isLoading}
+                  autoComplete="one-time-code"
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Verify & Sign In
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  'Verify & Sign In'
+                )}
               </Button>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                className="w-full"
                 onClick={() => {
                   setShowOtp(false)
-                  setCustomerId(null)
                   setError(null)
                 }}
-                className="w-full text-sm text-muted-foreground hover:text-foreground"
                 disabled={isLoading}
               >
                 Use a different number
-              </button>
+              </Button>
             </>
           )}
         </form>
       )}
 
-      {/* Merchant Auth */}
+      {/* Merchant Auth Forms */}
       {accountType === 'merchant' && (
-        <div className="w-full space-y-6">
-          {/* Custom Tab Navigation */}
-          <div className="flex rounded-lg bg-muted p-1">
+        <>
+          {/* Tab Selector */}
+          <div className="flex border-b mb-6">
             <button
               type="button"
               onClick={() => setMerchantTab('signin')}
-              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+              className={`flex-1 pb-3 text-sm font-medium transition-colors ${
                 merchantTab === 'signin'
-                  ? 'bg-background text-foreground shadow-sm'
+                  ? 'border-b-2 border-primary text-primary'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -308,9 +298,9 @@ export default function AuthPage() {
             <button
               type="button"
               onClick={() => setMerchantTab('signup')}
-              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
+              className={`flex-1 pb-3 text-sm font-medium transition-colors ${
                 merchantTab === 'signup'
-                  ? 'bg-background text-foreground shadow-sm'
+                  ? 'border-b-2 border-primary text-primary'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -327,9 +317,9 @@ export default function AuthPage() {
                   id="email"
                   name="email"
                   type="email"
-                  placeholder="name@example.com"
+                  placeholder="your@email.com"
                   required
-                  autoComplete="email"
+                  disabled={isLoading}
                 />
               </div>
               <div>
@@ -339,23 +329,23 @@ export default function AuthPage() {
                   name="password"
                   type="password"
                   required
-                  autoComplete="current-password"
+                  disabled={isLoading}
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Sign In
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  'Sign In'
+                )}
               </Button>
-              <p className="text-center text-sm text-muted-foreground">
-                Don't have an account?{' '}
-                <button
-                  type="button"
-                  onClick={() => setMerchantTab('signup')}
-                  className="font-medium text-primary hover:underline"
-                >
-                  Sign up
-                </button>
-              </p>
             </form>
           )}
 
@@ -370,27 +360,29 @@ export default function AuthPage() {
                   type="text"
                   placeholder="Ah Ma's Kitchen"
                   required
+                  disabled={isLoading}
                 />
               </div>
               <div>
-                <Label htmlFor="email">Business Email</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   name="email"
                   type="email"
-                  placeholder="name@example.com"
+                  placeholder="your@email.com"
                   required
-                  autoComplete="email"
+                  disabled={isLoading}
                 />
               </div>
               <div>
-                <Label htmlFor="phone">Business Phone</Label>
+                <Label htmlFor="phone">Phone Number</Label>
                 <Input
                   id="phone"
                   name="phone"
                   type="tel"
-                  placeholder="9123 4567"
+                  placeholder="+65 9123 4567"
                   required
+                  disabled={isLoading}
                 />
               </div>
               <div>
@@ -400,29 +392,29 @@ export default function AuthPage() {
                   name="password"
                   type="password"
                   required
-                  autoComplete="new-password"
+                  disabled={isLoading}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Min 8 chars with uppercase, lowercase & numbers
+                  At least 8 characters with uppercase, lowercase, and numbers
                 </p>
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Account
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating account...
+                  </>
+                ) : (
+                  'Create Account'
+                )}
               </Button>
-              <p className="text-center text-sm text-muted-foreground">
-                Already have an account?{' '}
-                <button
-                  type="button"
-                  onClick={() => setMerchantTab('signin')}
-                  className="font-medium text-primary hover:underline"
-                >
-                  Sign in
-                </button>
-              </p>
             </form>
           )}
-        </div>
+        </>
       )}
     </div>
   )

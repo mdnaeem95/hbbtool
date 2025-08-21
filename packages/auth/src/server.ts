@@ -1,39 +1,30 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { db, Prisma, MerchantStatus } from '@kitchencloud/database'
+import { db } from '@kitchencloud/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { AuthUser, AuthSession } from './types'
 
-export type AuthUser = {
-  id: string
-  email: string
-  userType: 'merchant' | 'customer'
-}
-
-export type MerchantSession = {
-  user: AuthUser
-  merchant: Prisma.MerchantGetPayload<{}>
-}
-
-export type CustomerSession = {
-  user: AuthUser
-  customer: Prisma.CustomerGetPayload<{}>
-} | null
-
+/**
+ * Create server-side Supabase client with cookie handling
+ */
 export async function createServerSupabaseClient(): Promise<SupabaseClient> {
-  const store = await cookies()
+  const cookieStore = await cookies()
+  
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: () => store.getAll(),
+        getAll: () => cookieStore.getAll(),
         setAll: (cookiesToSet) => {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              store.set(name, value, options)
+              cookieStore.set(name, value, options)
             )
           } catch {
-            // RSC boundary – ignore
+            // The `set` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
           }
         },
       },
@@ -41,65 +32,144 @@ export async function createServerSupabaseClient(): Promise<SupabaseClient> {
   )
 }
 
-export async function getServerSession(): Promise<{ user: AuthUser } | null> {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  return {
-    user: {
-      id: user.id,
-      email: user.email!,
-      userType: (user.user_metadata?.userType ?? 'customer') as 'merchant' | 'customer',
-    },
+/**
+ * Get the current auth session from cookies/headers
+ * Handles both merchant (Supabase) and customer (token) auth
+ */
+export async function getAuthSession(
+  request?: Request
+): Promise<AuthSession | null> {
+  try {
+    // Check Supabase session first (merchants)
+    const supabase = await createServerSupabaseClient()
+    const { data: { user: supabaseUser } } = await supabase.auth.getUser()
+    
+    if (supabaseUser) {
+      const userType = supabaseUser.user_metadata?.userType as 'merchant' | 'customer'
+      
+      if (userType === 'merchant') {
+        const merchant = await db.merchant.findUnique({
+          where: { id: supabaseUser.id }
+        })
+        
+        if (merchant) {
+          const user: AuthUser = {
+            id: supabaseUser.id,
+            email: supabaseUser.email!,
+            userType: 'merchant',
+            merchant,
+          }
+          
+          return { user }
+        }
+      }
+    }
+
+    // Check for customer token in Authorization header
+    if (request) {
+      const authHeader = request.headers.get('authorization')
+      const token = authHeader?.startsWith('Bearer ') 
+        ? authHeader.slice(7) 
+        : null
+      
+      if (token) {
+        const session = await db.session.findFirst({
+          where: {
+            token,
+            expiresAt: { gt: new Date() },
+            customerId: { not: null },
+          },
+          include: {
+            customer: true,
+          },
+        })
+        
+        if (session?.customer) {
+          const user: AuthUser = {
+            id: session.customer.id,
+            phone: session.customer.phone,
+            userType: 'customer',
+            customer: session.customer,
+          }
+          
+          return { 
+            user,
+            token,
+            expiresAt: session.expiresAt,
+          }
+        }
+      }
+    }
+
+    return null
+  } catch (error) {
+    console.error('Error getting auth session:', error)
+    return null
   }
 }
 
 /**
- * IMPORTANT:
- * This assumes your Merchant.id == Supabase auth user id.
- * If that’s *not* guaranteed, fall back to find by email or add an `authUserId` column.
+ * Require authenticated user or throw
  */
-export async function requireMerchant(): Promise<MerchantSession> {
-  const session = await getServerSession()
-  if (!session) throw new Error('Authentication required')
-  if (session.user.userType !== 'merchant') throw new Error('Merchant access required')
-
-  let merchant = await db.merchant.findFirst({
-    where: { id: session.user.id, deletedAt: null },
-  })
-
-  // Fallback by email if id not aligned (helps during migrations)
-  if (!merchant) {
-    merchant = await db.merchant.findFirst({
-      where: { email: session.user.email, deletedAt: null },
-    })
+export async function requireAuth(request?: Request): Promise<AuthSession> {
+  const session = await getAuthSession(request)
+  
+  if (!session) {
+    throw new Error('Authentication required')
   }
-
-  if (!merchant) throw new Error('Merchant profile not found')
-  if (merchant.status !== MerchantStatus.ACTIVE) throw new Error('Merchant account is not active')
-
-  return { user: session.user, merchant }
+  
+  return session
 }
 
-export async function getCustomerSession(): Promise<CustomerSession> {
-  const session = await getServerSession()
-  if (!session || session.user.userType !== 'customer') return null
-
-  // Same alignment caveat as merchants
-  let customer = await db.customer.findFirst({
-    where: { id: session.user.id, deletedAt: null },
-  })
-  if (!customer) {
-    customer = await db.customer.findFirst({
-      where: { email: session.user.email, deletedAt: null },
-    })
+/**
+ * Require merchant user or throw
+ */
+export async function requireMerchant(request?: Request): Promise<AuthSession> {
+  const session = await requireAuth(request)
+  
+  if (session.user.userType !== 'merchant') {
+    throw new Error('Merchant access required')
   }
-  if (!customer) return null
-  return { user: session.user, customer }
+  
+  return session
 }
 
-export async function getMerchantById(merchantId: string) {
-  return db.merchant.findFirst({
-    where: { id: merchantId, status: MerchantStatus.ACTIVE, deletedAt: null },
+/**
+ * Require customer user or throw  
+ */
+export async function requireCustomer(request?: Request): Promise<AuthSession> {
+  const session = await requireAuth(request)
+  
+  if (session.user.userType !== 'customer') {
+    throw new Error('Customer access required')
+  }
+  
+  return session
+}
+
+/**
+ * Get merchant by ID with proper typing
+ */
+export async function getMerchantById(id: string) {
+  return db.merchant.findUnique({
+    where: { id },
+    include: {
+      categories: {
+        where: { deletedAt: null },
+        orderBy: { sortOrder: 'asc' },
+      },
+    },
+  })
+}
+
+/**
+ * Get customer by ID with proper typing
+ */
+export async function getCustomerById(id: string) {
+  return db.customer.findUnique({
+    where: { id },
+    include: {
+      addresses: true,
+    },
   })
 }
