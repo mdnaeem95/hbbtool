@@ -7,7 +7,7 @@ import { AlertCircle, ArrowUpRight, Loader2 } from "lucide-react"
 import { Alert, AlertDescription, Button, Card, CardContent, CardHeader, Skeleton } from "@kitchencloud/ui"
 import Link from "next/link"
 import { api } from "@/lib/trpc/client"
-import { useAuth } from "@kitchencloud/auth"
+import { useAuth } from "@kitchencloud/auth/client"
 import { OrderStreamProvider } from "@/providers/order-stream-provider"
 
 export default function DashboardPage() {

@@ -6,7 +6,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createTRPCReact } from '@trpc/react-query'
 import { httpBatchLink, loggerLink } from '@trpc/client'
 import type { AppRouter } from '@kitchencloud/api'
-import { AUTH_STORAGE_KEYS } from '@kitchencloud/auth'
+
+const AUTH_STORAGE_KEYS = {
+  CUSTOMER_TOKEN: 'kc_customer_token',
+  PENDING_OTP: 'kc_pending_otp',
+} as const
 
 export const api = createTRPCReact<AppRouter>()
 

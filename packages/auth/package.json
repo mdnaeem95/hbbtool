@@ -3,10 +3,14 @@
   "version": "0.0.0",
   "private": true,
   "exports": {
-    ".": "./src/index.ts",
+    ".": {
+      "react-server": "./src/server.ts",
+      "default": "./src/client-exports.ts"
+    },
     "./server": "./src/server.ts",
-    "./client": "./src/client.ts",
-    "./hooks": "./src/hooks/index.ts"
+    "./client": "./src/client-exports.ts",
+    "./provider": "./src/provider.tsx",
+    "./types": "./src/types.ts"
   },
   "scripts": {
     "type-check": "tsc --noEmit",

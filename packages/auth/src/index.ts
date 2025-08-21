@@ -1,5 +1,7 @@
-// Types
-export * from './types'
+// packages/auth/src/index.ts
+
+// This is the main entry point - it should export server code for server components
+// Client components should import from './client-exports.ts' instead
 
 // Server utilities
 export {
@@ -12,18 +14,8 @@ export {
   getCustomerById,
 } from './server'
 
-// Client utilities  
-export {
-  createBrowserSupabaseClient,
-  signInMerchant,
-  signUpMerchant,
-  signInCustomer,
-  signOut,
-  refreshSession,
-} from './client'
+// Types can be exported here as they're safe for both
+export * from './types'
 
-// React Provider and Hook
-export { AuthProvider, useAuth } from './provider'
-
-// Re-export useful Supabase types
-export type { User as SupabaseUser, Session as SupabaseSession } from '@supabase/supabase-js'
+// Note: Client utilities should be imported from '@kitchencloud/auth/client'
+// to avoid server/client mixing issues

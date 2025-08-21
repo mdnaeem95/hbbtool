@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { createBrowserSupabaseClient } from './client'
+import { createBrowserClient } from '@supabase/ssr'
 import { AUTH_STORAGE_KEYS } from './types'
 import type { 
   AuthContextValue, 
@@ -36,7 +36,10 @@ export function AuthProvider({ children, onAuthChange }: AuthProviderProps) {
   })
 
   const [pendingOtp, setPendingOtp] = useState<PendingOtp | null>(null)
-  const supabase = createBrowserSupabaseClient()
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 
   // Initialize auth state
   useEffect(() => {

@@ -1,6 +1,5 @@
 /* apps/web/src/app/globals.css */
 @import "tailwindcss";
-@import "@uploadthing/react/styles.css";
 @plugin "tailwindcss-animate";
 
 /* include UI package (and add more sources if needed) */
