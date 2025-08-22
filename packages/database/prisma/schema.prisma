@@ -64,14 +64,19 @@ enum DeliveryMethod {
 enum NotificationType {
   ORDER_PLACED
   ORDER_CONFIRMED
+  ORDER_PREPARING
   ORDER_READY
   ORDER_DELIVERED
   ORDER_CANCELLED
   PAYMENT_RECEIVED
+  PAYMENT_FAILED
   REVIEW_RECEIVED
   LOW_STOCK_ALERT
-  SUBSCRIPTION_EXPIRING
+  PROMOTION_STARTED
   PROMOTION_ENDING
+  SYSTEM_MAINTENANCE
+  ACCOUNT_VERIFICATION
+  PASSWORD_RESET
 }
 
 enum SubscriptionTier {
@@ -114,6 +119,13 @@ enum AuditAction {
   VIEW
   LOGIN
   LOGOUT
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
 }
 
 // ==================== MODELS ====================
@@ -464,6 +476,13 @@ model Customer {
   language           String   @default("en")
   dietaryPreferences String[] // ["vegetarian", "no-nuts", etc.]
 
+  // Notification Preferences
+  emailNotifications     Boolean @default(true)
+  smsNotifications       Boolean @default(true)
+  whatsappNotifications  Boolean @default(true)
+  orderNotificationEmail String?
+  orderNotificationPhone String?
+
   // Favorites & History
   merchantFavorites String[] // Merchant IDs
   productFavorites  String[] // Product IDs
@@ -493,7 +512,7 @@ model Customer {
   productViews     ProductView[]
   checkoutSessions CheckoutSession[]
   loyaltyPoints    CustomerLoyalty[]
-  notifications    CustomerNotification[]
+  notifications    Notification[]
 
   @@index([email])
   @@index([phone])
@@ -881,8 +900,9 @@ model Analytics {
 }
 
 model Notification {
-  id         String @id @default(cuid())
-  merchantId String
+  id         String  @id @default(cuid())
+  merchantId String?
+  customerId String?
 
   type    NotificationType
   title   String
@@ -893,7 +913,7 @@ model Notification {
   channels String[] @default(["in_app"]) // in_app, email, sms, whatsapp
 
   // Priority
-  priority String @default("normal") // low, normal, high, urgent
+  priority NotificationPriority @default(NORMAL) // low, normal, high, urgent
 
   // Status
   read      Boolean   @default(false)
@@ -908,35 +928,12 @@ model Notification {
   expiresAt DateTime? // Auto-delete after this
 
   // Relations
-  merchant Merchant @relation(fields: [merchantId], references: [id])
+  merchant Merchant? @relation(fields: [merchantId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@index([merchantId, read, createdAt])
+  @@index([customerId, read, createdAt])
   @@index([type, createdAt])
-  @@index([expiresAt])
-}
-
-model CustomerNotification {
-  id         String @id @default(cuid())
-  customerId String
-
-  type    String // order_update, promotion, etc.
-  title   String
-  message String
-  data    Json?
-
-  channel String    @default("in_app")
-  read    Boolean   @default(false)
-  readAt  DateTime?
-
-  actionUrl String?
-  imageUrl  String?
-
-  createdAt DateTime  @default(now())
-  expiresAt DateTime?
-
-  customer Customer @relation(fields: [customerId], references: [id])
-
-  @@index([customerId, read])
   @@index([expiresAt])
 }
 

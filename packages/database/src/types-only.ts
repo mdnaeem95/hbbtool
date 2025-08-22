@@ -57,6 +57,13 @@ export enum NotificationType {
   REVIEW_RECEIVED = "REVIEW_RECEIVED"
 }
 
+export enum NotificationPriority {
+  LOW = "LOW",
+  NORMAL = "NORMAL",
+  HIGH = "HIGH",
+  URGENT = "URGENT",
+}
+
 // Export type definitions (these are just TypeScript interfaces, no Prisma code)
 export interface Merchant {
   id: string
