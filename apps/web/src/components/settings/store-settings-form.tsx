@@ -59,6 +59,7 @@ export function StoreSettingsForm({ data, onSuccess }: StoreSettingsFormProps) {
 
   const preparationTime = form.watch("preparationTime")
   const deliveryRadius = form.watch("deliveryRadius")
+  const deliveryEnabled = form.watch("deliveryEnabled")
 
   return (
     <Form {...form}>
@@ -78,7 +79,7 @@ export function StoreSettingsForm({ data, onSuccess }: StoreSettingsFormProps) {
               name="deliveryEnabled"
               render={({ field }) => (
                 <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
+                  <div className="space-y-0.5 flex-1">
                     <FormLabel className="text-base flex items-center gap-2">
                       <Truck className="h-4 w-4" />
                       Delivery
@@ -103,7 +104,7 @@ export function StoreSettingsForm({ data, onSuccess }: StoreSettingsFormProps) {
               name="pickupEnabled"
               render={({ field }) => (
                 <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
+                  <div className="space-y-0.5 flex-1">
                     <FormLabel className="text-base flex items-center gap-2">
                       <ShoppingBag className="h-4 w-4" />
                       Pickup
@@ -122,9 +123,11 @@ export function StoreSettingsForm({ data, onSuccess }: StoreSettingsFormProps) {
               )}
             />
 
-            {/* Delivery Settings */}
-            {form.watch("deliveryEnabled") && (
-              <div className="space-y-4 ml-4">
+            {/* Delivery Settings - Only show if delivery is enabled */}
+            {deliveryEnabled && (
+              <div className="space-y-4 ml-4 border-l-2 border-orange-200 pl-4">
+                <h4 className="font-medium text-orange-700">Delivery Settings</h4>
+                
                 <FormField
                   control={form.control}
                   name="deliveryFee"
@@ -298,40 +301,12 @@ export function StoreSettingsForm({ data, onSuccess }: StoreSettingsFormProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="SEQUENTIAL">
-                        Sequential (001, 002, 003...)
-                      </SelectItem>
-                      <SelectItem value="RANDOM">
-                        Random (A3B2, X9Y7...)
-                      </SelectItem>
+                      <SelectItem value="SEQUENTIAL">Sequential (001, 002, 003)</SelectItem>
+                      <SelectItem value="RANDOM">Random (A7X, B2K, C9M)</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormDescription>
-                    How order numbers are generated
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Advance Order Days */}
-            <FormField
-              control={form.control}
-              name="maxAdvanceOrderDays"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Maximum Advance Order Days</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={30}
-                      {...field}
-                      onChange={(e) => field.onChange(parseInt(e.target.value))}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    How many days in advance customers can place orders
+                    How order numbers should be generated
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -340,100 +315,12 @@ export function StoreSettingsForm({ data, onSuccess }: StoreSettingsFormProps) {
           </CardContent>
         </Card>
 
-        {/* Display Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Display Settings</CardTitle>
-            <CardDescription>
-              Control what information is shown to customers
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Show Sold Out Items */}
-            <FormField
-              control={form.control}
-              name="showSoldOutItems"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
-                    <FormLabel className="text-base">Show Sold Out Items</FormLabel>
-                    <FormDescription>
-                      Display items that are out of stock with a "Sold Out" label
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            {/* Show Preparation Time */}
-            <FormField
-              control={form.control}
-              name="showPreparationTime"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
-                    <FormLabel className="text-base">Show Preparation Time</FormLabel>
-                    <FormDescription>
-                      Display estimated preparation time on menu items
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
-            {/* Show Calories */}
-            <FormField
-              control={form.control}
-              name="showCalories"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
-                    <FormLabel className="text-base">Show Calories</FormLabel>
-                    <FormDescription>
-                      Display calorie information on menu items
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Submit Button */}
+        {/* Save Button */}
         <div className="flex justify-end">
-          <Button 
-            type="submit" 
-            disabled={isLoading || !form.formState.isDirty}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                Save Changes
-              </>
-            )}
+          <Button type="submit" disabled={isLoading}>
+            {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Save className="h-4 w-4" />
+            Save Settings
           </Button>
         </div>
       </form>

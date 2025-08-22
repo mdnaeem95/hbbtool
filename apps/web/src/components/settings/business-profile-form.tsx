@@ -127,7 +127,7 @@ export function BusinessProfileForm({ data, onSuccess }: BusinessProfileFormProp
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         {/* Basic Information */}
         <Card>
-          <CardHeader>
+          <CardHeader className="mb-[-2]">
             <CardTitle>Basic Information</CardTitle>
             <CardDescription>
               Update your business details and contact information

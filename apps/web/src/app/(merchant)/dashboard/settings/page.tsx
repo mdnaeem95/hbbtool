@@ -19,6 +19,7 @@ import {
   SecuritySettingsForm,
 } from "@/components/settings"
 import { Alert, AlertDescription } from "@kitchencloud/ui"
+import { cn } from "@kitchencloud/ui"
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("business")
@@ -63,24 +64,54 @@ export default function SettingsPage() {
         onValueChange={setActiveTab}
         className="space-y-6"
       >
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5">
-          <TabsTrigger value="business" className="gap-2">
+        <TabsList className="settings-tabslist grid w-full grid-cols-2 lg:grid-cols-5">
+          <TabsTrigger 
+            value="business" 
+            className={cn(
+              "settings-tabtrigger gap-2",
+              activeTab === "business" && "settings-tabtrigger-active"
+            )}
+          >
             <User className="h-4 w-4" />
             <span className="hidden sm:inline">Business</span>
           </TabsTrigger>
-          <TabsTrigger value="store" className="gap-2">
+          <TabsTrigger 
+            value="store" 
+            className={cn(
+              "settings-tabtrigger gap-2",
+              activeTab === "store" && "settings-tabtrigger-active"
+            )}
+          >
             <Store className="h-4 w-4" />
             <span className="hidden sm:inline">Store</span>
           </TabsTrigger>
-          <TabsTrigger value="payments" className="gap-2">
+          <TabsTrigger 
+            value="payments" 
+            className={cn(
+              "settings-tabtrigger gap-2",
+              activeTab === "payments" && "settings-tabtrigger-active"
+            )}
+          >
             <CreditCard className="h-4 w-4" />
             <span className="hidden sm:inline">Payments</span>
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="gap-2">
+          <TabsTrigger 
+            value="notifications" 
+            className={cn(
+              "settings-tabtrigger gap-2",
+              activeTab === "notifications" && "settings-tabtrigger-active"
+            )}
+          >
             <Bell className="h-4 w-4" />
             <span className="hidden sm:inline">Notifications</span>
           </TabsTrigger>
-          <TabsTrigger value="security" className="gap-2">
+          <TabsTrigger 
+            value="security" 
+            className={cn(
+              "settings-tabtrigger gap-2",
+              activeTab === "security" && "settings-tabtrigger-active"
+            )}
+          >
             <Shield className="h-4 w-4" />
             <span className="hidden sm:inline">Security</span>
           </TabsTrigger>

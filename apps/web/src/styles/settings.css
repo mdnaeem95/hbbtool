@@ -1,0 +1,62 @@
+/* Settings page specific styles to fix tab active states */
+
+/* Override any conflicting tab styles */
+.settings-tab-trigger {
+  @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 py-2.5 text-sm font-medium transition-all duration-200;
+  @apply text-gray-600 hover:text-gray-900 hover:bg-white/50;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2;
+  @apply disabled:pointer-events-none disabled:opacity-50;
+}
+
+/* Active state using data attribute */
+.settings-tab-trigger[data-state="active"] {
+  @apply bg-white text-orange-600 shadow-sm font-semibold;
+}
+
+/* Alternative active state using custom data attribute for better control */
+.settings-tab-trigger[data-active="true"] {
+  @apply bg-white text-orange-600 shadow-sm font-semibold;
+}
+
+/* Icon color fix for active tabs */
+.settings-tab-trigger[data-state="active"] svg,
+.settings-tab-trigger[data-active="true"] svg {
+  @apply text-orange-600;
+}
+
+/* Hover effects for better UX */
+.settings-tab-trigger:hover:not([data-state="active"]):not([data-active="true"]) {
+  @apply bg-white/60;
+}
+
+/* Focus ring styling */
+.settings-tab-trigger:focus-visible {
+  @apply ring-2 ring-orange-500 ring-offset-2 ring-offset-gray-100;
+}
+
+/* Smooth transitions for all states */
+.settings-tab-trigger * {
+  @apply transition-colors duration-200;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 640px) {
+  .settings-tab-trigger {
+    @apply px-3 py-2;
+  }
+  
+  .settings-tab-trigger span {
+    @apply text-xs;
+  }
+}
+
+/* Tab content animations */
+[data-radix-tabs-content] {
+  @apply animate-in fade-in-50 duration-200;
+}
+
+/* Fix for any z-index issues with dropdowns in settings */
+[role="tabpanel"] [data-radix-popper-content-wrapper] {
+  z-index: 50 !important;
+}
+

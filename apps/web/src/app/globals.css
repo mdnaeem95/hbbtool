@@ -122,3 +122,110 @@
 }
 [data-panel-group-direction="horizontal"] > [data-panel-resize-handle]:hover { background-color: #d1d5db; }
 [data-panel-group-direction="horizontal"] > [data-panel-resize-handle]:active { background-color: #9ca3af; }
+
+.settings-tabslist {
+  background-color: #f3f4f6 !important;
+  padding: 4px !important;
+  border-radius: 8px !important;
+  border: none !important;
+  height: auto !important;
+}
+
+/* Base tab trigger styling - ensure full width/height */
+.settings-tabtrigger {
+  color: #6b7280 !important;
+  background-color: transparent !important;
+  transition: all 0.2s ease !important;
+  border-radius: 6px !important;
+  font-weight: 500 !important;
+  border: none !important;
+  box-shadow: none !important;
+  /* Ensure full coverage */
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 40px !important;
+  padding: 8px 12px !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+}
+
+/* Hover state for inactive tabs */
+.settings-tabtrigger:hover:not(.settings-tabtrigger-active) {
+  background-color: rgba(255, 255, 255, 0.5) !important;
+  color: #374151 !important;
+}
+
+/* Active tab styling - full coverage */
+.settings-tabtrigger-active {
+  background-color: white !important;
+  color: #ea580c !important;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05) !important;
+  font-weight: 600 !important;
+  /* Ensure it fills the entire tab space */
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Icon color for active tabs */
+.settings-tabtrigger-active svg {
+  color: #ea580c !important;
+}
+
+/* Focus states */
+.settings-tabtrigger:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px #ea580c !important;
+}
+
+/* Override any Radix data-state styles that might conflict */
+.settings-tabtrigger[data-state="active"] {
+  background-color: white !important;
+  color: #ea580c !important;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05) !important;
+  font-weight: 600 !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.settings-tabtrigger[data-state="active"] svg {
+  color: #ea580c !important;
+}
+
+/* Ensure grid layout doesn't interfere */
+.settings-tabslist > * {
+  height: auto !important;
+  min-height: 48px !important;
+}
+
+/* Ensure switch components have proper visibility */
+[data-slot="switch"] {
+  min-width: 44px !important;
+  min-height: 24px !important;
+  display: inline-flex !important;
+  background-color: #d1d5db !important; /* Gray when OFF */
+}
+
+[data-slot="switch"][data-state="checked"] {
+  background-color: #ea580c !important; /* Orange when ON */
+}
+
+[data-slot="switch-thumb"] {
+  width: 20px !important;
+  height: 20px !important;
+  background-color: white !important;
+  border-radius: 50% !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+  display: block !important;
+}
+
+/* Ensure proper positioning */
+[data-slot="switch"][data-state="checked"] [data-slot="switch-thumb"] {
+  transform: translateX(20px) !important;
+}
+
+[data-slot="switch"][data-state="unchecked"] [data-slot="switch-thumb"] {
+  transform: translateX(0) !important;
+}
