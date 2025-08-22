@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from "react"
-import { redirect } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { MerchantSidebar, MerchantHeader, MerchantMobileNav } from "@/components/merchant"
 import { useAuth } from "@kitchencloud/auth/client"
 import { api } from "@/lib/trpc/client"
@@ -12,6 +12,7 @@ export default function MerchantLayout({
 }: {
   children: React.ReactNode
 }) {
+  const router = useRouter()
   const { user, isLoading: authLoading, isMerchant } = useAuth()
   
   // Fetch merchant dashboard data
@@ -25,14 +26,14 @@ export default function MerchantLayout({
   // Handle authentication
   useEffect(() => {
     if (!authLoading && (!user || !isMerchant)) {
-      redirect("/login?redirect=/dashboard")
+      router.push("/auth?redirect=/dashboard")
     }
   }, [authLoading, user, isMerchant])
 
   // Handle merchant verification errors (user is not a merchant)
   useEffect(() => {
     if (error?.data?.code === 'FORBIDDEN' || error?.data?.code === 'UNAUTHORIZED') {
-      redirect("/")
+      router.push("/")
     }
   }, [error])
 

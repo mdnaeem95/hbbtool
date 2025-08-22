@@ -18,7 +18,10 @@ export default function AuthPage() {
     verifyOtp, 
     isLoading, 
     error: authError,
-    isAuthenticated 
+    isAuthenticated,
+    isMerchant,
+    isCustomer,
+    user 
   } = useAuth()
   
   const [error, setError] = useState<string | null>(null)
@@ -26,18 +29,36 @@ export default function AuthPage() {
   const [merchantTab, setMerchantTab] = useState<'signin' | 'signup'>('signin')
   const [showOtp, setShowOtp] = useState(false)
   const [customerPhone, setCustomerPhone] = useState('')
+  const [isSigningIn, setIsSigningIn] = useState(false)
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated with proper user type
   useEffect(() => {
-    if (isAuthenticated) {
+    // Don't redirect while auth is still loading or while signing in
+    if (isLoading || isSigningIn) return
+    
+    // Only redirect if we have a fully authenticated user with a type
+    if (isAuthenticated && user) {
+      // For merchant redirects, ensure they're actually a merchant
+      if (redirect.startsWith('/dashboard') && !isMerchant) {
+        // Don't redirect merchants to dashboard if they're not merchants
+        return
+      }
+      
+      // For customer redirects, ensure they're actually a customer
+      if (redirect.startsWith('/account') && !isCustomer) {
+        return
+      }
+      
+      // Safe to redirect now
       router.push(redirect)
     }
-  }, [isAuthenticated, redirect, router])
+  }, [isAuthenticated, isMerchant, isCustomer, user, redirect, router, isLoading, isSigningIn])
 
   // Handle auth errors
   useEffect(() => {
     if (authError) {
       setError(authError.message)
+      setIsSigningIn(false)
     }
   }, [authError])
 
@@ -61,6 +82,7 @@ export default function AuthPage() {
       setCustomerPhone(phone)
       
       try {
+        setIsSigningIn(true)
         await signIn({ 
           type: 'customer',
           phone: cleanPhone,
@@ -69,15 +91,18 @@ export default function AuthPage() {
         setShowOtp(true)
       } catch (err) {
         // Error handled by provider
+         setIsSigningIn(false)
       }
     } else {
       // Step 2: Verify OTP
       const otp = formData.get('otp') as string
       
       try {
+        setIsSigningIn(true)
         await verifyOtp(otp)
         router.push(redirect)
       } catch (err) {
+        setIsSigningIn(false)
         // Error handled by provider
       }
     }
@@ -86,6 +111,7 @@ export default function AuthPage() {
   async function handleMerchantSignIn(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
+    setIsSigningIn(true)
 
     const formData = new FormData(e.currentTarget)
     const email = formData.get('email') as string
@@ -97,8 +123,10 @@ export default function AuthPage() {
         email, 
         password 
       })
+      await new Promise(resolve => setTimeout(resolve, 100))
       router.push('/dashboard')
     } catch (err) {
+      setIsSigningIn(false)
       // Error handled by provider
     }
   }
@@ -106,6 +134,7 @@ export default function AuthPage() {
   async function handleMerchantSignUp(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
+    setIsSigningIn(true)
 
     const formData = new FormData(e.currentTarget)
     const email = formData.get('email') as string
@@ -117,11 +146,13 @@ export default function AuthPage() {
     const passwordValidation = validatePassword(password)
     if (!passwordValidation.isValid) {
       setError(passwordValidation.errors.join('. '))
+      setIsSigningIn(false)
       return
     }
 
     if (!validatePhoneNumber(phone)) {
       setError('Please enter a valid Singapore phone number')
+      setIsSigningIn(false)
       return
     }
 
@@ -135,6 +166,7 @@ export default function AuthPage() {
       })
       router.push('/dashboard')
     } catch (err) {
+      setIsSigningIn(false)
       // Error handled by provider
     }
   }
@@ -155,6 +187,7 @@ export default function AuthPage() {
               ? 'border-primary bg-primary/5 text-primary' 
               : 'border-gray-200 hover:border-gray-300'
           }`}
+          disabled={isLoading || isSigningIn}
         >
           <User className="h-6 w-6 mx-auto mb-2" />
           <div className="font-medium">Customer</div>
@@ -172,6 +205,7 @@ export default function AuthPage() {
               ? 'border-primary bg-primary/5 text-primary' 
               : 'border-gray-200 hover:border-gray-300'
           }`}
+          disabled={isLoading || isSigningIn}
         >
           <Store className="h-6 w-6 mx-auto mb-2" />
           <div className="font-medium">Merchant</div>
@@ -209,15 +243,15 @@ export default function AuthPage() {
                   name="name"
                   type="text"
                   placeholder="Your name"
-                  disabled={isLoading}
+                  disabled={isLoading || isSigningIn}
                 />
               </div>
               <Button 
                 type="submit" 
                 className="w-full" 
-                disabled={isLoading}
+                disabled={isLoading || isSigningIn}
               >
-                {isLoading ? (
+                {isSigningIn ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Sending OTP...
@@ -244,16 +278,16 @@ export default function AuthPage() {
                   placeholder="123456"
                   maxLength={6}
                   required
-                  disabled={isLoading}
+                  disabled={isLoading || isSigningIn}
                   autoComplete="one-time-code"
                 />
               </div>
               <Button 
                 type="submit" 
                 className="w-full" 
-                disabled={isLoading}
+                disabled={isLoading || isSigningIn}
               >
-                {isLoading ? (
+                {isSigningIn ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Verifying...
@@ -270,7 +304,7 @@ export default function AuthPage() {
                   setShowOtp(false)
                   setError(null)
                 }}
-                disabled={isLoading}
+                disabled={isLoading || isSigningIn}
               >
                 Use a different number
               </Button>
@@ -292,6 +326,7 @@ export default function AuthPage() {
                   ? 'border-b-2 border-primary text-primary'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
+              disabled={isLoading || isSigningIn}
             >
               Sign In
             </button>
@@ -303,6 +338,7 @@ export default function AuthPage() {
                   ? 'border-b-2 border-primary text-primary'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
+              disabled={isLoading || isSigningIn}
             >
               Sign Up
             </button>
@@ -319,7 +355,7 @@ export default function AuthPage() {
                   type="email"
                   placeholder="your@email.com"
                   required
-                  disabled={isLoading}
+                  disabled={isLoading || isSigningIn}
                 />
               </div>
               <div>
@@ -329,15 +365,15 @@ export default function AuthPage() {
                   name="password"
                   type="password"
                   required
-                  disabled={isLoading}
+                  disabled={isLoading || isSigningIn}
                 />
               </div>
               <Button 
                 type="submit" 
                 className="w-full" 
-                disabled={isLoading}
+                disabled={isLoading || isSigningIn}
               >
-                {isLoading ? (
+                {isSigningIn ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Signing in...
@@ -360,7 +396,7 @@ export default function AuthPage() {
                   type="text"
                   placeholder="Ah Ma's Kitchen"
                   required
-                  disabled={isLoading}
+                  disabled={isLoading || isSigningIn}
                 />
               </div>
               <div>
@@ -371,7 +407,7 @@ export default function AuthPage() {
                   type="email"
                   placeholder="your@email.com"
                   required
-                  disabled={isLoading}
+                  disabled={isLoading || isSigningIn}
                 />
               </div>
               <div>
@@ -382,7 +418,7 @@ export default function AuthPage() {
                   type="tel"
                   placeholder="+65 9123 4567"
                   required
-                  disabled={isLoading}
+                  disabled={isLoading || isSigningIn}
                 />
               </div>
               <div>
@@ -392,7 +428,7 @@ export default function AuthPage() {
                   name="password"
                   type="password"
                   required
-                  disabled={isLoading}
+                  disabled={isLoading || isSigningIn}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   At least 8 characters with uppercase, lowercase, and numbers
@@ -401,9 +437,9 @@ export default function AuthPage() {
               <Button 
                 type="submit" 
                 className="w-full" 
-                disabled={isLoading}
+                disabled={isLoading || isSigningIn}
               >
-                {isLoading ? (
+                {isSigningIn ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Creating account...

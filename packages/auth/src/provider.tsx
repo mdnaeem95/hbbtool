@@ -54,79 +54,71 @@ export function AuthProvider({ children, onAuthChange }: AuthProviderProps) {
           const userType = supabaseSession.user.user_metadata?.userType as 'merchant' | 'customer'
           
           if (userType === 'merchant') {
-            // Fetch merchant data
-            const response = await fetch('/api/trpc/auth.getSession', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({}),
-            })
+            // For merchants, we have enough info from Supabase
+            // The merchant data will be fetched by the dashboard when needed
+            const user: AuthUser = {
+              id: supabaseSession.user.id,
+              email: supabaseSession.user.email!,
+              userType: 'merchant',
+            }
             
-            if (response.ok) {
-              const data = await response.json()
-              if (data.result?.data?.merchant) {
-                const user: AuthUser = {
-                  id: supabaseSession.user.id,
-                  email: supabaseSession.user.email!,
-                  userType: 'merchant',
-                  merchant: data.result.data.merchant,
-                }
-                
-                if (mounted) {
-                  setState({
-                    user,
-                    session: { user },
-                    isLoading: false,
-                    isAuthenticated: true,
-                    isMerchant: true,
-                    isCustomer: false,
-                    error: null,
-                  })
-                }
-                return
-              }
+            if (mounted) {
+              setState({
+                user,
+                session: { user },
+                isLoading: false,
+                isAuthenticated: true,
+                isMerchant: true,
+                isCustomer: false,
+                error: null,
+              })
+              onAuthChange?.(user)
+            }
+          }
+        } else {
+          // Check for customer session
+          const customerToken = localStorage.getItem(AUTH_STORAGE_KEYS.CUSTOMER_TOKEN)
+          if (customerToken) {
+            // For now, we'll trust the token exists
+            // The actual validation will happen when making API calls
+            // This avoids the redirect loop
+            setState({
+              user: { id: 'temp', phone: '', userType: 'customer' }, // Placeholder
+              session: { user: { id: 'temp', phone: '', userType: 'customer' }, token: customerToken },
+              isLoading: false,
+              isAuthenticated: true,
+              isMerchant: false,
+              isCustomer: true,
+              error: null,
+            })
+          } else {
+            // No auth
+            if (mounted) {
+              setState({
+                user: null,
+                session: null,
+                isLoading: false,
+                isAuthenticated: false,
+                isMerchant: false,
+                isCustomer: false,
+                error: null,
+              })
             }
           }
         }
 
-        // Check customer token
-        const customerToken = localStorage.getItem(AUTH_STORAGE_KEYS.CUSTOMER_TOKEN)
-        if (customerToken) {
-          const response = await fetch('/api/trpc/auth.getSession', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${customerToken}`,
-            },
-            body: JSON.stringify({}),
-          })
-          
-          if (response.ok) {
-            const data = await response.json()
-            if (data.result?.data?.customer) {
-              const user: AuthUser = {
-                id: data.result.data.customer.id,
-                phone: data.result.data.customer.phone,
-                userType: 'customer',
-                customer: data.result.data.customer,
-              }
-              
-              if (mounted) {
-                setState({
-                  user,
-                  session: { user, token: customerToken },
-                  isLoading: false,
-                  isAuthenticated: true,
-                  isMerchant: false,
-                  isCustomer: true,
-                  error: null,
-                })
-              }
-              return
-            }
+        // Check for pending OTP
+        const pendingOtpData = localStorage.getItem(AUTH_STORAGE_KEYS.PENDING_OTP)
+        if (pendingOtpData) {
+          const pending = JSON.parse(pendingOtpData) as PendingOtp
+          if (pending.expiresAt > Date.now()) {
+            setPendingOtp(pending)
+          } else {
+            localStorage.removeItem(AUTH_STORAGE_KEYS.PENDING_OTP)
           }
         }
-
-        // No valid session
+      } catch (error) {
+        console.error('Auth initialization error:', error)
         if (mounted) {
           setState({
             user: null,
@@ -137,50 +129,58 @@ export function AuthProvider({ children, onAuthChange }: AuthProviderProps) {
             isCustomer: false,
             error: null,
           })
-        }
-      } catch (error) {
-        if (mounted) {
-          setState(prev => ({
-            ...prev,
-            isLoading: false,
-            error: error as Error,
-          }))
         }
       }
     }
 
     initializeAuth()
 
-    // Listen for Supabase auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event) => {
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          // Re-initialize to fetch latest data
-          initializeAuth()
-        } else if (event === 'SIGNED_OUT') {
+    // Subscribe to Supabase auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return
+      
+      console.log('Auth state change:', event, session?.user?.email)
+      
+      if (event === 'SIGNED_OUT' || !session) {
+        setState({
+          user: null,
+          session: null,
+          isLoading: false,
+          isAuthenticated: false,
+          isMerchant: false,
+          isCustomer: false,
+          error: null,
+        })
+        onAuthChange?.(null)
+      } else if (event === 'SIGNED_IN' && session) {
+        const userType = session.user.user_metadata?.userType as 'merchant' | 'customer'
+        
+        if (userType === 'merchant') {
+          const user: AuthUser = {
+            id: session.user.id,
+            email: session.user.email!,
+            userType: 'merchant',
+          }
+          
           setState({
-            user: null,
-            session: null,
+            user,
+            session: { user },
             isLoading: false,
-            isAuthenticated: false,
-            isMerchant: false,
+            isAuthenticated: true,
+            isMerchant: true,
             isCustomer: false,
             error: null,
           })
+          onAuthChange?.(user)
         }
       }
-    )
+    })
 
     return () => {
       mounted = false
       subscription.unsubscribe()
     }
-  }, [supabase])
-
-  // Notify parent of auth changes
-  useEffect(() => {
-    onAuthChange?.(state.user)
-  }, [state.user, onAuthChange])
+  }, [supabase, onAuthChange])
 
   const signIn = useCallback(async (params: SignInParams) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }))
@@ -196,6 +196,7 @@ export function AuthProvider({ children, onAuthChange }: AuthProviderProps) {
         if (error) throw error
 
         // Auth state will be updated by the auth state change listener
+        setState(prev => ({ ...prev, isLoading: false }))
       } else {
         // Customer sign in - request OTP
         const response = await fetch('/api/trpc/auth.customerSignIn', {
@@ -208,7 +209,8 @@ export function AuthProvider({ children, onAuthChange }: AuthProviderProps) {
         })
 
         if (!response.ok) {
-          throw new Error('Failed to send OTP')
+          const errorData = await response.json()
+          throw new Error(errorData.error?.message || 'Failed to send OTP')
         }
 
         const data = await response.json()
@@ -221,6 +223,8 @@ export function AuthProvider({ children, onAuthChange }: AuthProviderProps) {
           }
           setPendingOtp(pending)
           localStorage.setItem(AUTH_STORAGE_KEYS.PENDING_OTP, JSON.stringify(pending))
+          
+          setState(prev => ({ ...prev, isLoading: false }))
         }
       }
     } catch (error) {
@@ -237,6 +241,7 @@ export function AuthProvider({ children, onAuthChange }: AuthProviderProps) {
     setState(prev => ({ ...prev, isLoading: true, error: null }))
 
     try {
+      // First create the account via tRPC (which creates both Supabase user and merchant record)
       const response = await fetch('/api/trpc/auth.merchantSignUp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -244,10 +249,20 @@ export function AuthProvider({ children, onAuthChange }: AuthProviderProps) {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to sign up')
+        const errorData = await response.json()
+        throw new Error(errorData.error?.message || 'Failed to sign up')
       }
 
+      // After successful signup, sign in with Supabase
+      const { error } = await supabase.auth.signInWithPassword({
+        email: params.email,
+        password: params.password,
+      })
+
+      if (error) throw error
+
       // Auth state will be updated by the auth state change listener
+      setState(prev => ({ ...prev, isLoading: false }))
     } catch (error) {
       setState(prev => ({
         ...prev,
@@ -256,7 +271,7 @@ export function AuthProvider({ children, onAuthChange }: AuthProviderProps) {
       }))
       throw error
     }
-  }, [])
+  }, [supabase])
 
   const verifyOtp = useCallback(async (otp: string) => {
     if (!pendingOtp) {
@@ -266,6 +281,7 @@ export function AuthProvider({ children, onAuthChange }: AuthProviderProps) {
     setState(prev => ({ ...prev, isLoading: true, error: null }))
 
     try {
+      // Verify OTP
       const response = await fetch('/api/trpc/auth.verifyOtp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -276,7 +292,8 @@ export function AuthProvider({ children, onAuthChange }: AuthProviderProps) {
       })
 
       if (!response.ok) {
-        throw new Error('Invalid OTP')
+        const errorData = await response.json()
+        throw new Error(errorData.error?.message || 'Invalid OTP')
       }
 
       const data = await response.json()
@@ -305,6 +322,8 @@ export function AuthProvider({ children, onAuthChange }: AuthProviderProps) {
           isCustomer: true,
           error: null,
         })
+        
+        onAuthChange?.(user)
       }
     } catch (error) {
       setState(prev => ({
@@ -314,7 +333,7 @@ export function AuthProvider({ children, onAuthChange }: AuthProviderProps) {
       }))
       throw error
     }
-  }, [pendingOtp])
+  }, [pendingOtp, onAuthChange])
 
   const signOut = useCallback(async () => {
     setState(prev => ({ ...prev, isLoading: true, error: null }))
@@ -324,20 +343,10 @@ export function AuthProvider({ children, onAuthChange }: AuthProviderProps) {
       localStorage.removeItem(AUTH_STORAGE_KEYS.CUSTOMER_TOKEN)
       localStorage.removeItem(AUTH_STORAGE_KEYS.PENDING_OTP)
       
-      // Sign out from Supabase
-      await supabase.auth.signOut()
-      
-      // Call signOut API
-      await fetch('/api/trpc/auth.signOut', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(state.session?.token && {
-            'Authorization': `Bearer ${state.session.token}`,
-          }),
-        },
-        body: JSON.stringify({}),
-      })
+      // Sign out from Supabase (for merchants)
+      if (state.isMerchant) {
+        await supabase.auth.signOut()
+      }
 
       // Clear state
       setState({
@@ -349,6 +358,8 @@ export function AuthProvider({ children, onAuthChange }: AuthProviderProps) {
         isCustomer: false,
         error: null,
       })
+      
+      onAuthChange?.(null)
     } catch (error) {
       setState(prev => ({
         ...prev,
@@ -356,10 +367,9 @@ export function AuthProvider({ children, onAuthChange }: AuthProviderProps) {
         error: error as Error,
       }))
     }
-  }, [supabase, state.session?.token])
+  }, [supabase, state.isMerchant, onAuthChange])
 
   const refresh = useCallback(async () => {
-    // Re-run initialization
     setState(prev => ({ ...prev, isLoading: true }))
     
     if (state.isMerchant) {
@@ -367,14 +377,9 @@ export function AuthProvider({ children, onAuthChange }: AuthProviderProps) {
       if (data.session) {
         // Auth state will be updated by the listener
       }
-    } else {
-      // For customers, re-validate token
-      const token = localStorage.getItem(AUTH_STORAGE_KEYS.CUSTOMER_TOKEN)
-      if (token) {
-        // Re-fetch session data
-        window.location.reload() // Simple approach for now
-      }
     }
+    
+    setState(prev => ({ ...prev, isLoading: false }))
   }, [supabase, state.isMerchant])
 
   const value: AuthContextValue = {

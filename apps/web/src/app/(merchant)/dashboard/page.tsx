@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from "react"
-import { redirect } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { DashboardStats, RecentOrders, PopularProducts, QuickStats } from "@/components/merchant"
 import { AlertCircle, ArrowUpRight, Loader2 } from "lucide-react"
 import { Alert, AlertDescription, Button, Card, CardContent, CardHeader, Skeleton } from "@kitchencloud/ui"
@@ -11,6 +11,7 @@ import { useAuth } from "@kitchencloud/auth/client"
 import { OrderStreamProvider } from "@/providers/order-stream-provider"
 
 export default function DashboardPage() {
+  const router = useRouter()
   const { user, isLoading: authLoading, isMerchant } = useAuth()
   
   // Fetch dashboard data
@@ -24,9 +25,9 @@ export default function DashboardPage() {
   // Handle authentication
   useEffect(() => {
     if (!authLoading && (!user || !isMerchant)) {
-      redirect("/login?redirect=/dashboard")
+      router.push("/auth?redirect=/dashboard")
     }
-  }, [authLoading, user, isMerchant])
+  }, [authLoading, user, isMerchant, router])
 
   // Show loading state
   if (authLoading || isLoading) {

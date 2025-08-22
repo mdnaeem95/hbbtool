@@ -12,7 +12,7 @@ const nextConfig = {
   reactStrictMode: true,
 
   // Only transpile your UI package for client
-  transpilePackages: ['@kitchencloud/ui', '@kitchencloud/api', '@kitchencloud/database'],
+  transpilePackages: ['@kitchencloud/ui', '@kitchencloud/api', '@kitchencloud/database', '@kitchencloud/auth'],
 
   images: {
     remotePatterns: [
@@ -74,7 +74,7 @@ const nextConfig = {
     config.resolve.alias = {
       ...config.resolve.alias,
       '@': resolve(__dirname, 'src'),
-      '@kitchencloud/auth/client': resolve(__dirname, '../../packages/auth/src/client.ts'),
+      '@kitchencloud/auth/client': resolve(__dirname, '../../packages/auth/src/client-exports.ts'),
     };
 
     // Ignore specific warnings

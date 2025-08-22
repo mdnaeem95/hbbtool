@@ -1,14 +1,14 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { db } from '@kitchencloud/database'
 import { AccountContent } from "./account-content"
+import { db } from '@kitchencloud/database'
 
 export default async function AccountPage() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect('/login')
+    redirect('/auth')
   }
 
   // Get customer data
@@ -23,7 +23,7 @@ export default async function AccountPage() {
   })
 
   if (!customer) {
-    redirect('/login')
+    redirect('/auth')
   }
 
   return <AccountContent user={user} customer={customer} />
