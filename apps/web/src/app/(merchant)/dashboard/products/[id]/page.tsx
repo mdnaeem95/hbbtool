@@ -4,8 +4,8 @@ import { useEffect } from "react"
 import { notFound, useRouter } from "next/navigation"
 import { ProductForm } from "@/components/product/product-form"
 import { api } from "@/lib/trpc/client"
-import { useSession } from "@/hooks/use-session"
 import { Spinner } from "@kitchencloud/ui"
+import { useAuth } from "@kitchencloud/auth/client"
 
 interface ProductEditPageProps {
   params: { id: string }
@@ -13,14 +13,14 @@ interface ProductEditPageProps {
 
 export default function ProductEditPage({ params }: ProductEditPageProps) {
   const router = useRouter()
-  const { user, loading: sessionLoading } = useSession()
+  const { user, isLoading: authLoading, isMerchant } = useAuth()
   
   // Check authentication
   useEffect(() => {
-    if (!sessionLoading && !user) {
+    if (!authLoading && !user && !isMerchant) {
       router.push("/auth?redirect=/dashboard/products")
     }
-  }, [user, sessionLoading, router])
+  }, [user, authLoading, router, isMerchant])
 
   // Check if this is a new product
   if (params.id === "new") {
@@ -33,7 +33,7 @@ export default function ProductEditPage({ params }: ProductEditPageProps) {
     { enabled: !!user }
   )
 
-  if (sessionLoading || isLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
         <Spinner className="h-8 w-8" />

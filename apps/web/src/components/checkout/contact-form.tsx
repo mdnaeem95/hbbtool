@@ -2,10 +2,10 @@ import { useEffect, useMemo } from 'react'
 import { Label, Input, Alert, AlertDescription } from '@kitchencloud/ui'
 import { User, Mail, Phone } from 'lucide-react'
 import { useCheckoutStore } from '@/stores/checkout-store'
-import { useSession } from '@/hooks/use-session'
+import { useAuth, isCustomerUser, isMerchantUser } from '@kitchencloud/auth/client'
 
 export function ContactForm() {
-  const { user } = useSession()
+  const { user, isAuthenticated } = useAuth()
   const { contactInfo, setContactInfo } = useCheckoutStore()
 
   const blankContact = useMemo(
@@ -16,13 +16,29 @@ export function ContactForm() {
   // Pre-fill with user data if logged in
   useEffect(() => {
     if (user && (!contactInfo || !contactInfo.name)) {
-      setContactInfo({
-        name: user.user_metadata?.name || '',
-        email: user.email || '',
-        phone: user.user_metadata?.phone || '',
-      })
+      let prefillData = { ...blankContact }
+      
+      if (isCustomerUser(user)) {
+        // Customer user - they use phone-based auth
+        prefillData = {
+          name: user.customer?.preferredName || user.customer?.name || '',
+          email: user.customer?.email || '', // Optional for customers
+          phone: user.phone || '', // CustomerUser has phone directly
+        }
+      } else if (isMerchantUser(user)) {
+        // Merchant user - they use email-based auth
+        // For merchants checking out (rare), we leave name empty since
+        // businessName is not appropriate for personal orders
+        prefillData = {
+          name: '', // Let merchant fill their personal name, not business name
+          email: user.email || '', // MerchantUser has email directly
+          phone: user.merchant?.phone || '',
+        }
+      }
+      
+      setContactInfo(prefillData)
     }
-  }, [user, contactInfo, setContactInfo])
+  }, [user, contactInfo, setContactInfo, blankContact])
 
   const value = contactInfo ?? blankContact
 
@@ -31,7 +47,7 @@ export function ContactForm() {
       <div>
         <h2 className="text-xl font-semibold mb-4">Contact Information</h2>
         
-        {!user && (
+        {!isAuthenticated && (
           <Alert className="mb-4">
             <AlertDescription>
               You're checking out as a guest. Create an account after checkout to track your orders.
@@ -66,7 +82,7 @@ export function ContactForm() {
                 value={value.email}
                 onChange={(e) => setContactInfo({ ...value, email: e.target.value })}
                 className="pl-10"
-                required
+                required // Always require email for order confirmations
               />
             </div>
             <p className="text-xs text-muted-foreground">

@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useEffect, useRef, useState } from "react"
-import { useSession } from "@/hooks/use-session"
+import { useAuth } from "@kitchencloud/auth/client"
 import { api } from "@/lib/trpc/client"
 import { useToast } from "@kitchencloud/ui"
 import { useOrderStore } from "@/stores/order-store"
@@ -25,7 +25,7 @@ interface OrderStreamProviderProps {
 }
 
 export function OrderStreamProvider({ children }: OrderStreamProviderProps) {
-  const { user, isAuthenticated, loading } = useSession()
+  const { user, isAuthenticated, isLoading, isMerchant } = useAuth()
   const { toast } = useToast()
   const utils = api.useUtils()
   const { setLastUpdate } = useOrderStore()
@@ -38,7 +38,7 @@ export function OrderStreamProvider({ children }: OrderStreamProviderProps) {
   
   useEffect(() => {
     // Only connect if authenticated merchant
-    if (loading || !isAuthenticated || !user?.id || user?.user_metadata?.userType !== 'merchant') {
+    if (isLoading || !isAuthenticated || !user?.id || !isMerchant) {
       return
     }
     
@@ -148,11 +148,11 @@ export function OrderStreamProvider({ children }: OrderStreamProviderProps) {
       
       setIsConnected(false)
     }
-  }, [user?.id, isAuthenticated, loading, toast, utils, setLastUpdate])
+  }, [user?.id, isAuthenticated, isLoading, isMerchant, toast, utils, setLastUpdate])
   
   // Fallback polling mechanism for robustness
   useEffect(() => {
-    if (loading || !isAuthenticated || !user?.id || user?.user_metadata?.userType !== 'merchant') {
+    if (isLoading || !isAuthenticated || !user?.id || !isMerchant) {
       return
     }
     
@@ -164,7 +164,7 @@ export function OrderStreamProvider({ children }: OrderStreamProviderProps) {
     }, 30000)
     
     return () => clearInterval(interval)
-  }, [isConnected, user?.id, isAuthenticated, loading, utils])
+  }, [isConnected, user?.id, isAuthenticated, isLoading, isMerchant, utils])
   
   return (
     <OrderStreamContext.Provider value={{ isConnected, lastUpdate }}>

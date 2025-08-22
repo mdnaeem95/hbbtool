@@ -12,7 +12,7 @@ const nextConfig = {
   reactStrictMode: true,
 
   // Only transpile your UI package for client
-  transpilePackages: ['@kitchencloud/ui'],
+  transpilePackages: ['@kitchencloud/ui', '@kitchencloud/api', '@kitchencloud/database'],
 
   images: {
     remotePatterns: [

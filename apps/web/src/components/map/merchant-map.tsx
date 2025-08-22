@@ -95,25 +95,65 @@ export function MerchantMap({
           key={merchant.id}
           longitude={merchant.longitude!}
           latitude={merchant.latitude!}
-          anchor="bottom"
+          anchor="center"
           onClick={(e: any) => {
             e.originalEvent.stopPropagation()
             handleMarkerClick(merchant)
           }}
         >
-          <div className="relative cursor-pointer">
+          <div 
+            className="relative cursor-pointer"
+            style={{
+              // Use fixed size container to prevent shifts
+              width: '40px',
+              height: '40px',
+              // Center the marker visually
+              marginTop: '-20px'
+            }}
+          >
+            {/* Pulse animation for selected (underneath) */}
+            {selectedMerchantId === merchant.id && (
+              <div 
+                className="absolute inset-0 rounded-full bg-primary/30 animate-ping"
+                style={{
+                  // Ensure ping doesn't affect marker position
+                  pointerEvents: 'none'
+                }}
+              />
+            )}
+            
             {/* Custom marker */}
-            <div className={`
-              flex items-center justify-center h-10 w-10 rounded-full shadow-lg transform transition-transform hover:scale-110
-              ${merchant.isOpen ? 'bg-primary' : 'bg-gray-400'}
-              ${selectedMerchantId === merchant.id ? 'scale-125' : ''}
-            `}>
+            <div 
+              className={`
+                absolute inset-0 flex items-center justify-center rounded-full shadow-lg
+                transition-all duration-200
+                ${merchant.isOpen ? 'bg-primary' : 'bg-gray-400'}
+              `}
+              style={{
+                // Use transform-origin to scale from center
+                transformOrigin: 'center center',
+                transform: selectedMerchantId === merchant.id ? 'scale(1.25)' : 'scale(1)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = selectedMerchantId === merchant.id ? 'scale(1.35)' : 'scale(1.1)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = selectedMerchantId === merchant.id ? 'scale(1.25)' : 'scale(1)'
+              }}
+            >
               <MapPin className="h-6 w-6 text-white" />
             </div>
-            {/* Pulse animation for selected */}
-            {selectedMerchantId === merchant.id && (
-              <div className="absolute inset-0 rounded-full bg-primary/30 animate-ping" />
-            )}
+            
+            {/* Invisible click target (larger for better UX) */}
+            <div 
+              className="absolute inset-0"
+              style={{
+                // Make click target larger than visual marker
+                margin: '-10px',
+                width: '60px',
+                height: '60px'
+              }}
+            />
           </div>
         </Marker>
       ))}
@@ -123,7 +163,8 @@ export function MerchantMap({
         <Popup
           longitude={popupMerchant.longitude!}
           latitude={popupMerchant.latitude!}
-          anchor="bottom"
+          anchor="top"
+          offset={25}
           onClose={() => {
             setPopupMerchant(null)
             onMerchantSelect?.(null)

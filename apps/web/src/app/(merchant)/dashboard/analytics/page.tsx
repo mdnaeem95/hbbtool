@@ -4,7 +4,7 @@ import * as React from "react"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { api } from "@/lib/trpc/client"
-import { useSession } from "@/hooks/use-session"
+import { useAuth } from "@kitchencloud/auth/client"
 import { 
   Tabs, 
   TabsContent, 
@@ -65,7 +65,7 @@ function getStableDateRange(preset: DatePreset, customRange?: { from: Date; to: 
 
 export default function AnalyticsPage() {
   const router = useRouter()
-  const { user, loading: sessionLoading } = useSession()
+  const { user, isLoading: authLoading, isMerchant } = useAuth()
   const [datePreset, setDatePreset] = useState<DatePreset>('30days')
   const [customDateRange, setCustomDateRange] = useState<{ from: Date; to: Date }>(() => {
     const now = new Date()
@@ -80,11 +80,11 @@ export default function AnalyticsPage() {
   
   // Redirect if not authenticated after loading
   useEffect(() => {
-    if (!sessionLoading && !user && !authChecked.current) {
+    if (!authLoading && !user && !authChecked.current) {
       authChecked.current = true
       router.push("/auth?redirect=/dashboard/analytics")
     }
-  }, [sessionLoading, user, router])
+  }, [authLoading, user, router])
 
   // Calculate stable date range
   const dateRange = React.useMemo(
@@ -101,11 +101,11 @@ export default function AnalyticsPage() {
 
   // Query options with proper caching
   const queryOptions = React.useMemo(() => ({
-    enabled: !sessionLoading && !!user,
+    enabled: !authLoading && !!user && isMerchant,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: false,
-  }), [sessionLoading, user])
+  }), [authLoading, user, isMerchant])
 
   // Fetch analytics data
   const statsQuery = api.analytics.getDashboardStats.useQuery(queryInput, queryOptions)
@@ -130,7 +130,7 @@ export default function AnalyticsPage() {
   }, [])
 
   // Show loading state while checking session
-  if (sessionLoading || (!user && !authChecked.current)) {
+  if (authLoading || (!user && !authChecked.current)) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
         <Spinner className="h-8 w-8" />

@@ -5,6 +5,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { Toaster } from "@kitchencloud/ui"
 import { TRPCProvider } from "@/lib/trpc/client"
+import { AuthProvider } from "@kitchencloud/auth/provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -53,11 +54,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
+        <AuthProvider>
           <TRPCProvider>
             {children}
             <div id="portal-root"></div>
             <Toaster />
           </TRPCProvider>
+        </AuthProvider>
       </body>
     </html>
   )

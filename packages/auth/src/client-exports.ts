@@ -1,6 +1,4 @@
-// packages/auth/src/client-exports.ts
-// This file contains only client-safe exports
-// No server-side imports allowed here
+'use client'
 
 // Export types
 export type {

@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { redirect } from "next/navigation"
 import { MerchantSidebar, MerchantHeader, MerchantMobileNav } from "@/components/merchant"
-import { useAuth } from "@/hooks/use-auth"
+import { useAuth } from "@kitchencloud/auth/client"
 import { api } from "@/lib/trpc/client"
 import { Loader2 } from "lucide-react"
 
@@ -12,22 +12,22 @@ export default function MerchantLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { user, isLoading: authLoading, userType } = useAuth()
+  const { user, isLoading: authLoading, isMerchant } = useAuth()
   
   // Fetch merchant dashboard data
   const { data: dashboardData, isLoading: dashboardLoading, error } = api.merchant.getDashboard.useQuery(
     undefined,
     {
-      enabled: !!user && userType === 'merchant',
+      enabled: !!user && isMerchant,
     }
   )
 
   // Handle authentication
   useEffect(() => {
-    if (!authLoading && (!user || userType !== 'merchant')) {
+    if (!authLoading && (!user || !isMerchant)) {
       redirect("/login?redirect=/dashboard")
     }
-  }, [authLoading, user, userType])
+  }, [authLoading, user, isMerchant])
 
   // Handle merchant verification errors (user is not a merchant)
   useEffect(() => {

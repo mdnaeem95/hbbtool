@@ -7,9 +7,9 @@ import { ProductList } from "@/components/product/product-list"
 import { ProductListSkeleton } from "@/components/product/product-list-skeleton"
 import { ProductStats } from "@/components/product/product-stats"
 import { Button } from "@kitchencloud/ui"
-import { useSession } from "@/hooks/use-session"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@kitchencloud/auth/client"
 
 export default function ProductsPage({
   searchParams,
@@ -23,18 +23,18 @@ export default function ProductsPage({
   }>
 }) {
   const router = useRouter()
-  const { user, loading } = useSession()
+  const { user, isLoading: authLoading, isMerchant } = useAuth()
   const params = use(searchParams)
   const [isImporting, setIsImporting] = useState(false)
   const [isNavigating, setIsNavigating] = useState(false)
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user && !isMerchant) {
       router.push("/auth?redirect=/dashboard/products")
     }
-  }, [user, loading, router])
+  }, [user, authLoading, router])
 
-  if (loading) {
+  if (authLoading) {
     return <ProductListSkeleton />
   }
 

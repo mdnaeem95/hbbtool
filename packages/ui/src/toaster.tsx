@@ -8,7 +8,7 @@ import {
   ToastProvider,
   ToastTitle,
   ToastViewport,
-} from "@kitchencloud/ui/"
+} from "@kitchencloud/ui"
 
 export function Toaster() {
   const { toasts } = useToast()
