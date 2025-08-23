@@ -10,6 +10,8 @@ import {
 } from '@kitchencloud/database'
 import { Parser } from 'json2csv'
 import { canUpdateOrderStatus } from '../../../lib/helpers/order'
+import { NotificationService } from '../../../services/notification'
+import { NotificationPriority } from '@kitchencloud/database'
 
 /* =========================
    Zod
@@ -83,6 +85,133 @@ function statusTimestamps(status: OrderStatus) {
     case 'CANCELLED':  return { cancelledAt: now }
     case 'COMPLETED':  return { completedAt: now }
     default:           return {}
+  }
+}
+
+async function triggerOrderNotification(
+  orderId: string,
+  oldStatus: OrderStatus,
+  newStatus: OrderStatus,
+  db: any
+) {
+  try {
+    // Get order details
+    const order = await db.order.findUnique({
+      where: { id: orderId },
+      include: {
+        merchant: {
+          select: { 
+            id: true, 
+            businessName: true,
+            emailNotifications: true,
+            whatsappNotifications: true 
+          }
+        },
+        customer: {
+          select: { 
+            id: true, 
+            name: true, 
+            email: true,
+            emailNotifications: true,
+            whatsappNotifications: true 
+          }
+        }
+      }
+    })
+
+    if (!order) return
+
+    const channels: ('in_app' | 'email' | 'whatsapp')[] = ['in_app']
+    
+    // Determine notification channels based on user preferences
+    if (order.customer?.emailNotifications || order.merchant.emailNotifications) {
+      channels.push('email')
+    }
+    if (order.customer?.whatsappNotifications || order.merchant.whatsappNotifications) {
+      channels.push('whatsapp')
+    }
+
+    // Trigger notifications based on status change
+    switch (newStatus) {
+      case 'CONFIRMED':
+        // Notify customer that order is confirmed
+        if (order.customerId) {
+          await NotificationService.orderConfirmed({
+            customerId: order.customerId,
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            estimatedTime: order.estimatedDeliveryTime,
+            channels,
+            priority: NotificationPriority.NORMAL,
+          })
+        }
+        break
+
+      case 'READY':
+        // Notify customer that order is ready
+        if (order.customerId) {
+          await NotificationService.orderReady({
+            customerId: order.customerId,
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            channels,
+            priority: NotificationPriority.HIGH,
+          })
+        }
+        break
+
+      case 'DELIVERED':
+      case 'COMPLETED':
+        // Notify customer of delivery/completion
+        if (order.customerId) {
+          await NotificationService.createNotification({
+            customerId: order.customerId,
+            orderId: order.id,
+            type: 'ORDER_DELIVERED',
+            channels,
+            priority: NotificationPriority.NORMAL,
+            data: {
+              orderNumber: order.orderNumber,
+              deliveryMethod: order.deliveryMethod,
+            }
+          })
+        }
+        break
+
+      case 'CANCELLED':
+        // Notify customer of cancellation
+        if (order.customerId) {
+          await NotificationService.createNotification({
+            customerId: order.customerId,
+            orderId: order.id,
+            type: 'ORDER_CANCELLED',
+            channels,
+            priority: NotificationPriority.HIGH,
+            data: {
+              orderNumber: order.orderNumber,
+              reason: order.cancellationReason || 'Order cancelled',
+            }
+          })
+        }
+        break
+    }
+
+    // For new orders, notify merchant
+    if (newStatus === 'PENDING' && oldStatus !== 'PENDING') {
+      await NotificationService.orderPlaced({
+        merchantId: order.merchantId,
+        orderId: order.id,
+        customerName: order.customer?.name || order.customerName,
+        orderNumber: order.orderNumber,
+        amount: parseFloat(order.total.toString()),
+        channels,
+        priority: NotificationPriority.HIGH,
+      })
+    }
+
+  } catch (error) {
+    console.error('Failed to trigger order notification:', error)
+    // Don't throw - notifications are non-critical
   }
 }
 
@@ -187,7 +316,8 @@ export const orderRouter = router({
         return order
       })
 
-      // TODO: notify customer/merchant channels
+      // add notification here
+      await triggerOrderNotification(input.id, from, to, ctx.db)
 
       return result
     }),

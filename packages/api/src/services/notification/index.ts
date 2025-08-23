@@ -1,4 +1,4 @@
-import { db, type NotificationType } from '@kitchencloud/database'
+import { db, type NotificationType, NotificationPriority } from '@kitchencloud/database'
 import { emailProvider } from './provider/email'
 
 type NotificationChannel = 'in_app' | 'email' | 'sms' | 'whatsapp'
@@ -15,7 +15,7 @@ type NotificationData = {
   type: NotificationType
   channels?: NotificationChannel[]
   data?: Record<string, unknown>
-  priority?: 'low' | 'normal' | 'high'
+  priority?: NotificationPriority
 }
 
 type NotificationResult = {
@@ -38,7 +38,7 @@ export class NotificationService {
     type,
     channels = ['in_app'],
     data = {},
-    priority,
+    priority = NotificationPriority.NORMAL,
   }: NotificationData): Promise<NotificationResult> {
     // Require at least one recipient
     if (!merchantId && !customerId) {
@@ -73,9 +73,10 @@ export class NotificationService {
               message,
               data: dataPayload,
               channels,
-              ...(priority ? { priority } : {}),
+              priority,
             },
           })
+          
           result.channels.in_app = true
           console.log('[notification.service] In-app notification created:', {
             type,
@@ -249,18 +250,19 @@ export class NotificationService {
     orderNumber: string
     amount?: number
     channels?: NotificationChannel[]
-  }) {
+    priority?: NotificationPriority
+  }): Promise<NotificationResult> {
     return this.createNotification({
       merchantId: opts.merchantId,
       orderId: opts.orderId,
-      type: 'ORDER_PLACED' as NotificationType,
-      channels: opts.channels || ['in_app', 'email'],
-      data: { 
-        customerName: opts.customerName, 
-        orderNumber: opts.orderNumber, 
-        amount: opts.amount 
+      type: 'ORDER_PLACED',
+      channels: opts.channels,
+      priority: opts.priority,
+      data: {
+        customerName: opts.customerName,
+        orderNumber: opts.orderNumber,
+        amount: opts.amount,
       },
-      priority: 'high',
     })
   }
 
@@ -271,18 +273,19 @@ export class NotificationService {
     orderNumber: string
     estimatedTime?: number
     channels?: NotificationChannel[]
-  }) {
+    priority?: NotificationPriority
+  }): Promise<NotificationResult> {
     return this.createNotification({
       customerId: opts.customerId,
       merchantId: opts.merchantId,
       orderId: opts.orderId,
-      type: 'ORDER_CONFIRMED' as NotificationType,
-      channels: opts.channels || ['in_app', 'sms'],
-      data: { 
+      type: 'ORDER_CONFIRMED',
+      channels: opts.channels,
+      priority: opts.priority,
+      data: {
         orderNumber: opts.orderNumber,
-        estimatedTime: opts.estimatedTime
+        estimatedTime: opts.estimatedTime,
       },
-      priority: 'high',
     })
   }
 
@@ -291,40 +294,19 @@ export class NotificationService {
     merchantId?: string
     orderId: string
     orderNumber: string
-    deliveryMethod?: string
     channels?: NotificationChannel[]
-  }) {
+    priority?: NotificationPriority
+  }): Promise<NotificationResult> {
     return this.createNotification({
       customerId: opts.customerId,
       merchantId: opts.merchantId,
       orderId: opts.orderId,
-      type: 'ORDER_READY' as NotificationType,
-      channels: opts.channels || ['in_app', 'sms', 'whatsapp'],
-      data: { 
+      type: 'ORDER_READY',
+      channels: opts.channels,
+      priority: opts.priority || NotificationPriority.HIGH,
+      data: {
         orderNumber: opts.orderNumber,
-        deliveryMethod: opts.deliveryMethod
       },
-      priority: 'high',
-    })
-  }
-
-  static async orderDelivered(opts: {
-    customerId?: string
-    merchantId?: string
-    orderId: string
-    orderNumber: string
-    channels?: NotificationChannel[]
-  }) {
-    return this.createNotification({
-      customerId: opts.customerId,
-      merchantId: opts.merchantId,
-      orderId: opts.orderId,
-      type: 'ORDER_DELIVERED' as NotificationType,
-      channels: opts.channels || ['in_app', 'email'],
-      data: { 
-        orderNumber: opts.orderNumber
-      },
-      priority: 'normal',
     })
   }
 
@@ -333,15 +315,21 @@ export class NotificationService {
     orderId: string
     orderNumber: string
     amount: number
+    paymentMethod: string
     channels?: NotificationChannel[]
-  }) {
+    priority?: NotificationPriority
+  }): Promise<NotificationResult> {
     return this.createNotification({
       merchantId: opts.merchantId,
       orderId: opts.orderId,
-      type: 'PAYMENT_RECEIVED' as NotificationType,
-      channels: opts.channels || ['in_app', 'email'],
-      data: { orderNumber: opts.orderNumber, amount: opts.amount },
-      priority: 'normal',
+      type: 'PAYMENT_RECEIVED',
+      channels: opts.channels,
+      priority: opts.priority,
+      data: {
+        orderNumber: opts.orderNumber,
+        amount: opts.amount,
+        paymentMethod: opts.paymentMethod,
+      },
     })
   }
 
@@ -349,72 +337,235 @@ export class NotificationService {
     merchantId: string
     productId: string
     productName: string
-    currentQuantity: number
+    currentStock: number
+    threshold: number
     channels?: NotificationChannel[]
-  }) {
+    priority?: NotificationPriority
+  }): Promise<NotificationResult> {
     return this.createNotification({
       merchantId: opts.merchantId,
-      type: 'LOW_STOCK_ALERT' as NotificationType,
-      channels: opts.channels || ['in_app', 'email'],
+      type: 'LOW_STOCK_ALERT',
+      channels: opts.channels,
+      priority: opts.priority || NotificationPriority.HIGH,
       data: {
         productId: opts.productId,
         productName: opts.productName,
-        currentQuantity: opts.currentQuantity,
+        currentStock: opts.currentStock,
+        threshold: opts.threshold,
       },
-      priority: 'high',
     })
   }
 
-  /* ---------------- Templates & formatting ---------------- */
+  /* ---------------- Template system ---------------- */
 
-  private static getTemplates(): Partial<Record<NotificationType, Template>> {
+  private static getTemplates(): Record<NotificationType, Template> {
     return {
       ORDER_PLACED: {
-        title: 'New Order Received! 🎉',
-        message: 'You have a new order #{{orderNumber}} from {{customerName}} for ${{amount}}',
+        title: 'New Order Received',
+        message: 'Order {{orderNumber}} from {{customerName}} - ${{amount}}',
+      },
+      ORDER_PREPARING: {
+        title: 'Order preparing',
+        message: 'Your order {{orderNumber}} is being prepared. Estimated time: {{estimatedTime}} minutes',
       },
       ORDER_CONFIRMED: {
-        title: 'Order Confirmed ✅',
-        message: 'Your order #{{orderNumber}} has been confirmed and will be ready in {{estimatedTime}} minutes',
+        title: 'Order Confirmed',
+        message: 'Your order {{orderNumber}} has been confirmed. Estimated time: {{estimatedTime}} minutes',
       },
       ORDER_READY: {
-        title: 'Order Ready! 🍽️',
-        message: 'Your order #{{orderNumber}} is ready for {{deliveryMethod}}',
+        title: 'Order Ready',
+        message: 'Your order {{orderNumber}} is ready for {{deliveryMethod}}',
       },
       ORDER_DELIVERED: {
-        title: 'Order Delivered 🚚',
-        message: 'Your order #{{orderNumber}} has been delivered. Enjoy your meal!',
+        title: 'Order Delivered',
+        message: 'Your order {{orderNumber}} has been delivered. Enjoy your meal!',
       },
       ORDER_CANCELLED: {
-        title: 'Order Cancelled ❌',
-        message: 'Order #{{orderNumber}} has been cancelled',
+        title: 'Order Cancelled',
+        message: 'Order {{orderNumber}} has been cancelled. {{reason}}',
       },
       PAYMENT_RECEIVED: {
-        title: 'Payment Received 💰',
-        message: 'Payment of ${{amount}} received for order #{{orderNumber}}',
+        title: 'Payment Received',
+        message: 'Payment of ${{amount}} received for order {{orderNumber}} via {{paymentMethod}}',
+      },
+      PAYMENT_FAILED: {
+        title: 'Payment Failed',
+        message: 'Payment of ${{amount}} failed for order {{orderNumber}} via {{paymentMethod}}',
       },
       REVIEW_RECEIVED: {
-        title: 'New Review ⭐',
-        message: '{{customerName}} left a {{rating}}★ review for your business',
+        title: 'New Review',
+        message: 'You received a {{rating}}-star review from {{customerName}}',
       },
       LOW_STOCK_ALERT: {
-        title: 'Low Stock Alert ⚠️',
-        message: '{{productName}} is running low ({{currentQuantity}} left)',
+        title: 'Low Stock Alert',
+        message: '{{productName}} is running low ({{currentStock}} left)',
       },
+      PROMOTION_STARTED: {
+        title: 'Promotion Started',
+        message: 'Your promotion "{{promotionName}}" has just started',
+      },
+      PROMOTION_ENDING: {
+        title: 'Promotion Ending Soon',
+        message: 'Your promotion "{{promotionName}}" ends in {{hoursLeft}} hours',
+      },
+      SYSTEM_MAINTENANCE: {
+        title: 'System Maintenance',
+        message: 'The system is undergoing maintenance.',
+      },
+      ACCOUNT_VERIFICATION: {
+        title: 'Account verification',
+        message: 'Please go to your email and click on the link to verify your account.',
+      },
+      PASSWORD_RESET: {
+        title: 'Password Reset',
+        message: 'Please go to your email and click on the link to reset your password.',        
+      }
     }
   }
 
-  private static fallbackTitle(type: NotificationType) {
-    // Humanize enum-like strings: PAYMENT_RECEIVED -> "Payment received"
-    const s = String(type).toLowerCase().replace(/_/g, ' ')
-    return s.charAt(0).toUpperCase() + s.slice(1)
+  private static fallbackTitle(type: NotificationType): string {
+    return type.split('_').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ')
   }
 
-  /** Simple handlebars-style substitution for `{{key}}`. */
   private static formatMessage(template: string, data: Record<string, unknown>): string {
-    return template.replace(/\{\{([^}]+)\}\}/g, (_, key: string) => {
-      const val = data[key.trim()]
-      return (val ?? '').toString()
+    return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+      const value = data[key]
+      if (value === undefined) return match
+      
+      // Format currency values with 2 decimal places
+      if (key === 'amount' && typeof value === 'number') {
+        return value.toFixed(2)
+      }
+      
+      return String(value)
     })
+  }
+
+  /* ---------------- Bulk operations ---------------- */
+
+  static async markAsRead(notificationId: string): Promise<boolean> {
+    try {
+      await db.notification.update({
+        where: { id: notificationId },
+        data: { 
+          read: true, 
+          readAt: new Date() 
+        },
+      })
+      return true
+    } catch (error) {
+      console.error('[notification.service] Mark as read failed:', error)
+      return false
+    }
+  }
+
+  static async markAllAsRead(userId: string, isCustomer = false): Promise<boolean> {
+    try {
+      const whereCondition = isCustomer 
+        ? { customerId: userId, read: false }
+        : { merchantId: userId, read: false }
+
+      await db.notification.updateMany({
+        where: whereCondition,
+        data: { 
+          read: true, 
+          readAt: new Date() 
+        },
+      })
+      return true
+    } catch (error) {
+      console.error('[notification.service] Mark all as read failed:', error)
+      return false
+    }
+  }
+
+  static async getUnreadCount(userId: string, isCustomer = false): Promise<number> {
+    try {
+      const whereCondition = isCustomer 
+        ? { customerId: userId, read: false }
+        : { merchantId: userId, read: false }
+
+      return await db.notification.count({
+        where: whereCondition,
+      })
+    } catch (error) {
+      console.error('[notification.service] Get unread count failed:', error)
+      return 0
+    }
+  }
+
+  static async deleteExpired(): Promise<number> {
+    try {
+      const now = new Date()
+      
+      const result = await db.notification.deleteMany({
+        where: {
+          expiresAt: {
+            lt: now
+          }
+        }
+      })
+
+      const totalDeleted = result.count
+      
+      if (totalDeleted > 0) {
+        console.log(`[notification.service] Deleted ${totalDeleted} expired notifications`)
+      }
+      
+      return totalDeleted
+    } catch (error) {
+      console.error('[notification.service] Delete expired failed:', error)
+      return 0
+    }
+  }
+
+  /* ---------------- Query helpers ---------------- */
+
+  static async getNotifications(opts: {
+    userId: string
+    isCustomer?: boolean
+    limit?: number
+    offset?: number
+    unreadOnly?: boolean
+    type?: NotificationType
+  }) {
+    try {
+      const {
+        userId,
+        isCustomer = false,
+        limit = 20,
+        offset = 0,
+        unreadOnly = false,
+        type
+      } = opts
+
+      const whereCondition: any = isCustomer 
+        ? { customerId: userId }
+        : { merchantId: userId }
+
+      if (unreadOnly) {
+        whereCondition.read = false
+      }
+
+      if (type) {
+        whereCondition.type = type
+      }
+
+      return await db.notification.findMany({
+        where: whereCondition,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+        include: {
+          merchant: isCustomer ? true : false,
+          customer: !isCustomer ? true : false,
+        },
+      })
+    } catch (error) {
+      console.error('[notification.service] Get notifications failed:', error)
+      return []
+    }
   }
 }

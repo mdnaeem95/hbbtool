@@ -9,6 +9,7 @@ import { productRouter } from './trpc/routers/product'
 import { publicRouter } from './trpc/routers/public'
 import { analyticsRouter } from './trpc/routers/analytics'
 import { settingsRouter } from './trpc/routers/settings'
+import { notificationRouter } from './trpc/routers/notification'
 
 export { createTRPCContext } from './trpc/context'
 export type { TRPCContext } from './trpc/context'
@@ -28,7 +29,8 @@ export const appRouter = router({
   payment: paymentRouter,
   public: publicRouter,
   analytics: analyticsRouter,
-  settings: settingsRouter
+  settings: settingsRouter,
+  notification: notificationRouter
 })
 
 export type AppRouter = typeof appRouter

@@ -30,6 +30,7 @@ export {
   DeliveryMethod,
   PaymentMethod,
   NotificationType,
+  NotificationPriority
 } from "@prisma/client"
 
 // Re-export generated types for convenience

@@ -5,6 +5,7 @@ import { Inter } from "next/font/google"
 import { Toaster } from "@kitchencloud/ui"
 import { TRPCProvider } from "@/lib/trpc/client"
 import { AuthProvider } from "@kitchencloud/auth/provider"
+import { NotificationToast } from "@/components/notifications/notification-toast"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -57,6 +58,7 @@ export default function RootLayout({
           <TRPCProvider>
             {children}
             <div id="portal-root"></div>
+            <NotificationToast />
             <Toaster />
           </TRPCProvider>
         </AuthProvider>

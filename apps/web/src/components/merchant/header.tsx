@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import {
-  Bell,
   ChevronRight,
   LogOut,
   Settings,
@@ -22,6 +21,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage, Button } from "@kitchencloud/ui"
 import { createClient } from "@/lib/supabase/client"
 import { RouterOutputs } from "@/lib/trpc/types"
+import { NotificationBell } from "../notifications/notification-bell"
 
 type MerchantDashboardData = RouterOutputs["merchant"]["getDashboard"]
 
@@ -90,14 +90,7 @@ export function MerchantHeader({ dashboardData }: MerchantHeaderProps) {
         {/* Right section */}
         <div className="flex items-center gap-4">
           {/* Notifications */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative"
-          >
-            <Bell className="h-5 w-5" />
-            <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-orange-500" />
-          </Button>
+          <NotificationBell />
 
           {/* Profile dropdown */}
           <DropdownMenu>
