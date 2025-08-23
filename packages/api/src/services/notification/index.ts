@@ -1,5 +1,8 @@
+// packages/api/src/services/notification/index.ts
 import { db, type NotificationType, NotificationPriority } from '@kitchencloud/database'
 import { emailProvider } from './provider/email'
+import { smsProvider } from './provider/sms'
+import { whatsappProvider } from './provider/whatsapp'
 
 type NotificationChannel = 'in_app' | 'email' | 'sms' | 'whatsapp'
 
@@ -190,9 +193,24 @@ export class NotificationService {
     message: string,
     data: Record<string, unknown>
   ): Promise<{ success: boolean; id?: string }> {
-    // TODO: Implement SMS provider (Twilio)
-    console.log('[sms.queue]', { userId, title, message, data })
-    return { success: false }
+    try {
+      // Check if user has SMS notifications enabled
+      const userSettings = await this.getUserNotificationSettings(userId)
+      if (!userSettings?.smsNotifications) {
+        console.log('[notification.service] SMS notifications disabled for user:', userId)
+        return { success: false }
+      }
+
+      // Use the real SMS provider with correct parameters
+      return await smsProvider.send({
+        userId,
+        message, // Use the formatted message
+        data,
+      })
+    } catch (error) {
+      console.error('[notification.service] SMS send failed:', error)
+      return { success: false }
+    }
   }
 
   private static async sendWhatsApp(
@@ -201,9 +219,25 @@ export class NotificationService {
     message: string,
     data: Record<string, unknown>
   ): Promise<{ success: boolean; id?: string }> {
-    // TODO: Implement WhatsApp provider
-    console.log('[whatsapp.queue]', { userId, title, message, data })
-    return { success: false }
+    try {
+      // Check if user has WhatsApp notifications enabled
+      const userSettings = await this.getUserNotificationSettings(userId)
+      if (!userSettings?.whatsappNotifications) {
+        console.log('[notification.service] WhatsApp notifications disabled for user:', userId)
+        return { success: false }
+      }
+
+      // Use the real WhatsApp provider with correct parameters
+      return await whatsappProvider.send({
+        userId,
+        title,
+        message,
+        data,
+      })
+    } catch (error) {
+      console.error('[notification.service] WhatsApp send failed:', error)
+      return { success: false }
+    }
   }
 
   /* ---------------- User settings helper ---------------- */
@@ -241,123 +275,7 @@ export class NotificationService {
     }
   }
 
-  /* ---------------- Convenience helpers ---------------- */
-
-  static async orderPlaced(opts: {
-    merchantId: string
-    orderId: string
-    customerName?: string
-    orderNumber: string
-    amount?: number
-    channels?: NotificationChannel[]
-    priority?: NotificationPriority
-  }): Promise<NotificationResult> {
-    return this.createNotification({
-      merchantId: opts.merchantId,
-      orderId: opts.orderId,
-      type: 'ORDER_PLACED',
-      channels: opts.channels,
-      priority: opts.priority,
-      data: {
-        customerName: opts.customerName,
-        orderNumber: opts.orderNumber,
-        amount: opts.amount,
-      },
-    })
-  }
-
-  static async orderConfirmed(opts: {
-    customerId?: string
-    merchantId?: string
-    orderId: string
-    orderNumber: string
-    estimatedTime?: number
-    channels?: NotificationChannel[]
-    priority?: NotificationPriority
-  }): Promise<NotificationResult> {
-    return this.createNotification({
-      customerId: opts.customerId,
-      merchantId: opts.merchantId,
-      orderId: opts.orderId,
-      type: 'ORDER_CONFIRMED',
-      channels: opts.channels,
-      priority: opts.priority,
-      data: {
-        orderNumber: opts.orderNumber,
-        estimatedTime: opts.estimatedTime,
-      },
-    })
-  }
-
-  static async orderReady(opts: {
-    customerId?: string
-    merchantId?: string
-    orderId: string
-    orderNumber: string
-    channels?: NotificationChannel[]
-    priority?: NotificationPriority
-  }): Promise<NotificationResult> {
-    return this.createNotification({
-      customerId: opts.customerId,
-      merchantId: opts.merchantId,
-      orderId: opts.orderId,
-      type: 'ORDER_READY',
-      channels: opts.channels,
-      priority: opts.priority || NotificationPriority.HIGH,
-      data: {
-        orderNumber: opts.orderNumber,
-      },
-    })
-  }
-
-  static async paymentReceived(opts: {
-    merchantId: string
-    orderId: string
-    orderNumber: string
-    amount: number
-    paymentMethod: string
-    channels?: NotificationChannel[]
-    priority?: NotificationPriority
-  }): Promise<NotificationResult> {
-    return this.createNotification({
-      merchantId: opts.merchantId,
-      orderId: opts.orderId,
-      type: 'PAYMENT_RECEIVED',
-      channels: opts.channels,
-      priority: opts.priority,
-      data: {
-        orderNumber: opts.orderNumber,
-        amount: opts.amount,
-        paymentMethod: opts.paymentMethod,
-      },
-    })
-  }
-
-  static async lowStockAlert(opts: {
-    merchantId: string
-    productId: string
-    productName: string
-    currentStock: number
-    threshold: number
-    channels?: NotificationChannel[]
-    priority?: NotificationPriority
-  }): Promise<NotificationResult> {
-    return this.createNotification({
-      merchantId: opts.merchantId,
-      type: 'LOW_STOCK_ALERT',
-      channels: opts.channels,
-      priority: opts.priority || NotificationPriority.HIGH,
-      data: {
-        productId: opts.productId,
-        productName: opts.productName,
-        currentStock: opts.currentStock,
-        threshold: opts.threshold,
-      },
-    })
-  }
-
   /* ---------------- Template system ---------------- */
-
   private static getTemplates(): Record<NotificationType, Template> {
     return {
       ORDER_PLACED: {
@@ -424,104 +342,83 @@ export class NotificationService {
   }
 
   private static fallbackTitle(type: NotificationType): string {
-    return type.split('_').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-    ).join(' ')
+    return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
   private static formatMessage(template: string, data: Record<string, unknown>): string {
-    return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-      const value = data[key]
-      if (value === undefined) return match
-      
-      // Format currency values with 2 decimal places
-      if (key === 'amount' && typeof value === 'number') {
-        return value.toFixed(2)
-      }
-      
-      return String(value)
+    let message = template
+    for (const [key, value] of Object.entries(data)) {
+      const placeholder = `{{${key}}}`
+      message = message.replace(new RegExp(placeholder, 'g'), String(value))
+    }
+    return message
+  }
+
+  /* ---------------- Convenience helpers ---------------- */
+
+  static async orderPlaced(opts: {
+    merchantId: string
+    orderId: string
+    customerName?: string
+    orderNumber: string
+    amount?: number
+    channels?: NotificationChannel[]
+    priority?: NotificationPriority
+  }) {
+    return this.createNotification({
+      merchantId: opts.merchantId,
+      orderId: opts.orderId,
+      type: 'ORDER_PLACED',
+      channels: opts.channels || ['in_app', 'email', 'sms'],
+      priority: opts.priority || NotificationPriority.HIGH,
+      data: {
+        customerName: opts.customerName,
+        orderNumber: opts.orderNumber,
+        amount: opts.amount,
+      },
     })
   }
 
-  /* ---------------- Bulk operations ---------------- */
-
-  static async markAsRead(notificationId: string): Promise<boolean> {
-    try {
-      await db.notification.update({
-        where: { id: notificationId },
-        data: { 
-          read: true, 
-          readAt: new Date() 
-        },
-      })
-      return true
-    } catch (error) {
-      console.error('[notification.service] Mark as read failed:', error)
-      return false
-    }
+  static async orderReady(opts: {
+    customerId: string
+    orderId: string
+    orderNumber: string
+    deliveryMethod?: string
+    channels?: NotificationChannel[]
+  }) {
+    return this.createNotification({
+      customerId: opts.customerId,
+      orderId: opts.orderId,
+      type: 'ORDER_READY',
+      channels: opts.channels || ['in_app', 'sms', 'whatsapp'],
+      priority: NotificationPriority.HIGH,
+      data: {
+        orderNumber: opts.orderNumber,
+        deliveryMethod: opts.deliveryMethod || 'pickup',
+      },
+    })
   }
 
-  static async markAllAsRead(userId: string, isCustomer = false): Promise<boolean> {
-    try {
-      const whereCondition = isCustomer 
-        ? { customerId: userId, read: false }
-        : { merchantId: userId, read: false }
-
-      await db.notification.updateMany({
-        where: whereCondition,
-        data: { 
-          read: true, 
-          readAt: new Date() 
-        },
-      })
-      return true
-    } catch (error) {
-      console.error('[notification.service] Mark all as read failed:', error)
-      return false
-    }
+  static async orderDelivered(opts: {
+    customerId: string
+    merchantId?: string
+    orderId: string
+    orderNumber: string
+    channels?: NotificationChannel[]
+  }) {
+    return this.createNotification({
+      customerId: opts.customerId,
+      merchantId: opts.merchantId,
+      orderId: opts.orderId,
+      type: 'ORDER_DELIVERED',
+      channels: opts.channels || ['in_app', 'whatsapp'],
+      data: {
+        orderNumber: opts.orderNumber,
+      },
+    })
   }
 
-  static async getUnreadCount(userId: string, isCustomer = false): Promise<number> {
-    try {
-      const whereCondition = isCustomer 
-        ? { customerId: userId, read: false }
-        : { merchantId: userId, read: false }
-
-      return await db.notification.count({
-        where: whereCondition,
-      })
-    } catch (error) {
-      console.error('[notification.service] Get unread count failed:', error)
-      return 0
-    }
-  }
-
-  static async deleteExpired(): Promise<number> {
-    try {
-      const now = new Date()
-      
-      const result = await db.notification.deleteMany({
-        where: {
-          expiresAt: {
-            lt: now
-          }
-        }
-      })
-
-      const totalDeleted = result.count
-      
-      if (totalDeleted > 0) {
-        console.log(`[notification.service] Deleted ${totalDeleted} expired notifications`)
-      }
-      
-      return totalDeleted
-    } catch (error) {
-      console.error('[notification.service] Delete expired failed:', error)
-      return 0
-    }
-  }
-
-  /* ---------------- Query helpers ---------------- */
+  /* ---------------- Notification Management Methods ---------------- */
 
   static async getNotifications(opts: {
     userId: string
@@ -535,37 +432,120 @@ export class NotificationService {
       const {
         userId,
         isCustomer = false,
-        limit = 20,
+        limit = 50,
         offset = 0,
         unreadOnly = false,
         type
       } = opts
 
-      const whereCondition: any = isCustomer 
+      // Build where clause
+      const baseWhere = isCustomer 
         ? { customerId: userId }
         : { merchantId: userId }
 
-      if (unreadOnly) {
-        whereCondition.read = false
-      }
-
-      if (type) {
-        whereCondition.type = type
+      const where = {
+        ...baseWhere,
+        ...(unreadOnly ? { read: false } : {}),
+        ...(type ? { type } : {}),
       }
 
       return await db.notification.findMany({
-        where: whereCondition,
+        where,
         orderBy: { createdAt: 'desc' },
         take: limit,
         skip: offset,
         include: {
-          merchant: isCustomer ? true : false,
-          customer: !isCustomer ? true : false,
+          merchant: isCustomer ? { select: { businessName: true } } : false,
+          customer: !isCustomer ? { select: { name: true } } : false,
         },
       })
     } catch (error) {
-      console.error('[notification.service] Get notifications failed:', error)
+      console.error('[notification.service] Failed to get notifications:', error)
       return []
+    }
+  }
+
+  static async getUnreadCount(userId: string, isCustomer: boolean = false): Promise<number> {
+    try {
+      const where = isCustomer 
+        ? { customerId: userId, read: false }
+        : { merchantId: userId, read: false }
+
+      return await db.notification.count({ where })
+    } catch (error) {
+      console.error('[notification.service] Failed to get unread count:', error)
+      return 0
+    }
+  }
+
+  static async markAsRead(notificationId: string) {
+    try {
+      return await db.notification.update({
+        where: { id: notificationId },
+        data: { 
+          read: true,
+          readAt: new Date(),
+        },
+      })
+    } catch (error) {
+      console.error('[notification.service] Failed to mark notification as read:', error)
+      throw error
+    }
+  }
+
+  static async markAllAsRead(userId: string, isCustomer: boolean = false) {
+    try {
+      const where = isCustomer 
+        ? { customerId: userId, read: false }
+        : { merchantId: userId, read: false }
+
+      const result = await db.notification.updateMany({
+        where,
+        data: { 
+          read: true,
+          readAt: new Date(),
+        },
+      })
+
+      console.log('[notification.service] Marked all notifications as read:', {
+        userId,
+        isCustomer,
+        count: result.count,
+      })
+
+      return result
+    } catch (error) {
+      console.error('[notification.service] Failed to mark all notifications as read:', error)
+      throw error
+    }
+  }
+
+  static async deleteNotification(notificationId: string) {
+    try {
+      return await db.notification.delete({
+        where: { id: notificationId },
+      })
+    } catch (error) {
+      console.error('[notification.service] Failed to delete notification:', error)
+      throw error
+    }
+  }
+
+  static async cleanupExpiredNotifications() {
+    try {
+      const result = await db.notification.deleteMany({
+        where: {
+          expiresAt: {
+            lt: new Date(),
+          },
+        },
+      })
+
+      console.log('[notification.service] Cleaned up expired notifications:', result.count)
+      return result
+    } catch (error) {
+      console.error('[notification.service] Failed to cleanup expired notifications:', error)
+      throw error
     }
   }
 }

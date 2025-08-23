@@ -222,6 +222,9 @@ model Merchant {
   emailNotifications     Boolean @default(true)
   smsNotifications       Boolean @default(true)
   whatsappNotifications  Boolean @default(true)
+  whatsappOptedInAt      DateTime? // When user opted into WhatsApp
+  whatsappOptedOutAt     DateTime? // When user opted out
+  whatsappVerified       Boolean   @default(false) // Phone verified for WhatsApp
 
   // Security
   password            String
