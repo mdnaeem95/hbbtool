@@ -1,5 +1,4 @@
 import { Metadata } from "next"
-import { db } from "@kitchencloud/database"
 import { ProductsPageClient } from "./products-client"
 
 interface ProductsPageProps {
@@ -22,33 +21,15 @@ export async function generateMetadata({
 }: ProductsPageProps): Promise<Metadata> {
   const { slug } = await params
   
-  // Direct database query for metadata only
-  const merchant = await db.merchant.findFirst({
-    where: { 
-      slug: slug, 
-      status: 'ACTIVE', 
-      deletedAt: null 
-    },
-    select: {
-      businessName: true,
-      description: true,
-      logoUrl: true,
-    }
-  })
-
-  if (!merchant) {
-    return {
-      title: "Merchant Not Found",
-    }
-  }
-
+  // Note: We're removing the direct database import to avoid the import issue
+  // The metadata will be generated on the client side or through the API
+  
   return {
-    title: `${merchant.businessName} - Menu | KitchenCloud`,
-    description: merchant.description || `Order delicious food from ${merchant.businessName}`,
+    title: `${slug.replace(/-/g, ' ')} - Menu | KitchenCloud`,
+    description: `Order delicious food from ${slug.replace(/-/g, ' ')}`,
     openGraph: {
-      title: `${merchant.businessName} - Menu`,
-      description: merchant.description || `Order delicious food from ${merchant.businessName}`,
-      images: merchant.logoUrl ? [merchant.logoUrl] : [],
+      title: `${slug.replace(/-/g, ' ')} - Menu`,
+      description: `Order delicious food from ${slug.replace(/-/g, ' ')}`,
     },
   }
 }

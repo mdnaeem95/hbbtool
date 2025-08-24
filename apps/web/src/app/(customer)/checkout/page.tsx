@@ -15,7 +15,7 @@ import {
 import { useCart, useCartTotal } from '@/stores/cart-store'
 import { CheckoutSteps, DeliverySection, ContactForm, PaymentSection, OrderSummary } from "@/components/checkout"
 import { useCheckoutStore } from '@/stores/checkout-store'
-import { api } from '@/app/api/trpc/client'
+import { api } from '@/lib/trpc/client'
 
 type CheckoutStep = 'delivery' | 'contact' | 'payment'
 
@@ -226,6 +226,11 @@ export default function CheckoutPage() {
                     deliveryAddress={deliveryAddress}
                     deliveryMethod={deliveryMethod!}
                     onSuccess={(orderId: string, orderNumber: string) => {
+                      // 🔧 Store customer phone for order confirmation page
+                      if (contactInfo?.phone) {
+                        localStorage.setItem('checkout_customer_phone', contactInfo.phone)
+                      }
+                      
                       clearCart()
                       resetCheckout()
                       router.push(`/checkout/confirmation?orderId=${orderId}&orderNumber=${orderNumber}`)

@@ -21,7 +21,7 @@ import {
   Package
 } from 'lucide-react'
 import confetti from 'canvas-confetti'
-import { api } from '@/app/api/trpc/client'
+import { api } from '@/lib/trpc/client' // 🔧 Fixed import path
 
 const num = (v: unknown) =>
   typeof v === "number" ? v : v ? Number(v as any) : 0
@@ -33,11 +33,26 @@ export default function OrderConfirmationPage() {
   const orderNumber = searchParams.get('orderNumber')
   
   const [copied, setCopied] = useState(false)
+  const [customerPhone, setCustomerPhone] = useState('')
   
-  // Fetch order details
-  const { data: order, isLoading } = api.order.get.useQuery(
-    { id: orderId || '' },
-    { enabled: !!(orderId || orderNumber) }
+  // Get phone from localStorage (set during checkout)
+  useEffect(() => {
+    const phone = localStorage.getItem('checkout_customer_phone')
+    if (phone) {
+      setCustomerPhone(phone)
+    }
+  }, [])
+  
+  // 🔧 Fixed: Use public.trackOrder instead of order.get
+  const { data: order, isLoading, error } = api.public.trackOrder.useQuery(
+    { 
+      orderNumber: orderNumber || '', 
+      phone: customerPhone 
+    },
+    { 
+      enabled: !!(orderNumber && customerPhone),
+      retry: 1, // Don't retry too many times if auth fails
+    }
   )
 
   // Trigger confetti on mount
@@ -54,8 +69,8 @@ export default function OrderConfirmationPage() {
   }, [])
   
   const handleCopyOrderNumber = () => {
-    if (order?.orderNumber) {
-      navigator.clipboard.writeText(order.orderNumber)
+    if (orderNumber) {
+      navigator.clipboard.writeText(orderNumber)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
@@ -77,14 +92,37 @@ export default function OrderConfirmationPage() {
     )
   }
   
-  if (!order) {
+  if (error || !order) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground mb-4">Order not found</p>
-          <Button onClick={() => router.push('/')}>
-            Return Home
-          </Button>
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <div className="mx-auto w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mb-4">
+            <Info className="h-8 w-8 text-orange-600" />
+          </div>
+          <h1 className="text-2xl font-bold mb-2">Order Details Loading</h1>
+          <p className="text-muted-foreground mb-4">
+            We're preparing your order details. This may take a moment.
+          </p>
+          <Alert className="mb-4">
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              Your order <strong>{orderNumber}</strong> has been placed successfully. 
+              We'll send you updates via SMS and email.
+            </AlertDescription>
+          </Alert>
+          <div className="space-y-2">
+            <Button onClick={() => router.push('/')} className="w-full">
+              <Home className="h-4 w-4 mr-2" />
+              Return Home
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => window.location.reload()} 
+              className="w-full"
+            >
+              Try Again
+            </Button>
+          </div>
         </div>
       </div>
     )
@@ -105,193 +143,196 @@ export default function OrderConfirmationPage() {
             Thank you for your order. We've received your payment proof.
           </p>
         </div>
-        
-        {/* Order Number */}
-        <Card className="mb-6">
-          <div className="p-6 text-center">
-            <p className="text-sm text-muted-foreground mb-2">Order Number</p>
-            <div className="flex items-center justify-center gap-3">
-              <p className="text-2xl font-mono font-bold">{order.orderNumber}</p>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={handleCopyOrderNumber}
-              >
-                {copied ? (
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </Button>
+
+        {/* Order Summary Card */}
+        <Card className="mb-6 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-semibold">Order #{order.orderNumber}</h2>
+              <p className="text-sm text-muted-foreground">
+                {order.merchant.businessName}
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Save this number to track your order
-            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopyOrderNumber}
+            >
+              <Copy className="h-4 w-4 mr-2" />
+              {copied ? 'Copied!' : 'Copy'}
+            </Button>
           </div>
-        </Card>
-        
-        {/* Payment Status Alert */}
-        <Alert className="mb-6">
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Payment Verification Pending</strong>
-            <p className="mt-1">
-              The merchant will verify your payment shortly. You'll receive a confirmation 
-              once your payment is verified and your order is confirmed.
-            </p>
-          </AlertDescription>
-        </Alert>
-        
-        {/* Order Details */}
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Delivery/Pickup Information */}
-          <Card>
-            <div className="p-6">
-              <h3 className="font-semibold mb-4 flex items-center gap-2">
-                {isDelivery ? (
-                  <>
-                    <Truck className="h-5 w-5" />
-                    Delivery Information
-                  </>
-                ) : (
-                  <>
-                    <Package className="h-5 w-5" />
-                    Pickup Information
-                  </>
-                )}
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Order Details */}
+            <div>
+              <h3 className="font-semibold mb-3 flex items-center">
+                <ShoppingBag className="h-4 w-4 mr-2" />
+                Order Details
               </h3>
-              
-              <div className="space-y-3">
-                {isDelivery && order.deliveryAddress ? (
-                  <>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Delivery Address</p>
-                      <p className="font-medium">{order.deliveryAddress.line1}</p>
-                      {order.deliveryAddress.line2 && (
-                        <p className="font-medium">{order.deliveryAddress.line2}</p>
-                      )}
-                      <p className="font-medium">Singapore {order.deliveryAddress.postalCode}</p>
-                    </div>
-                    {order.deliveryNotes && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">Delivery Notes</p>
-                        <p className="font-medium">{order.deliveryNotes}</p>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Pickup Location</p>
-                    <p className="font-medium">Please check your order confirmation email for pickup details</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      The merchant will contact you when your order is ready
-                    </p>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Status:</span>
+                  <span className="capitalize font-medium">
+                    {order.status.toLowerCase()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Payment:</span>
+                  <span className="capitalize">
+                    {order.paymentStatus.toLowerCase()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Method:</span>
+                  <span className="flex items-center">
+                    {isDelivery ? <Truck className="h-4 w-4 mr-1" /> : <Package className="h-4 w-4 mr-1" />}
+                    {isDelivery ? 'Delivery' : 'Pickup'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Info */}
+            <div>
+              <h3 className="font-semibold mb-3">Contact Information</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center">
+                  <Phone className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <span>{order.customerPhone}</span>
+                </div>
+                {order.customerEmail && (
+                  <div className="flex items-center">
+                    <Mail className="h-4 w-4 mr-2 text-muted-foreground" />
+                    <span>{order.customerEmail}</span>
                   </div>
                 )}
               </div>
             </div>
-          </Card>
-          
-          {/* Contact Information */}
-          <Card>
-            <div className="p-6">
-              <h3 className="font-semibold mb-4">Contact Information</h3>
-              
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Phone</p>
-                    <p className="font-medium">{order.customerPhone}</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Email</p>
-                    <p className="font-medium">{order.customerEmail}</p>
-                  </div>
-                </div>
-              </div>
+          </div>
+
+          {/* Delivery Address */}
+          {isDelivery && order.deliveryAddress && (
+            <div className="mt-6">
+              <Separator className="mb-4" />
+              <h3 className="font-semibold mb-2 flex items-center">
+                <Truck className="h-4 w-4 mr-2" />
+                Delivery Address
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {order.deliveryAddress.line1}
+                {order.deliveryAddress.line2 && `, ${order.deliveryAddress.line2}`}
+                <br />
+                Singapore {order.deliveryAddress.postalCode}
+              </p>
             </div>
-          </Card>
-        </div>
-        
-        {/* Order Summary */}
-        <Card className="mt-6">
-          <div className="p-6">
-            <h3 className="font-semibold mb-4">Order Summary</h3>
-            
-            {/* Order Items */}
-            <div className="space-y-3 mb-4">
-              {order.items.map((item) => (
-                <div key={item.id} className="flex justify-between">
-                  <div>
-                    <p className="font-medium">{item.productName}</p>
+          )}
+        </Card>
+
+        {/* Order Items */}
+        <Card className="mb-6 p-6">
+          <h3 className="font-semibold mb-4">Order Items</h3>
+          <div className="space-y-3">
+            {order.items.map((item, index) => (
+              <div key={index} className="flex justify-between items-center">
+                <div className="flex-1">
+                  <p className="font-medium">{item.productName}</p>
+                  {item.specialRequest && (
                     <p className="text-sm text-muted-foreground">
-                      Qty: {item.quantity} × ${num(item.price).toFixed(2)}
+                      Note: {item.specialRequest}
                     </p>
-                  </div>
+                  )}
+                </div>
+                <div className="text-right">
                   <p className="font-medium">
-                    ${(num(item.price) * item.quantity).toFixed(2)}
+                    {item.quantity} × ${num(item.price).toFixed(2)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    ${num(item.total).toFixed(2)}
                   </p>
                 </div>
-              ))}
+              </div>
+            ))}
+          </div>
+
+          <Separator className="my-4" />
+          
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span>Subtotal:</span>
+              <span>${num(order.subtotal).toFixed(2)}</span>
             </div>
-            
-            <Separator className="my-4" />
-            
-            {/* Totals */}
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Subtotal</span>
-                <span>${num(order.subtotal).toFixed(2)}</span>
+            {num(order.deliveryFee) > 0 && (
+              <div className="flex justify-between">
+                <span>Delivery Fee:</span>
+                <span>${num(order.deliveryFee).toFixed(2)}</span>
               </div>
-              {isDelivery && (
-                <div className="flex justify-between text-sm">
-                  <span>Delivery Fee</span>
-                  <span>${num(order.deliveryFee).toFixed(2)}</span>
-                </div>
-              )}
-              <div className="flex justify-between font-semibold text-lg pt-2">
-                <span>Total Paid</span>
-                <span className="text-primary">${num(order.total).toFixed(2)}</span>
-              </div>
+            )}
+            <div className="flex justify-between font-semibold text-lg">
+              <span>Total:</span>
+              <span>${num(order.total).toFixed(2)}</span>
             </div>
           </div>
         </Card>
-        
+
         {/* Next Steps */}
-        <Card className="mt-6 bg-blue-50 border-blue-200">
-          <div className="p-6">
-            <h3 className="font-semibold mb-3 text-blue-900">What's Next?</h3>
-            <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
-              <li>The merchant will verify your PayNow payment</li>
-              <li>You'll receive a confirmation once payment is verified</li>
-              <li>The merchant will start preparing your order</li>
-              <li>You'll get updates via SMS/WhatsApp when ready</li>
-              {isDelivery ? (
-                <li>Your order will be delivered to your address</li>
-              ) : (
-                <li>Collect your order from the pickup location</li>
-              )}
-            </ol>
+        <Card className="p-6">
+          <h3 className="font-semibold mb-4">What's Next?</h3>
+          <div className="space-y-3 text-sm">
+            <div className="flex items-start gap-3">
+              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-xs font-semibold text-blue-600">1</span>
+              </div>
+              <div>
+                <p className="font-medium">Payment Confirmation</p>
+                <p className="text-muted-foreground">
+                  The merchant will verify your PayNow payment and confirm your order.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-xs font-semibold text-blue-600">2</span>
+              </div>
+              <div>
+                <p className="font-medium">Order Preparation</p>
+                <p className="text-muted-foreground">
+                  Your order will be prepared fresh. You'll receive updates via SMS.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-xs font-semibold text-blue-600">3</span>
+              </div>
+              <div>
+                <p className="font-medium">
+                  {isDelivery ? 'Delivery' : 'Pickup'}
+                </p>
+                <p className="text-muted-foreground">
+                  {isDelivery 
+                    ? "We'll deliver your order to your specified address."
+                    : "You'll be notified when your order is ready for pickup."
+                  }
+                </p>
+              </div>
+            </div>
           </div>
         </Card>
-        
+
         {/* Action Buttons */}
-        <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-          <Button
-            variant="outline"
-            onClick={() => router.push('/orders')}
-          >
-            <ShoppingBag className="mr-2 h-4 w-4" />
-            View My Orders
-          </Button>
-          <Button onClick={() => router.push('/')}>
-            <Home className="mr-2 h-4 w-4" />
+        <div className="flex gap-4 mt-6">
+          <Button onClick={() => router.push('/')} className="flex-1">
+            <Home className="h-4 w-4 mr-2" />
             Continue Shopping
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => router.push('/orders')}
+            className="flex-1"
+          >
+            <ShoppingBag className="h-4 w-4 mr-2" />
+            View Orders
           </Button>
         </div>
       </div>

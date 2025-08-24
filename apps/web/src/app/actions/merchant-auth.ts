@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { db } from '@kitchencloud/database'
 
 export async function verifyMerchantAccess() {
-  const supabase = createClient()
+  const supabase = await createClient() // 🔧 Add await here
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -37,14 +37,14 @@ export async function verifyMerchantAccess() {
 }
 
 export async function getMerchantSession() {
-  const supabase = createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user || user.user_metadata?.userType !== 'merchant') {
-    return null
-  }
-
   try {
+    const supabase = await createClient() // 🔧 Add await here
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user || user.user_metadata?.userType !== 'merchant') {
+      return null
+    }
+
     const merchant = await db.merchant.findFirst({
       where: { 
         id: user.id, 
@@ -66,6 +66,7 @@ export async function getMerchantSession() {
       merchant,
     }
   } catch (error) {
+    console.error('❌ Error getting merchant session:', error)
     return null
   }
 }
