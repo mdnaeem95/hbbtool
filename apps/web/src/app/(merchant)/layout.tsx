@@ -6,6 +6,7 @@ import { MerchantSidebar, MerchantHeader, MerchantMobileNav } from "@/components
 import { useAuth } from "@kitchencloud/auth/client"
 import { api } from "@/lib/trpc/client"
 import { Loader2 } from "lucide-react"
+import { OrderStreamProvider } from "@/providers/order-stream-provider"
 
 export default function MerchantLayout({
   children,
@@ -61,26 +62,28 @@ export default function MerchantLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Desktop sidebar */}
-      <MerchantSidebar 
-        dashboardData={dashboardData} 
-        className="lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:block lg:w-64" 
-      />
-      
-      {/* Mobile navigation */}
-      <MerchantMobileNav dashboardData={dashboardData} />
-      
-      {/* Main content area */}
-      <div className="lg:pl-64">
-        <MerchantHeader dashboardData={dashboardData} />
+    <OrderStreamProvider>
+      <div className="min-h-screen bg-gray-50">
+        {/* Desktop sidebar */}
+        <MerchantSidebar 
+          dashboardData={dashboardData} 
+          className="lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:block lg:w-64" 
+        />
         
-        <main className="p-4 sm:p-6 lg:p-8">
-          <div className="mx-auto max-w-7xl">
-            {children}
-          </div>
-        </main>
+        {/* Mobile navigation */}
+        <MerchantMobileNav dashboardData={dashboardData} />
+        
+        {/* Main content area */}
+        <div className="lg:pl-64">
+          <MerchantHeader dashboardData={dashboardData} />
+          
+          <main className="p-4 sm:p-6 lg:p-8">
+            <div className="mx-auto max-w-7xl">
+              {children}
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
+    </OrderStreamProvider>
   )
 }

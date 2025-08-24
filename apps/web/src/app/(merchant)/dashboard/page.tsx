@@ -8,7 +8,6 @@ import { Alert, AlertDescription, Button, Card, CardContent, CardHeader, Skeleto
 import Link from "next/link"
 import { api } from "@/lib/trpc/client"
 import { useAuth } from "@kitchencloud/auth/client"
-import { OrderStreamProvider } from "@/providers/order-stream-provider"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -53,7 +52,6 @@ export default function DashboardPage() {
   }
 
   return (
-    <OrderStreamProvider>
       <div className="space-y-8">
         {/* Page Header */}
         <div>
@@ -96,7 +94,6 @@ export default function DashboardPage() {
         {/* Quick Stats */}
         <QuickStats stats={dashboardData.stats} />
       </div>
-    </OrderStreamProvider>
   )
 }
 

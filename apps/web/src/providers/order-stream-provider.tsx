@@ -66,7 +66,7 @@ export function OrderStreamProvider({ children }: OrderStreamProviderProps) {
         eventSource.onopen = () => {
           setIsConnected(true)
           reconnectAttemptsRef.current = 0
-          console.log("Order stream connected")
+          console.log("✅ Order stream connected")
         }
         
         eventSource.onmessage = (event) => {
@@ -78,7 +78,13 @@ export function OrderStreamProvider({ children }: OrderStreamProviderProps) {
               return
             }
             
-            if (data.type === "order_update") {
+            if (data.type === "connected") {
+              console.log("📡 Connected to order stream")
+              return
+            }
+            
+            // 🔥 FIX: Handle the correct message types from your SSE endpoint
+            if (data.type === "new_order") {
               const updateTime = new Date()
               setLastUpdate(updateTime)
               setLastUpdateState(updateTime)
@@ -87,19 +93,72 @@ export function OrderStreamProvider({ children }: OrderStreamProviderProps) {
               utils.order.list.invalidate()
               
               // Show notification for new orders
-              if (data.status === "PENDING") {
-                toast({
-                  title: "New Order!",
-                  description: `Order #${data.orderNumber} received`,
+              toast({
+                title: "New Order! 🎉",
+                description: `Order #${data.order.orderNumber} received - $${data.order.total}`,
+                duration: 5000,
+              })
+              
+              // Optional: Browser notification if page is not visible
+              if (document.visibilityState === 'hidden' && 'Notification' in window && Notification.permission === 'granted') {
+                new Notification('New Order - KitchenCloud', {
+                  body: `Order #${data.order.orderNumber} received`,
+                  icon: '/favicon.ico',
                 })
               }
             }
+            
+            if (data.type === "order_updated") {
+              const updateTime = new Date()
+              setLastUpdate(updateTime)
+              setLastUpdateState(updateTime)
+              
+              // Invalidate order queries to refresh data
+              utils.order.list.invalidate()
+              
+              // Show notification for order updates
+              toast({
+                title: "Order Updated",
+                description: `Order #${data.order.orderNumber} status changed to ${data.order.status}`,
+              })
+            }
+            
+            if (data.type === "status_changed") {
+              const updateTime = new Date()
+              setLastUpdate(updateTime)
+              setLastUpdateState(updateTime)
+              
+              // Invalidate order queries to refresh data
+              utils.order.list.invalidate()
+              
+              // Show notification for status changes
+              const statusMessages = {
+                CONFIRMED: "confirmed and being prepared",
+                PREPARING: "being prepared",
+                READY: "ready for pickup/delivery",
+                OUT_FOR_DELIVERY: "out for delivery",
+                DELIVERED: "delivered",
+                COMPLETED: "completed",
+                CANCELLED: "cancelled",
+                REFUNDED: "refunded",
+              }
+              
+              const message = statusMessages[data.order.status as keyof typeof statusMessages] || data.order.status
+              
+              toast({
+                title: "Status Update",
+                description: `Order #${data.order.orderNumber} is ${message}`,
+                variant: data.order.status === "CANCELLED" ? "destructive" : "default",
+              })
+            }
+            
           } catch (error) {
             console.error("Failed to parse SSE message:", error)
           }
         }
         
         eventSource.onerror = () => {
+          console.error("❌ Order stream connection error")
           setIsConnected(false)
           eventSource.close()
           eventSourceRef.current = null
@@ -111,11 +170,11 @@ export function OrderStreamProvider({ children }: OrderStreamProviderProps) {
             reconnectAttemptsRef.current++
             
             reconnectTimeoutRef.current = setTimeout(() => {
-              console.log(`Reconnecting... (attempt ${attempts + 1})`)
+              console.log(`🔄 Reconnecting order stream... (attempt ${attempts + 1})`)
               connect()
             }, delay)
           } else {
-            console.error("Max reconnection attempts reached")
+            console.error("❌ Max reconnection attempts reached for order stream")
             // Fallback to polling every 30 seconds
             reconnectTimeoutRef.current = setTimeout(() => {
               reconnectAttemptsRef.current = 0
@@ -159,12 +218,24 @@ export function OrderStreamProvider({ children }: OrderStreamProviderProps) {
     // Poll every 30 seconds as a backup
     const interval = setInterval(() => {
       if (!isConnected) {
+        console.log("📊 Fallback polling: refreshing orders")
         utils.order.list.invalidate()
       }
     }, 30000)
     
     return () => clearInterval(interval)
   }, [isConnected, user?.id, isAuthenticated, isLoading, isMerchant, utils])
+  
+  // Request notification permission on mount
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then(permission => {
+        if (permission === 'granted') {
+          console.log('✅ Browser notifications enabled')
+        }
+      })
+    }
+  }, [])
   
   return (
     <OrderStreamContext.Provider value={{ isConnected, lastUpdate }}>

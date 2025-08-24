@@ -22,6 +22,7 @@ import { Avatar, AvatarFallback, AvatarImage, Button } from "@kitchencloud/ui"
 import { createClient } from "@/lib/supabase/client"
 import { RouterOutputs } from "@/lib/trpc/types"
 import { NotificationBell } from "../notifications/notification-bell"
+import { ConnectionStatusBadge } from "./orders/order-notification"
 
 type MerchantDashboardData = RouterOutputs["merchant"]["getDashboard"]
 
@@ -89,6 +90,7 @@ export function MerchantHeader({ dashboardData }: MerchantHeaderProps) {
 
         {/* Right section */}
         <div className="flex items-center gap-4">
+          <ConnectionStatusBadge />
           {/* Notifications */}
           <NotificationBell />
 

@@ -6,18 +6,31 @@ import { Button, Badge, ScrollArea,
     DropdownMenu, DropdownMenuContent, DropdownMenuHeader, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger 
 } from '@kitchencloud/ui'
 import { api } from "@/lib/trpc/client"
+import { useAuth } from "@kitchencloud/auth/client"
 import { formatRelativeTime } from '@/lib/utils'
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false)
   
-  // Get unread count
-  const { data: unreadCount = 0 } = api.notification.getUnreadCount.useQuery()
+  // 🔥 NEW: Add auth guards
+  const { user, isAuthenticated, isLoading } = useAuth()
   
-  // Get notifications
+  // 🔥 FIXED: Only fetch when authenticated
+  const { data: unreadCount = 0 } = api.notification.getUnreadCount.useQuery(
+    undefined,
+    {
+      enabled: isAuthenticated && !!user && !isLoading, // Auth guard
+      refetchOnWindowFocus: false,
+    }
+  )
+  
+  // 🔥 FIXED: Only fetch when authenticated AND dropdown is open
   const { data: notifications = [], refetch } = api.notification.getNotifications.useQuery(
     { limit: 10, unreadOnly: false },
-    { enabled: open }
+    { 
+      enabled: isAuthenticated && !!user && !isLoading && open, // Auth guard + open state
+      refetchOnWindowFocus: false,
+    }
   )
   
   // Mark as read mutation
@@ -40,6 +53,11 @@ export function NotificationBell() {
 
   const handleMarkAllAsRead = () => {
     markAllAsReadMutation.mutate()
+  }
+
+  // 🔥 NEW: Don't render anything if user is not authenticated
+  if (!isAuthenticated || !user || isLoading) {
+    return null
   }
 
   return (
@@ -67,8 +85,9 @@ export function NotificationBell() {
               size="sm"
               onClick={handleMarkAllAsRead}
               className="text-xs"
+              disabled={markAllAsReadMutation.isPending}
             >
-              Mark all read
+              {markAllAsReadMutation.isPending ? 'Marking...' : 'Mark all read'}
             </Button>
           )}
         </DropdownMenuHeader>
@@ -109,6 +128,8 @@ export function NotificationBell() {
                     className="p-0 h-auto text-xs ml-4"
                     onClick={(e) => {
                       e.stopPropagation()
+                      // 🔥 IMPROVED: Use Next.js router instead of window.location
+                      // You might want to import { useRouter } from 'next/navigation' for better navigation
                       window.location.href = notification.actionUrl!
                     }}
                   >
