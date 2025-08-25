@@ -18,7 +18,6 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 import { RouterOutputs } from "@/lib/trpc/types"
 import { OrderStatusBadge } from "./order-status-badge"
 import { useOrderStore } from "@/stores/order-store"
-import { OrderDetail } from "./order-detail"
 import { OrderBulkActions } from "./order-bulk-actions"
 import { formatCurrency } from "@/lib/utils"
 import { OrderRowActions } from "./order-actions"
@@ -41,7 +40,7 @@ export function OrderList({
   onPageChange,
 }: OrderListProps) {
   const { selectedOrders, toggleOrderSelection, clearSelection, lastUpdate } = useOrderStore()
-  const [detailOrder, setDetailOrder] = useState<Order | null>(null)
+  const [, setDetailOrder] = useState<Order | null>(null)
   const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set())
 
   // Track new orders (appeared since last update)
@@ -213,15 +212,6 @@ export function OrderList({
           </Button>
         </div>
       </div>
-
-      {/* Order Detail Panel */}
-      {detailOrder && (
-        <OrderDetail
-          order={detailOrder}
-          open={!!detailOrder}
-          onClose={() => setDetailOrder(null)}
-        />
-      )}
     </>
   )
 }

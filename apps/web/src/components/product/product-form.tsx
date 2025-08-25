@@ -34,6 +34,7 @@ import {
   TabsList,
   TabsTrigger,
   useToast,
+  cn,
 } from "@kitchencloud/ui"
 import { ChevronLeft, Save, Upload, X, Plus } from "lucide-react"
 import { ProductStatus } from "@kitchencloud/database/types"
@@ -269,12 +270,44 @@ export function ProductForm({ product }: ProductFormProps) {
       {/* Form */}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="pricing">Pricing & Inventory</TabsTrigger>
-              <TabsTrigger value="media">Media</TabsTrigger>
-              <TabsTrigger value="details">Details</TabsTrigger>
+          <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="basic">
+            <TabsList className="settings-tabslist grid w-full grid-cols-4">
+              <TabsTrigger 
+                value="basic"
+                className={cn(
+                  "settings-tabtrigger gap-2",
+                  activeTab === "basic" && "settings-tabtrigger-active"
+                )}
+              >
+                Basic Info
+              </TabsTrigger>
+              <TabsTrigger 
+                value="pricing"
+                className={cn(
+                  "settings-tabtrigger gap-2", 
+                  activeTab === "pricing" && "settings-tabtrigger-active"
+                )}
+              >
+                Pricing & Inventory
+              </TabsTrigger>
+              <TabsTrigger 
+                value="media"
+                className={cn(
+                  "settings-tabtrigger gap-2",
+                  activeTab === "media" && "settings-tabtrigger-active"
+                )}
+              >
+                Media
+              </TabsTrigger>
+              <TabsTrigger 
+                value="details"
+                className={cn(
+                  "settings-tabtrigger gap-2",
+                  activeTab === "details" && "settings-tabtrigger-active"
+                )}
+              >
+                Details
+              </TabsTrigger>
             </TabsList>
 
             {/* Basic Info */}
@@ -530,7 +563,7 @@ export function ProductForm({ product }: ProductFormProps) {
                     )}
 
                     <div className="flex gap-2">
-                      <Button type="button" variant="outline" onClick={handleImageUpload}>
+                      <Button type="button" variant="outline" onClick={handleImageUpload} className="hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 hover:shadow-sm transition-all duration-200">
                         <Upload className="mr-2 h-4 w-4" />
                         Upload Images
                       </Button>
@@ -539,6 +572,7 @@ export function ProductForm({ product }: ProductFormProps) {
                         variant="outline"
                         onClick={() => appendImage("")}
                         title="Add image by URL"
+                        className="hover:bg-green-50 hover:border-green-300 hover:text-green-700 hover:shadow-sm transition-all duration-200"
                       >
                         <Plus className="mr-2 h-4 w-4" />
                         Add Image URL
@@ -600,6 +634,7 @@ export function ProductForm({ product }: ProductFormProps) {
                       variant="outline"
                       size="sm"
                       onClick={() => appendIngredient("")}
+                      className="hover:bg-green-50 hover:border-green-300 hover:text-green-700 hover:shadow-sm transition-all duration-200"
                     >
                       <Plus className="mr-2 h-4 w-4" />
                       Add Ingredient
@@ -617,10 +652,11 @@ export function ProductForm({ product }: ProductFormProps) {
               variant="outline"
               onClick={() => router.push("/dashboard/products")}
               disabled={isLoading}
+              className="hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm transition-all duration-200"
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading} className="hover:bg-orange-700 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 active:scale-[0.98]">
               <Save className="mr-2 h-4 w-4" />
               {isLoading ? "Saving..." : product ? "Update Product" : "Create Product"}
             </Button>

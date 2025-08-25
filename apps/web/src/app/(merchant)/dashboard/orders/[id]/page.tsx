@@ -31,7 +31,6 @@ import {
   ChefHat,
   Printer,
   Edit,
-  MoreHorizontal,
   Mail,
   MapPin,
   Calendar,
@@ -121,12 +120,12 @@ export default function OrderPage({ params }: OrderPageProps) {
                 onClick={() => window.open(`/dashboard/orders/print?ids=${order.id}`, '_blank')}
                 className="gap-2"
               >
-                <Printer className="h-4 w-4" />
+                <Printer className="h-4 w-4 cursor-pointer" />
                 Print
               </Button>
-              <Button variant="outline" size="sm">
+              {/* <Button variant="outline" size="sm">
                 <MoreHorizontal className="h-4 w-4" />
-              </Button>
+              </Button> */}
             </div>
           </div>
         </div>
@@ -179,7 +178,7 @@ export default function OrderPage({ params }: OrderPageProps) {
                           <div className="flex items-center gap-2 mt-3">
                             <Badge 
                               variant={item.isPrepared ? "default" : "outline"}
-                              className={`text-xs ${
+                              className={`text-xs px-3 py-1.5 ${
                                 item.isPrepared 
                                   ? "bg-green-100 text-green-700 border-green-200" 
                                   : "bg-gray-100 text-gray-600 border-gray-200"
@@ -280,8 +279,8 @@ export default function OrderPage({ params }: OrderPageProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
-                <Alert className="border-blue-200 bg-blue-50">
-                  <AlertCircle className="h-4 w-4 text-blue-600" />
+                <Alert className="flex items-start gap-2 border-blue-200 bg-blue-50">
+                  <AlertCircle className="h-4 w-4 text-blue-600 flex-shrink-0 mt-1" />
                   <AlertDescription className="text-blue-800">
                     Add internal notes about this order. Notes are only visible to your team and can help with order fulfillment and customer service.
                   </AlertDescription>
@@ -378,7 +377,7 @@ export default function OrderPage({ params }: OrderPageProps) {
                 <div>
                   <Badge 
                     variant="secondary" 
-                    className={`${
+                    className={`px-3 py-1.5 ${
                       order.deliveryMethod === "DELIVERY" 
                         ? "bg-orange-100 text-orange-700 border-orange-200" 
                         : "bg-indigo-100 text-indigo-700 border-indigo-200"
@@ -451,7 +450,7 @@ export default function OrderPage({ params }: OrderPageProps) {
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="text-gray-500 block">Method</span>
-                        <Badge variant="outline" className="mt-1">
+                        <Badge variant="outline" className="mt-1 px-3 py-1.5">
                           {order.payment.method}
                         </Badge>
                       </div>
@@ -459,7 +458,7 @@ export default function OrderPage({ params }: OrderPageProps) {
                         <span className="text-gray-500 block">Status</span>
                         <Badge 
                           variant={order.payment.status === "COMPLETED" ? "default" : "secondary"}
-                          className={`mt-1 ${
+                          className={`mt-1 px-3 py-1.5 ${
                             order.payment.status === "COMPLETED" 
                               ? "bg-green-100 text-green-700 border-green-200" 
                               : "bg-yellow-100 text-yellow-700 border-yellow-200"

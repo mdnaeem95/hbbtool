@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import React, { useEffect } from "react"
 import { notFound, useRouter } from "next/navigation"
 import { ProductForm } from "@/components/product/product-form"
 import { api } from "@/lib/trpc/client"
@@ -8,10 +8,11 @@ import { Spinner } from "@kitchencloud/ui"
 import { useAuth } from "@kitchencloud/auth/client"
 
 interface ProductEditPageProps {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 export default function ProductEditPage({ params }: ProductEditPageProps) {
+  const { id } = React.use(params)
   const router = useRouter()
   const { user, isLoading: authLoading, isMerchant } = useAuth()
   
@@ -23,13 +24,13 @@ export default function ProductEditPage({ params }: ProductEditPageProps) {
   }, [user, authLoading, router, isMerchant])
 
   // Check if this is a new product
-  if (params.id === "new") {
+  if (id === "new") {
     return <ProductForm />
   }
 
   // Otherwise, fetch the existing product
   const { data: product, isLoading, error } = api.product.get.useQuery(
-    { id: params.id },
+    { id: id },
     { enabled: !!user }
   )
 

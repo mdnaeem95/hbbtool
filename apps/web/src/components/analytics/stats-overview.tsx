@@ -1,23 +1,15 @@
+'use client'
+
+import { formatCurrency } from "@/lib/utils"
 import { Card, CardContent } from "@kitchencloud/ui"
-import { 
-  DollarSign, 
-  ShoppingBag, 
-  TrendingUp, 
+import {
+  DollarSign,
+  ShoppingBag,
+  TrendingUp,
   TrendingDown,
   Users,
   Package,
 } from "lucide-react"
-import { formatCurrency } from "@/lib/utils"
-
-interface StatCard {
-  title: string
-  value: string | number
-  change: number
-  trend: 'up' | 'down'
-  icon: React.ComponentType<{ className?: string }>
-  iconColor: string
-  iconBgColor: string
-}
 
 interface StatsOverviewProps {
   stats: {
@@ -49,43 +41,65 @@ interface StatsOverviewProps {
   }
 }
 
-function StatCard({ 
-  title, 
-  value, 
-  change, 
-  trend, 
-  icon: Icon, 
-  iconColor, 
-  iconBgColor 
-}: StatCard) {
-  const formatChange = (change: number) => {
-    const sign = change >= 0 ? '+' : ''
-    return `${sign}${Math.abs(change).toFixed(1)}%`
-  }
+interface StatCardProps {
+  title: string
+  value: string | number
+  change?: number
+  trend?: 'up' | 'down'
+  icon: React.ElementType
+  iconColor: string
+  iconBgColor: string
+}
 
+function formatChange(change?: number): string {
+  if (!change) return '0%'
+  const sign = change >= 0 ? '+' : ''
+  return `${sign}${change.toFixed(1)}%`
+}
+
+function StatCard({
+  title,
+  value,
+  change,
+  trend,
+  icon: Icon,
+  iconColor,
+  iconBgColor,
+}: StatCardProps) {
   return (
-    <Card>
+    <Card className="relative overflow-hidden">
       <CardContent className="p-6">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
-            <p className="text-2xl font-bold tracking-tight">{value}</p>
-            {change !== 0 && (
-              <div className="flex items-center gap-1 text-sm">
+        <div className="flex items-start justify-between">
+          {/* Left side - Content */}
+          <div className="flex-1 space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">
+              {title}
+            </p>
+            <p className="text-2xl font-bold tracking-tight">
+              {value}
+            </p>
+            {change !== undefined && trend && (
+              <div className="flex items-center gap-1 text-xs">
                 {trend === 'up' ? (
-                  <TrendingUp className="h-4 w-4 text-green-500" />
+                  <TrendingUp className="h-3 w-3 text-green-600" />
                 ) : (
-                  <TrendingDown className="h-4 w-4 text-red-500" />
+                  <TrendingDown className="h-3 w-3 text-red-600" />
                 )}
-                <span className={trend === 'up' ? 'text-green-600' : 'text-red-600'}>
+                <span className={`font-medium ${
+                  trend === 'up' ? 'text-green-600' : 'text-red-600'
+                }`}>
                   {formatChange(change)}
                 </span>
-                <span className="text-muted-foreground">vs prev period</span>
+                <span className="text-muted-foreground">
+                  vs prev period
+                </span>
               </div>
             )}
           </div>
-          <div className={`rounded-lg p-3 ${iconBgColor}`}>
-            <Icon className={`h-6 w-6 ${iconColor}`} />
+          
+          {/* Right side - Icon */}
+          <div className={`rounded-xl p-2.5 ${iconBgColor}`}>
+            <Icon className={`h-5 w-5 ${iconColor}`} />
           </div>
         </div>
       </CardContent>
@@ -94,7 +108,7 @@ function StatCard({
 }
 
 export function StatsOverview({ stats }: StatsOverviewProps) {
-  const cards: StatCard[] = [
+  const cards = [
     {
       title: "Total Revenue",
       value: formatCurrency(stats.revenue.value),
@@ -102,7 +116,7 @@ export function StatsOverview({ stats }: StatsOverviewProps) {
       trend: stats.revenue.trend,
       icon: DollarSign,
       iconColor: "text-green-600",
-      iconBgColor: "bg-green-50",
+      iconBgColor: "bg-green-100",
     },
     {
       title: "Total Orders",
@@ -111,7 +125,7 @@ export function StatsOverview({ stats }: StatsOverviewProps) {
       trend: stats.orders.trend,
       icon: ShoppingBag,
       iconColor: "text-blue-600",
-      iconBgColor: "bg-blue-50",
+      iconBgColor: "bg-blue-100",
     },
     {
       title: "Avg Order Value",
@@ -120,7 +134,7 @@ export function StatsOverview({ stats }: StatsOverviewProps) {
       trend: stats.avgOrderValue.trend,
       icon: TrendingUp,
       iconColor: "text-purple-600",
-      iconBgColor: "bg-purple-50",
+      iconBgColor: "bg-purple-100",
     },
     {
       title: "Total Customers",
@@ -129,7 +143,7 @@ export function StatsOverview({ stats }: StatsOverviewProps) {
       trend: stats.customers.trend,
       icon: Users,
       iconColor: "text-orange-600",
-      iconBgColor: "bg-orange-50",
+      iconBgColor: "bg-orange-100",
     },
     {
       title: "Products Sold",
@@ -138,12 +152,12 @@ export function StatsOverview({ stats }: StatsOverviewProps) {
       trend: stats.products.trend,
       icon: Package,
       iconColor: "text-indigo-600",
-      iconBgColor: "bg-indigo-50",
+      iconBgColor: "bg-indigo-100",
     },
   ]
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       {cards.map((card) => (
         <StatCard key={card.title} {...card} />
       ))}

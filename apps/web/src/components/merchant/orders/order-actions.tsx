@@ -189,7 +189,7 @@ export function OrderRowActions({ order, onViewDetails, onOrderUpdate }: OrderRo
           {/* View Details */}
           <DropdownMenuItem onClick={onViewDetails} className="cursor-pointer hover:bg-muted/50 transition-colors">
             <Link href={`/dashboard/orders/${order.id}`} className="flex items-center">
-              <Eye className="h-4 w-4 mr-2" />
+              <Eye className="h-4 w-4 mr-4" />
               View Order Details
             </Link>
           </DropdownMenuItem>
