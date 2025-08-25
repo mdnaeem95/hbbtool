@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   Dialog,
+  DialogTrigger,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -93,8 +94,9 @@ export function OrderBulkActions({
       
       toast({
         title: "Export Complete",
-        description: `Exported ${data.count} orders`,
+        description: `Exported ${data.count} orders to CSV`,
       })
+      setExportLoading(false)
     },
     onError: (error: any) => {
       toast({
@@ -102,8 +104,21 @@ export function OrderBulkActions({
         description: error.message || "Failed to export orders",
         variant: "destructive",
       })
+      setExportLoading(false)
     },
   })
+
+  const handleExport = async () => {
+    setExportLoading(true)
+    await exportOrders.mutateAsync({
+      orderIds: selectedOrders,
+    })
+  }
+
+  const handlePrint = () => {
+    const orderIds = selectedOrders.join(",")
+    window.open(`/dashboard/orders/print?ids=${orderIds}`, "_blank")
+  }
 
   const handleBulkStatusUpdate = async () => {
     if (!selectedStatus) return
@@ -111,159 +126,189 @@ export function OrderBulkActions({
     setIsProcessing(true)
     await bulkUpdateStatus.mutateAsync({
       orderIds: selectedOrders,
-      status: selectedStatus,
+      status: selectedStatus as OrderStatus,
     })
     setIsProcessing(false)
   }
 
-  const handleExport = async () => {
-    setExportLoading(true)
-    await exportOrders.mutateAsync({
-      orderIds: selectedOrders,
-    })
-    setExportLoading(false)
-  }
-
-  const handlePrint = () => {
-    // Open print view in new window
-    const printWindow = window.open(
-      `/dashboard/orders/print?ids=${selectedOrders.join(",")}`,
-      "_blank",
-      "width=800,height=600"
-    )
-    
-    if (printWindow) {
-      toast({
-        title: "Print Preview",
-        description: "Opening print preview...",
-      })
-    }
-  }
-
   return (
     <>
-      <Card className="flex items-center justify-between p-4 mb-4 border-primary/20 bg-primary/5">
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-medium">
-            {selectedCount} {selectedCount === 1 ? "order" : "orders"} selected
-          </span>
-          
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowStatusDialog(true)}
-              className="gap-2"
-            >
-              <CheckCircle className="h-4 w-4" />
-              Update Status
-            </Button>
+      <Card className="mb-6 border-orange-200 bg-orange-50/50 shadow-sm">
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-sm font-medium text-orange-700">
+                {selectedCount}
+              </div>
+              <span className="text-sm font-medium text-gray-900">
+                {selectedCount} {selectedCount === 1 ? "order" : "orders"} selected
+              </span>
+            </div>
             
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExport}
-              disabled={exportLoading}
-              className="gap-2"
-            >
-              {exportLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              Export CSV
-            </Button>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePrint}
-              className="gap-2"
-            >
-              <Printer className="h-4 w-4" />
-              Print Orders
-            </Button>
-          </div>
-        </div>
-        
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onComplete}
-          className="hover:bg-primary/10"
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </Card>
-
-      {/* Bulk Status Update Dialog */}
-      <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update Order Status</DialogTitle>
-            <DialogDescription>
-              Change the status of {selectedCount} selected{" "}
-              {selectedCount === 1 ? "order" : "orders"}. Only orders with valid
-              status transitions will be updated.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <Select
-              value={selectedStatus}
-              onValueChange={(value) => setSelectedStatus(value as OrderStatus)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select new status" />
-              </SelectTrigger>
-              <SelectContent>
-                {BULK_STATUS_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    <div className="flex items-center gap-2">
-                      <option.icon
-                        className={cn(
-                          "h-4 w-4",
-                          option.value === OrderStatus.CANCELLED
-                            ? "text-destructive"
-                            : "text-muted-foreground"
-                        )}
-                      />
-                      {option.label}
+            {/* Action Buttons with Enhanced Hover Effects */}
+            <div className="flex gap-2">
+              {/* Update Status with DialogTrigger */}
+              <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className={cn(
+                      "gap-2 bg-orange-600 hover:bg-orange-700 text-white shadow-sm",
+                      "transform transition-all duration-200 ease-in-out",
+                      "hover:scale-105 hover:shadow-md",
+                      "focus:ring-2 focus:ring-orange-500 focus:ring-offset-2",
+                      "active:scale-95"
+                    )}
+                  >
+                    <CheckCircle className="h-4 w-4 transition-transform group-hover:scale-110" />
+                    Update Status
+                  </Button>
+                </DialogTrigger>
+                
+                <DialogContent 
+                  className="sm:max-w-md"
+                >
+                  <DialogHeader className="space-y-3">
+                    <DialogTitle className="text-xl font-semibold text-gray-900">
+                      Update Order Status
+                    </DialogTitle>
+                    <DialogDescription className="text-sm text-gray-600 leading-relaxed">
+                      Change the status of <span className="font-medium text-gray-900">{selectedCount} selected{" "}
+                      {selectedCount === 1 ? "order" : "orders"}</span>. Only orders with valid
+                      status transitions will be updated.
+                    </DialogDescription>
+                  </DialogHeader>
+                  
+                  <div className="space-y-6 py-6">
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium text-gray-900">
+                        New Status
+                      </label>
+                      <Select
+                        value={selectedStatus}
+                        onValueChange={(value) => setSelectedStatus(value as OrderStatus)}
+                      >
+                        <SelectTrigger className="w-full h-11 border-gray-300 focus:border-orange-500 focus:ring-orange-500">
+                          <SelectValue 
+                            placeholder="Select new status"
+                            className="text-gray-500"
+                          />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white border shadow-lg z-[10000]">
+                          {BULK_STATUS_OPTIONS.map((option) => (
+                            <SelectItem 
+                              key={option.value} 
+                              value={option.value}
+                              className="cursor-pointer hover:bg-gray-50 focus:bg-gray-50 py-3"
+                            >
+                              <div className="flex items-center gap-3">
+                                <option.icon
+                                  className={cn(
+                                    "h-4 w-4",
+                                    option.value === OrderStatus.CANCELLED
+                                      ? "text-red-500"
+                                      : "text-gray-400"
+                                  )}
+                                />
+                                <span className="font-medium">
+                                  {option.label}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            {selectedStatus === OrderStatus.CANCELLED && (
-              <Alert>
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  Cancelled orders cannot be reversed. Make sure you want to
-                  cancel these orders.
-                </AlertDescription>
-              </Alert>
-            )}
+                    
+                    {selectedStatus === OrderStatus.CANCELLED && (
+                      <Alert className="border-amber-200 bg-amber-50">
+                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+                        <AlertDescription className="text-amber-800 text-sm leading-relaxed">
+                          <strong>Warning:</strong> Cancelled orders cannot be reversed. Make sure you want to
+                          cancel these orders before proceeding.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                  
+                  <DialogFooter className="gap-3 pt-6 border-t border-gray-100">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowStatusDialog(false)}
+                      disabled={isProcessing}
+                      className="px-6 py-2 h-10 border-gray-300 hover:bg-gray-50 font-medium"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleBulkStatusUpdate}
+                      disabled={!selectedStatus || isProcessing}
+                      className="px-6 py-2 h-10 bg-orange-600 hover:bg-orange-700 text-white font-medium shadow-sm"
+                    >
+                      {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Update {selectedCount} {selectedCount === 1 ? "Order" : "Orders"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExport}
+                disabled={exportLoading}
+                className={cn(
+                  "gap-2 border-gray-300 bg-white hover:bg-gray-50 text-gray-700",
+                  "transform transition-all duration-200 ease-in-out",
+                  "hover:scale-105 hover:shadow-sm hover:border-gray-400",
+                  "focus:ring-2 focus:ring-gray-500 focus:ring-offset-2",
+                  "active:scale-95",
+                  "disabled:hover:scale-100 disabled:hover:shadow-none"
+                )}
+              >
+                {exportLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 transition-transform group-hover:scale-110 group-hover:-translate-y-0.5" />
+                )}
+                Export CSV
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePrint}
+                className={cn(
+                  "gap-2 border-gray-300 bg-white hover:bg-blue-50 text-gray-700 hover:text-blue-700",
+                  "transform transition-all duration-200 ease-in-out",
+                  "hover:scale-105 hover:shadow-sm hover:border-blue-300",
+                  "focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
+                  "active:scale-95"
+                )}
+              >
+                <Printer className="h-4 w-4 transition-all duration-200 group-hover:scale-110 group-hover:text-blue-600" />
+                Print Orders
+              </Button>
+            </div>
           </div>
           
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowStatusDialog(false)}
-              disabled={isProcessing}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleBulkStatusUpdate}
-              disabled={!selectedStatus || isProcessing}
-            >
-              {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Update {selectedCount} {selectedCount === 1 ? "Order" : "Orders"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onComplete}
+            className={cn(
+              "h-8 w-8 rounded-full hover:bg-red-100 hover:text-red-600",
+              "transform transition-all duration-200 ease-in-out",
+              "hover:scale-110 hover:rotate-90",
+              "focus:ring-2 focus:ring-red-500 focus:ring-offset-2",
+              "active:scale-95"
+            )}
+          >
+            <X className="h-4 w-4 transition-transform duration-200" />
+          </Button>
+        </div>
+      </Card>
     </>
   )
 }

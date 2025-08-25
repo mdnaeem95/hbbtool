@@ -99,11 +99,11 @@ export function MerchantHeader({ dashboardData }: MerchantHeaderProps) {
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                className="relative h-auto p-0 hover:bg-transparent"
+                className="relative h-auto p-1 hover:bg-gray-50 hover:scale-105 transition-all duration-200 hover:shadow-md rounded-full group"
               >
-                <Avatar className="h-8 w-8">
+                <Avatar className="h-8 w-8 group-hover:ring-2 group-hover:ring-blue-200 group-hover:ring-offset-2 transition-all duration-200">
                   <AvatarImage src={dashboardData.merchant.logoUrl || undefined} />
-                  <AvatarFallback>
+                  <AvatarFallback className="group-hover:bg-blue-50 group-hover:text-blue-700 transition-colors duration-200">
                     {dashboardData.merchant.businessName.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>

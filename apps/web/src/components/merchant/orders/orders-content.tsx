@@ -8,14 +8,10 @@ import { AlertCircle } from "lucide-react"
 import { OrderStatus } from "@kitchencloud/database/types"
 import { OrderFilters } from "./order-filters"
 import { OrderList } from "./order-list"
-import { useOrderStore } from "@/stores/order-store"
-import { ViewModeToggle } from "./view-mode-toggle"
-import { OrderKanban } from "./order-kanban"
 import { OrderNotification } from "./order-notification"
 
 export function OrdersContent() {
   const searchParams = useSearchParams()
-  const { viewMode } = useOrderStore()
   
   // Parse filters from URL
   const initialStatus = searchParams.get("status") as OrderStatus | null
@@ -65,7 +61,6 @@ export function OrdersContent() {
             Manage and track all your orders in one place
           </p>
         </div>
-        <ViewModeToggle />
       </div>
 
       {/* Filters */}
@@ -76,21 +71,14 @@ export function OrdersContent() {
         isLoading={isLoading}
       />
 
-      {/* Orders View */}
-      {viewMode === "list" ? (
-        <OrderList
-          orders={data?.items || []}
-          isLoading={isLoading}
-          page={page}
-          totalPages={data?.pagination.totalPages || 1}
-          onPageChange={setPage}
-        />
-      ) : (
-        <OrderKanban
-          orders={data?.items || []}
-          isLoading={isLoading}
-        />
-      )}
+      {/* Orders Table */}
+      <OrderList
+        orders={data?.items || []}
+        isLoading={isLoading}
+        page={page}
+        totalPages={data?.pagination.totalPages || 1}
+        onPageChange={setPage}
+      />
 
       <OrderNotification />
     </div>

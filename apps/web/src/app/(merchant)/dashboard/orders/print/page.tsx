@@ -27,6 +27,10 @@ export default function OrderPrintPage() {
   // Auto-print when loaded
   useEffect(() => {
     if (orders && orders.length > 0) {
+      // Hide any remaining UI elements before printing
+      document.body.style.margin = '0'
+      document.body.style.padding = '0'
+      
       setTimeout(() => {
         window.print()
       }, 500)
@@ -35,15 +39,15 @@ export default function OrderPrintPage() {
 
   if (!orderIds.length) {
     return (
-      <div className="p-8 text-center">
-        <p>No orders selected for printing.</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-lg">No orders selected for printing.</p>
       </div>
     )
   }
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     )
@@ -51,207 +55,226 @@ export default function OrderPrintPage() {
 
   if (!orders || orders.length === 0) {
     return (
-      <div className="p-8 text-center">
-        <p>No orders found.</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-lg">No orders found.</p>
       </div>
     )
   }
 
   return (
-    <div className="print-container">
-      {/* Print styles */}
+    <>
+      {/* Global print styles - this ensures ONLY the order content prints */}
       <style jsx global>{`
+        /* Hide everything by default when printing */
         @media print {
-          body {
-            margin: 0;
-            padding: 0;
+          * {
+            visibility: hidden;
           }
           
-          .no-print {
-            display: none !important;
+          /* Only show the print content */
+          .print-only,
+          .print-only * {
+            visibility: visible;
           }
           
+          /* Print layout */
+          .print-only {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+          
+          /* Page breaks between orders */
           .page-break {
             page-break-after: always;
           }
           
-          .print-container {
-            width: 100%;
-            max-width: none;
+          /* Remove margins and ensure clean layout */
+          body, html {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
           }
           
-          .order-slip {
-            padding: 20px;
-            font-size: 12px;
-            line-height: 1.4;
-          }
-          
+          /* Table styles */
           table {
             border-collapse: collapse;
             width: 100%;
+            margin: 16px 0;
           }
           
           th, td {
             text-align: left;
-            padding: 4px 8px;
+            padding: 8px;
             border-bottom: 1px solid #ddd;
+            font-size: 12px;
           }
           
           th {
             font-weight: 600;
+            background-color: #f5f5f5;
+          }
+          
+          /* Typography */
+          h1 { font-size: 24px; margin: 0 0 8px 0; }
+          h2 { font-size: 18px; margin: 0 0 12px 0; }
+          h3 { font-size: 16px; margin: 0 0 8px 0; }
+          
+          /* Remove any shadows or unnecessary styling */
+          * {
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            background-image: none !important;
           }
         }
         
+        /* Screen styles - hide print button after printing */
         @media screen {
-          .print-container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
+          .screen-only {
+            display: block;
           }
-          
-          .order-slip {
-            background: white;
-            border: 1px solid #e5e5e5;
-            border-radius: 8px;
-            padding: 24px;
-            margin-bottom: 24px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        @media print {
+          .screen-only {
+            display: none !important;
           }
         }
       `}</style>
 
-      {/* Print instructions (screen only) */}
-      <div className="no-print mb-6 text-center text-sm text-muted-foreground">
-        <p>Press Ctrl+P (or Cmd+P on Mac) to print these orders.</p>
+      {/* Screen-only instructions */}
+      <div className="screen-only fixed top-4 right-4 bg-white p-4 shadow-lg rounded-lg border z-50">
+        <p className="text-sm text-gray-600 mb-2">Print Preview Ready</p>
+        <button 
+          onClick={() => window.print()} 
+          className="bg-orange-600 text-white px-4 py-2 rounded text-sm hover:bg-orange-700 mr-2"
+        >
+          Print Now
+        </button>
         <button 
           onClick={() => window.close()} 
-          className="mt-2 text-primary hover:underline"
+          className="bg-gray-500 text-white px-4 py-2 rounded text-sm hover:bg-gray-600"
         >
-          Close this window
+          Close
         </button>
       </div>
 
-      {/* Order slips */}
-      {orders.map((order, index) => (
-        <div 
-          key={order.id} 
-          className={`order-slip ${index < orders.length - 1 ? 'page-break' : ''}`}
-        >
-          {/* Header */}
-          <div className="mb-6 border-b pb-4">
-            <h1 className="text-2xl font-bold">{order.merchant.businessName}</h1>
-            <p className="text-sm text-gray-600 mt-1">
-              {order.merchant.address} {order.merchant.postalCode}
-            </p>
-          </div>
-
-          {/* Order info */}
-          <div className="mb-6 grid grid-cols-2 gap-4">
-            <div>
-              <h2 className="font-semibold text-lg mb-2">Order #{order.orderNumber}</h2>
-              <p className="text-sm">
-                <strong>Date:</strong> {format(new Date(order.createdAt), "dd MMM yyyy")}
-              </p>
-              <p className="text-sm">
-                <strong>Time:</strong> {format(new Date(order.createdAt), "h:mm a")}
-              </p>
-              <p className="text-sm">
-                <strong>Status:</strong> {order.status}
-              </p>
-              <p className="text-sm">
-                <strong>Type:</strong> {order.deliveryMethod}
-              </p>
-            </div>
+      {/* Print content - ONLY this will be visible when printing */}
+      <div className="print-only">
+        {orders.map((order, index) => (
+          <div key={order.id} className={`min-h-screen p-8 ${index < orders.length - 1 ? 'page-break' : ''}`}>
             
-            <div>
-              <h3 className="font-semibold mb-2">Customer Details</h3>
-              <p className="text-sm">
-                <strong>Name:</strong> {order.customerName}
-              </p>
-              <p className="text-sm">
-                <strong>Phone:</strong> {order.customerPhone}
-              </p>
-              {order.deliveryMethod === "DELIVERY" && order.deliveryAddress && (
-                <div className="mt-2">
-                  <p className="text-sm font-semibold">Delivery Address:</p>
-                  <p className="text-sm">{order.deliveryAddress.line1}</p>
-                  {order.deliveryAddress.line2 && (
-                    <p className="text-sm">{order.deliveryAddress.line2}</p>
-                  )}
-                  <p className="text-sm">Singapore {order.deliveryAddress.postalCode}</p>
-                </div>
-              )}
+            {/* Business Header */}
+            <div className="border-b-2 border-gray-300 pb-4 mb-6">
+              <h1 className="text-2xl font-bold">{order.merchant.businessName}</h1>
+              <div className="text-sm text-gray-600 mt-2">
+                {order.merchant.address && <div>{order.merchant.address}</div>}
+                {order.merchant.phone && <div>Tel: {order.merchant.phone}</div>}
+                {order.merchant.email && <div>Email: {order.merchant.email}</div>}
+              </div>
             </div>
-          </div>
 
-          {/* Order items */}
-          <div className="mb-6">
-            <h3 className="font-semibold mb-2">Order Items</h3>
-            <table className="w-full">
-              <thead>
-                <tr>
-                  <th>Item</th>
-                  <th className="text-center">Qty</th>
-                  <th className="text-right">Price</th>
-                  <th className="text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {order.items.map((item) => (
-                  <tr key={item.id}>
-                    <td>
-                      <div>
+            {/* Order Header */}
+            <div className="grid grid-cols-2 gap-8 mb-6">
+              <div>
+                <h2 className="font-bold text-xl mb-3">Order #{order.orderNumber}</h2>
+                <div className="space-y-1 text-sm">
+                  <div><strong>Date:</strong> {format(new Date(order.createdAt), "dd MMM yyyy")}</div>
+                  <div><strong>Time:</strong> {format(new Date(order.createdAt), "h:mm a")}</div>
+                  <div><strong>Status:</strong> <span className="font-semibold">{order.status}</span></div>
+                  <div><strong>Type:</strong> {order.deliveryMethod}</div>
+                </div>
+              </div>
+              
+              <div>
+                <h3 className="font-bold mb-3">Customer Information</h3>
+                <div className="space-y-1 text-sm">
+                  <div><strong>Name:</strong> {order.customerName}</div>
+                  <div><strong>Phone:</strong> {order.customerPhone}</div>
+                  {order.customerEmail && <div><strong>Email:</strong> {order.customerEmail}</div>}
+                </div>
+                
+                {order.deliveryMethod === "DELIVERY" && order.deliveryAddress && (
+                  <div className="mt-4">
+                    <h4 className="font-semibold text-sm mb-2">Delivery Address</h4>
+                    <div className="text-sm">
+                      <div>{order.deliveryAddress.line1}</div>
+                      {order.deliveryAddress.line2 && <div>{order.deliveryAddress.line2}</div>}
+                      <div>Singapore {order.deliveryAddress.postalCode}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Order Items */}
+            <div className="mb-6">
+              <h3 className="font-bold mb-3">Order Items</h3>
+              <table className="w-full">
+                <thead>
+                  <tr>
+                    <th className="text-left">Item</th>
+                    <th className="text-center w-16">Qty</th>
+                    <th className="text-right w-20">Price</th>
+                    <th className="text-right w-20">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {order.items.map((item) => (
+                    <tr key={item.id}>
+                      <td>
                         <div className="font-medium">{item.productName}</div>
                         {item.specialRequest && (
-                          <div className="text-xs text-gray-600 italic">
+                          <div className="text-xs text-gray-600 italic mt-1">
                             Note: {item.specialRequest}
                           </div>
                         )}
-                      </div>
-                    </td>
-                    <td className="text-center">{item.quantity}</td>
-                    <td className="text-right">${item.price.toFixed(2)}</td>
-                    <td className="text-right">${item.total.toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td colSpan={3} className="text-right font-medium">Subtotal:</td>
-                  <td className="text-right">${order.subtotal.toFixed(2)}</td>
-                </tr>
-                {toNumber(order.deliveryFee) > 0 && (
+                      </td>
+                      <td className="text-center">{item.quantity}</td>
+                      <td className="text-right">${toNumber(item.price).toFixed(2)}</td>
+                      <td className="text-right font-medium">${toNumber(item.total).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
                   <tr>
-                    <td colSpan={3} className="text-right">Delivery Fee:</td>
-                    <td className="text-right">${order.deliveryFee.toFixed(2)}</td>
+                    <td colSpan={3} className="text-right font-medium pt-4">Subtotal:</td>
+                    <td className="text-right font-medium pt-4">${toNumber(order.subtotal).toFixed(2)}</td>
                   </tr>
-                )}
-                <tr className="font-semibold text-lg">
-                  <td colSpan={3} className="text-right">Total:</td>
-                  <td className="text-right">${order.total.toFixed(2)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-
-          {/* Notes */}
-          {order.deliveryNotes && (
-            <div className="mb-4 p-3 bg-gray-50 rounded">
-              <p className="text-sm">
-                <strong>Delivery Notes:</strong> {order.deliveryNotes}
-              </p>
+                  {toNumber(order.deliveryFee) > 0 && (
+                    <tr>
+                      <td colSpan={3} className="text-right">Delivery Fee:</td>
+                      <td className="text-right">${toNumber(order.deliveryFee).toFixed(2)}</td>
+                    </tr>
+                  )}
+                  <tr className="border-t-2 border-gray-300">
+                    <td colSpan={3} className="text-right font-bold text-lg pt-2">TOTAL:</td>
+                    <td className="text-right font-bold text-lg pt-2">${toNumber(order.total).toFixed(2)}</td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
-          )}
 
-          {/* Footer */}
-          <div className="mt-8 pt-4 border-t text-center text-xs text-gray-500">
-            <p>Thank you for your order!</p>
-            <p className="mt-1">
-              Powered by KitchenCloud • {order.merchant.phone}
-            </p>
+            {/* Notes */}
+            {(order.deliveryNotes || order.customerNotes) && (
+              <div className="mb-6">
+                <h3 className="font-bold mb-2">Special Instructions</h3>
+                <div className="bg-gray-50 p-3 text-sm">
+                  {order.deliveryNotes && <div><strong>Delivery:</strong> {order.deliveryNotes}</div>}
+                  {order.customerNotes && <div><strong>Customer:</strong> {order.customerNotes}</div>}
+                </div>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="mt-12 pt-4 border-t border-gray-200 text-center text-xs text-gray-500">
+              <div>Thank you for your order!</div>
+              <div className="mt-1">Powered by KitchenCloud</div>
+            </div>
           </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </>
   )
 }

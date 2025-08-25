@@ -9,10 +9,6 @@ interface OrderFilters {
 }
 
 interface OrderStore {
-  // View mode
-  viewMode: 'list' | 'kanban'
-  setViewMode: (mode: 'list' | 'kanban') => void
-  
   // Selection
   selectedOrders: Set<string>
   toggleOrderSelection: (orderId: string) => void
@@ -33,10 +29,6 @@ interface OrderStore {
 }
 
 export const useOrderStore = create<OrderStore>((set) => ({
-  // View mode
-  viewMode: 'list',
-  setViewMode: (mode) => set({ viewMode: mode }),
-  
   // Selection
   selectedOrders: new Set(),
   toggleOrderSelection: (orderId) => set((state) => {

@@ -63,12 +63,12 @@ export function NotificationBell() {
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="relative">
-          <Bell className="h-5 w-5" />
+        <Button variant="ghost" size="sm" className="relative hover:bg-gray-100 hover:scale-105 transition-all duration-200 hover:shadow-sm group">
+          <Bell className="h-5 w-5 group-hover:text-blue-600 group-hover:animate-pulse transition-colors duration-200" />
           {unreadCount > 0 && (
             <Badge 
               variant="destructive" 
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs group-hover:scale-110 group-hover:animate-bounce transition-transform duration-200"
             >
               {unreadCount > 99 ? '99+' : unreadCount}
             </Badge>

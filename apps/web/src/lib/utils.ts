@@ -35,3 +35,11 @@ export function formatRelativeTime(date: string | Date): string {
   
   return targetDate.toLocaleDateString()
 }
+
+export function toNumber(value: any): number {
+  if (typeof value === 'number') return value
+  if (value && typeof value === 'object' && 'toNumber' in value) {
+    return value.toNumber()
+  }
+  return Number(value || 0)
+}

@@ -17,288 +17,268 @@ import {
   DialogTitle,
   Label,
   Textarea,
+  cn,
 } from "@kitchencloud/ui"
 import {
+  MoreHorizontal,
+  Eye,
   CheckCircle,
   XCircle,
   ChefHat,
   Package,
   Truck,
-  MoreVertical,
-  Phone,
-  MessageSquare,
-  DollarSign,
-  AlertTriangle,
   Printer,
+  MessageSquare,
+  Copy,
 } from "lucide-react"
 import { useToast } from "@kitchencloud/ui"
+import { api } from "@/lib/trpc/client"
 import { RouterOutputs } from "@/lib/trpc/types"
 import { OrderStatus } from "@kitchencloud/database/types"
+import Link from "next/link"
 
-type Order = RouterOutputs["order"]["list"]["items"][0] | RouterOutputs["order"]["get"]
+type Order = RouterOutputs["order"]["list"]["items"][0]
 
-interface OrderActionsProps {
+interface OrderRowActionsProps {
   order: Order
-  onStatusUpdate: (status: OrderStatus) => void
-  isUpdating?: boolean
+  onViewDetails: () => void
+  onOrderUpdate?: () => void
 }
 
-// Define allowed transitions
-const STATUS_TRANSITIONS: Record<OrderStatus, Array<{ status: OrderStatus; label: string; icon: any; variant?: any }>> = {
-  PENDING: [
-    { status: OrderStatus.CONFIRMED, label: "Confirm Order", icon: CheckCircle, variant: "default" },
-    { status: OrderStatus.CANCELLED, label: "Cancel Order", icon: XCircle, variant: "destructive" },
-  ],
-  CONFIRMED: [
-    { status: OrderStatus.PREPARING, label: "Start Preparing", icon: ChefHat, variant: "default" },
-    { status: OrderStatus.READY, label: "Mark as Ready", icon: Package, variant: "default" },
-    { status: OrderStatus.CANCELLED, label: "Cancel Order", icon: XCircle, variant: "destructive" },
-  ],
-  PREPARING: [
-    { status: OrderStatus.READY, label: "Mark as Ready", icon: Package, variant: "default" },
-    { status: OrderStatus.CANCELLED, label: "Cancel Order", icon: XCircle, variant: "destructive" },
-  ],
-  READY: [
-    { status: OrderStatus.OUT_FOR_DELIVERY, label: "Out for Delivery", icon: Truck, variant: "default" },
-    { status: OrderStatus.DELIVERED, label: "Mark Delivered", icon: CheckCircle, variant: "default" },
-    { status: OrderStatus.COMPLETED, label: "Complete Order", icon: CheckCircle, variant: "default" },
-    { status: OrderStatus.CANCELLED, label: "Cancel Order", icon: XCircle, variant: "destructive" },
-  ],
-  OUT_FOR_DELIVERY: [
-    { status: OrderStatus.DELIVERED, label: "Mark Delivered", icon: CheckCircle, variant: "default" },
-    { status: OrderStatus.CANCELLED, label: "Cancel Order", icon: XCircle, variant: "destructive" },
-  ],
-  DELIVERED: [
-    { status: OrderStatus.COMPLETED, label: "Complete Order", icon: CheckCircle, variant: "default" },
-    { status: OrderStatus.REFUNDED, label: "Process Refund", icon: DollarSign, variant: "destructive" },
-  ],
-  COMPLETED: [
-    { status: OrderStatus.REFUNDED, label: "Process Refund", icon: DollarSign, variant: "destructive" },
-  ],
-  CANCELLED: [
-    { status: OrderStatus.REFUNDED, label: "Process Refund", icon: DollarSign, variant: "destructive" },
-  ],
-  REFUNDED: [],
+// Define quick status transitions for dropdown
+const getQuickActions = (status: OrderStatus, deliveryMethod: string) => {
+  const actions = []
+  
+  switch (status) {
+    case 'PENDING':
+      actions.push(
+        { id: 'confirm', label: 'Confirm Order', icon: CheckCircle, status: 'CONFIRMED' as OrderStatus, variant: 'default' },
+        { id: 'cancel', label: 'Cancel', icon: XCircle, status: 'CANCELLED' as OrderStatus, variant: 'destructive' }
+      )
+      break
+    case 'CONFIRMED':
+      actions.push(
+        { id: 'preparing', label: 'Start Preparing', icon: ChefHat, status: 'PREPARING' as OrderStatus, variant: 'default' },
+        { id: 'ready', label: 'Mark Ready', icon: Package, status: 'READY' as OrderStatus, variant: 'default' }
+      )
+      break
+    case 'PREPARING':
+      actions.push(
+        { id: 'ready', label: 'Mark Ready', icon: Package, status: 'READY' as OrderStatus, variant: 'default' }
+      )
+      break
+    case 'READY':
+      if (deliveryMethod === 'DELIVERY') {
+        actions.push(
+          { id: 'delivery', label: 'Out for Delivery', icon: Truck, status: 'OUT_FOR_DELIVERY' as OrderStatus, variant: 'default' }
+        )
+      } else {
+        actions.push(
+          { id: 'complete', label: 'Mark Completed', icon: CheckCircle, status: 'COMPLETED' as OrderStatus, variant: 'default' }
+        )
+      }
+      break
+    case 'OUT_FOR_DELIVERY':
+      actions.push(
+        { id: 'delivered', label: 'Mark Delivered', icon: CheckCircle, status: 'DELIVERED' as OrderStatus, variant: 'default' }
+      )
+      break
+  }
+  
+  return actions
 }
 
-export function OrderActions({ order, onStatusUpdate, isUpdating }: OrderActionsProps) {
-  const { toast } = useToast()
+export function OrderRowActions({ order, onViewDetails, onOrderUpdate }: OrderRowActionsProps) {
+  const [isOpen, setIsOpen] = useState(false)
   const [showCancelDialog, setShowCancelDialog] = useState(false)
-  const [showRefundDialog, setShowRefundDialog] = useState(false)
   const [cancelReason, setCancelReason] = useState("")
-  const [refundReason, setRefundReason] = useState("")
+  const { toast } = useToast()
+  const utils = api.useUtils()
 
-  const transitions = STATUS_TRANSITIONS[order.status as OrderStatus] || []
-  const primaryTransition = transitions.find((t: any) => t.variant !== "destructive")
-  const otherTransitions = transitions.filter((t: any) => t !== primaryTransition)
+  const updateStatus = api.order.updateStatus.useMutation({
+    onSuccess: () => {
+      toast({
+        title: "Order Updated",
+        description: "Order status updated successfully",
+      })
+      utils.order.list.invalidate()
+      onOrderUpdate?.()
+    },
+    onError: (error) => {
+      toast({
+        title: "Update Failed", 
+        description: error.message || "Failed to update order status",
+        variant: "destructive",
+      })
+    },
+  })
 
-  const handleStatusUpdate = (status: OrderStatus) => {
-    if (status === "CANCELLED") {
+  const quickActions = getQuickActions(order.status as OrderStatus, order.deliveryMethod)
+
+  const handleStatusUpdate = async (status: OrderStatus) => {
+    setIsOpen(false)
+    
+    if (status === 'CANCELLED') {
       setShowCancelDialog(true)
       return
     }
-    if (status === "REFUNDED") {
-      setShowRefundDialog(true)
-      return
-    }
-    onStatusUpdate(status)
-    toast({
-      title: "Order Updated",
-      description: `Order status changed to ${status.toLowerCase().replace(/_/g, ' ')}`,
+    
+    await updateStatus.mutateAsync({
+      id: order.id,
+      status,
     })
   }
 
-  const handleCancel = () => {
-    onStatusUpdate(OrderStatus.CANCELLED)
-    toast({
-      title: "Order Cancelled",
-      description: "The order has been cancelled",
-      variant: "destructive",
-    })
+  const handleCancel = async () => {
     setShowCancelDialog(false)
+    await updateStatus.mutateAsync({
+      id: order.id,
+      status: 'CANCELLED' as OrderStatus,
+      notes: cancelReason,
+    })
     setCancelReason("")
   }
 
-  const handleRefund = () => {
-    onStatusUpdate(OrderStatus.REFUNDED)
-    toast({
-      title: "Refund Processed",
-      description: "The refund has been initiated",
-    })
-    setShowRefundDialog(false)
-    setRefundReason("")
-  }
-
   const handlePrint = () => {
-    // In production, this would generate a PDF or print view
-    window.print()
-    toast({
-      title: "Print Order",
-      description: "Opening print dialog...",
-    })
+    setIsOpen(false)
+    window.open(`/dashboard/orders/print?orderIds=${order.id}`, '_blank')
   }
 
   const handleContactCustomer = () => {
+    setIsOpen(false)
     if (order.customerPhone) {
-      window.location.href = `tel:${order.customerPhone}`
+      const message = `Hi ${order.customerName || 'there'}, this is regarding your order #${order.orderNumber}.`
+      const whatsappUrl = `https://wa.me/${order.customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`
+      window.open(whatsappUrl, '_blank')
+    } else {
+      toast({
+        title: "No Phone Number",
+        description: "Customer phone number not available",
+        variant: "destructive",
+      })
     }
   }
 
-  const handleWhatsApp = () => {
-    if (order.customerPhone) {
-      const message = `Hi! This is regarding your order #${order.orderNumber} from our store.`
-      const whatsappUrl = `https://wa.me/${order.customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`
-      window.open(whatsappUrl, '_blank')
-    }
+  const handleCopyOrderNumber = async () => {
+    setIsOpen(false)
+    await navigator.clipboard.writeText(order.orderNumber)
+    toast({
+      title: "Copied",
+      description: "Order number copied to clipboard",
+    })
   }
 
   return (
     <>
-      <div className="flex gap-2">
-        {/* Primary Action */}
-        {primaryTransition && (
-          <Button
-            onClick={() => handleStatusUpdate(primaryTransition.status)}
-            disabled={isUpdating}
-            className="flex-1"
+      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 hover:bg-muted"
           >
-            <primaryTransition.icon className="h-4 w-4 mr-2" />
-            {primaryTransition.label}
+            <MoreHorizontal className="h-4 w-4" />
+            <span className="sr-only">Open menu</span>
           </Button>
-        )}
+        </DropdownMenuTrigger>
+        
+        <DropdownMenuContent align="end" className="w-56 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg">
+          <DropdownMenuLabel>Order Actions</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          
+          {/* View Details */}
+          <DropdownMenuItem onClick={onViewDetails} className="cursor-pointer hover:bg-muted/50 transition-colors">
+            <Link href={`/dashboard/orders/${order.id}`} className="flex items-center">
+              <Eye className="h-4 w-4 mr-2" />
+              View Order Details
+            </Link>
+          </DropdownMenuItem>
 
-        {/* More Actions */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" disabled={isUpdating}>
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Order Actions</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            
-            {/* Other Status Transitions */}
-            {otherTransitions.length > 0 && (
-              <>
-                {otherTransitions.map((transition: any) => (
-                  <DropdownMenuItem
-                    key={transition.status}
-                    onClick={() => handleStatusUpdate(transition.status)}
-                    className={transition.variant === "destructive" ? "text-destructive" : ""}
-                  >
-                    <transition.icon className="h-4 w-4 mr-2" />
-                    {transition.label}
-                  </DropdownMenuItem>
-                ))}
-                <DropdownMenuSeparator />
-              </>
-            )}
+          {/* Print Order */}
+          <DropdownMenuItem onClick={handlePrint} className="cursor-pointer hover:bg-muted/50 transition-colors">
+            <Printer className="h-4 w-4 mr-2" />
+            Print Order
+          </DropdownMenuItem>
 
-            {/* Contact Options */}
-            {order.customerPhone && (
-              <>
-                <DropdownMenuItem onClick={handleContactCustomer}>
-                  <Phone className="h-4 w-4 mr-2" />
-                  Call Customer
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleWhatsApp}>
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  WhatsApp Customer
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-              </>
-            )}
-
-            {/* Print */}
-            <DropdownMenuItem onClick={handlePrint}>
-              <Printer className="h-4 w-4 mr-2" />
-              Print Order
+          {/* Contact Customer */}
+          {order.customerPhone && (
+            <DropdownMenuItem onClick={handleContactCustomer} className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <MessageSquare className="h-4 w-4 mr-2" />
+              Contact Customer
             </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+          )}
 
-      {/* Cancel Dialog */}
+          {/* Copy Order Number */}
+          <DropdownMenuItem onClick={handleCopyOrderNumber} className="cursor-pointer hover:bg-muted/50 transition-colors">
+            <Copy className="h-4 w-4 mr-2" />
+            Copy Order Number
+          </DropdownMenuItem>
+
+          {/* Quick Status Updates */}
+          {quickActions.length > 0 && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Quick Actions</DropdownMenuLabel>
+              {quickActions.map((action) => (
+                <DropdownMenuItem
+                  key={action.id}
+                  onClick={() => handleStatusUpdate(action.status)}
+                  disabled={updateStatus.isPending}
+                  className={cn(
+                    "cursor-pointer transition-colors",
+                    action.variant === 'destructive' 
+                      ? "destructive text-red-600 focus:text-red-600 hover:text-red-600 hover:bg-red-50" 
+                      : "hover:bg-muted/50"
+                  )}
+                >
+                  <action.icon className="h-4 w-4 mr-2" />
+                  {action.label}
+                </DropdownMenuItem>
+              ))}
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Cancel Confirmation Dialog */}
       <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              Cancel Order
-            </DialogTitle>
+            <DialogTitle>Cancel Order</DialogTitle>
             <DialogDescription>
-              Are you sure you want to cancel this order? This action cannot be undone.
+              Are you sure you want to cancel order #{order.orderNumber}? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
+          
+          <div className="space-y-4">
+            <div>
               <Label htmlFor="cancel-reason">Cancellation Reason (Optional)</Label>
               <Textarea
                 id="cancel-reason"
-                placeholder="Enter reason for cancellation..."
+                placeholder="e.g., Out of stock, Customer requested, etc."
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
                 rows={3}
               />
             </div>
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCancelDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCancelDialog(false)
+                setCancelReason("")
+              }}
+            >
               Keep Order
             </Button>
-            <Button variant="destructive" onClick={handleCancel}>
-              Cancel Order
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Refund Dialog */}
-      <Dialog open={showRefundDialog} onOpenChange={setShowRefundDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
-              Process Refund
-            </DialogTitle>
-            <DialogDescription>
-              Process a refund for order #{order.orderNumber}. The customer will be notified.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="refund-reason">Refund Reason</Label>
-              <Textarea
-                id="refund-reason"
-                placeholder="Enter reason for refund..."
-                value={refundReason}
-                onChange={(e) => setRefundReason(e.target.value)}
-                rows={3}
-                required
-              />
-            </div>
-            <div className="rounded-lg bg-muted p-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Order Total</span>
-                <span className="font-medium">
-                  ${typeof order.total === 'number' ? order.total.toFixed(2) : order.total}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Refund Amount</span>
-                <span className="font-medium text-destructive">
-                  -${typeof order.total === 'number' ? order.total.toFixed(2) : order.total}
-                </span>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRefundDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleRefund} disabled={!refundReason.trim()}>
-              Process Refund
+            <Button
+              variant="destructive"
+              onClick={handleCancel}
+              disabled={updateStatus.isPending}
+            >
+              {updateStatus.isPending ? "Cancelling..." : "Cancel Order"}
             </Button>
           </DialogFooter>
         </DialogContent>

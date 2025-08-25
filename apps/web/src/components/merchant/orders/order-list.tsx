@@ -14,12 +14,14 @@ import {
   Card,
   cn,
 } from "@kitchencloud/ui"
-import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { RouterOutputs } from "@/lib/trpc/types"
 import { OrderStatusBadge } from "./order-status-badge"
 import { useOrderStore } from "@/stores/order-store"
 import { OrderDetail } from "./order-detail"
 import { OrderBulkActions } from "./order-bulk-actions"
+import { formatCurrency } from "@/lib/utils"
+import { OrderRowActions } from "./order-actions"
 
 type Order = RouterOutputs["order"]["list"]["items"][0]
 
@@ -73,12 +75,6 @@ export function OrderList({
 
   const allSelected = orders.length > 0 && orders.every(order => selectedOrders.has(order.id))
   const someSelected = orders.some(order => selectedOrders.has(order.id))
-
-  // Format currency
-  const formatCurrency = (amount: any) => {
-    const value = typeof amount === 'number' ? amount : amount?.toNumber?.() || 0
-    return `$${value.toFixed(2)}`
-  }
 
   if (isLoading && orders.length === 0) {
     return (
@@ -168,15 +164,20 @@ export function OrderList({
                   {formatCurrency(order.total)}
                 </TableCell>
                 <TableCell>
-                  <OrderStatusBadge status={order.status} />
+                  <OrderStatusBadge status={order.status} className="p-1" />
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {formatDistanceToNow(new Date(order.createdAt), { addSuffix: true })}
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
+                  <OrderRowActions
+                    order={order}
+                    onViewDetails={() => setDetailOrder(order)}
+                    onOrderUpdate={() => {
+                      // Refresh the list when an order is updated
+                      // This is already handled by the mutation's onSuccess
+                    }}
+                  />
                 </TableCell>
               </TableRow>
             ))}

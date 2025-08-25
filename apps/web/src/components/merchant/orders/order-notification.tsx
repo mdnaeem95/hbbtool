@@ -71,28 +71,52 @@ export function ConnectionStatusBadge() {
   const { isConnected, lastUpdate } = useOrderStream()
   
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-3">
       <Badge 
         variant={isConnected ? "default" : "secondary"}
-        className={`gap-1 p-1 ${isConnected ? 'bg-green-600' : 'bg-gray-400'}`}
+        className={`
+          relative gap-2 px-3 py-1.5 text-xs font-medium transition-all duration-200
+          ${isConnected 
+            ? 'bg-green-600 hover:bg-green-700 text-white' 
+            : 'bg-gray-100 text-gray-600 border border-gray-200'
+          }
+        `}
       >
-        {isConnected ? (
-          <>
-            <Wifi className="h-3 w-3" />
-            Live
-          </>
-        ) : (
-          <>
-            <WifiOff className="h-3 w-3" />
-            Offline
-          </>
+        {/* Pulsing dot for live connection */}
+        {isConnected && (
+          <div className="relative">
+            <div className="absolute -left-0.5 -top-0.5 h-2 w-2 rounded-full bg-green-300 animate-ping" />
+            <div className="h-1 w-1 rounded-full bg-white" />
+          </div>
         )}
+        
+        {/* Connection icon */}
+        <div className="flex items-center">
+          {isConnected ? (
+            <Wifi className="h-3.5 w-3.5" />
+          ) : (
+            <WifiOff className="h-3.5 w-3.5" />
+          )}
+        </div>
+        
+        {/* Status text */}
+        <span className="font-medium">
+          {isConnected ? 'Live' : 'Offline'}
+        </span>
       </Badge>
       
+      {/* Last update timestamp */}
       {lastUpdate && isConnected && (
-        <span className="text-xs text-gray-500">
-          {lastUpdate.toLocaleTimeString()}
-        </span>
+        <div className="flex items-center gap-1 text-xs text-gray-500">
+          <span className="text-gray-400">•</span>
+          <span>
+            Updated {lastUpdate.toLocaleTimeString([], { 
+              hour: '2-digit', 
+              minute: '2-digit',
+              hour12: false 
+            })}
+          </span>
+        </div>
       )}
     </div>
   )

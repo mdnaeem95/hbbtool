@@ -30,7 +30,7 @@ import { OrderStatus } from "@kitchencloud/database/types"
 import { RouterOutputs } from "@/lib/trpc/types"
 import { OrderStatusBadge } from "./order-status-badge"
 import { useOrderStore } from "@/stores/order-store"
-import { OrderActions } from "./order-actions"
+// import { OrderActions } from "./order-actions"
 
 type Order = RouterOutputs["order"]["list"]["items"][0]
 type OrderDetail = RouterOutputs["order"]["get"]
@@ -163,11 +163,11 @@ export function OrderDetail({ order, open, onClose }: OrderDetailProps) {
         <ScrollArea className="h-[calc(100vh-8rem)]">
           <div className="p-6 space-y-6">
             {/* Quick Actions */}
-            <OrderActions
+            {/* <OrderActions
               order={currentOrder}
               onStatusUpdate={handleStatusUpdate}
               isUpdating={isUpdating}
-            />
+            /> */}
 
             {/* Customer Information */}
             <div className="space-y-4">
