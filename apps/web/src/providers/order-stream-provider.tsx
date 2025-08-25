@@ -91,6 +91,9 @@ export function OrderStreamProvider({ children }: OrderStreamProviderProps) {
               
               // Invalidate order queries to refresh data
               utils.order.list.invalidate()
+              utils.merchant.getDashboard.invalidate(),
+              utils.notification.getUnreadCount.invalidate(),
+              utils.notification.getNotifications.invalidate()
               
               // Show notification for new orders
               toast({
@@ -115,6 +118,9 @@ export function OrderStreamProvider({ children }: OrderStreamProviderProps) {
               
               // Invalidate order queries to refresh data
               utils.order.list.invalidate()
+              utils.merchant.getDashboard.invalidate(),
+              utils.notification.getUnreadCount.invalidate(),
+              utils.notification.getNotifications.invalidate()
               
               // Show notification for order updates
               toast({
@@ -130,6 +136,9 @@ export function OrderStreamProvider({ children }: OrderStreamProviderProps) {
               
               // Invalidate order queries to refresh data
               utils.order.list.invalidate()
+              utils.merchant.getDashboard.invalidate(),
+              utils.notification.getUnreadCount.invalidate(),
+              utils.notification.getNotifications.invalidate()
               
               // Show notification for status changes
               const statusMessages = {

@@ -63,16 +63,16 @@ export default function DashboardPage() {
 
         {/* Pending Orders Alert */}
         {dashboardData.stats.pendingOrders > 0 && (
-          <Alert className="border-orange-200 bg-orange-50">
-            <AlertCircle className="h-4 w-4 text-orange-600" />
-            <AlertDescription className="flex items-center justify-between">
+          <Alert className="border-orange-200 bg-orange-50 flex items-center gap-3">
+            <AlertCircle className="h-4 w-4 text-orange-600 flex-shrink-0" />
+            <AlertDescription className="flex items-center justify-between flex-1">
               <span className="text-sm font-medium text-orange-900">
                 You have {dashboardData.stats.pendingOrders} orders waiting for confirmation
               </span>
-              <Button asChild size="sm" variant="outline" className="ml-4">
-                <Link href="/orders?status=pending">
+              <Button asChild size="sm" variant="outline" className="ml-4 border-orange-300 text-orange-700 hover:bg-orange-100 hover:border-orange-400 hover:text-orange-800 hover:scale-105 transition-all duration-200 hover:shadow-md group">
+                <Link href="/dashboard/orders">
                   View Orders
-                  <ArrowUpRight className="ml-1 h-4 w-4" />
+                  <ArrowUpRight className="ml-1 h-4 w-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" />
                 </Link>
               </Button>
             </AlertDescription>

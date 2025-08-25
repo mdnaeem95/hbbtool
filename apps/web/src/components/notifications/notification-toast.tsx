@@ -4,18 +4,27 @@ import { useEffect } from 'react'
 import { useToast } from '@kitchencloud/ui'
 import { ToastAction } from '@kitchencloud/ui'
 import { api } from "@/lib/trpc/client"
+import { useAuth } from '@kitchencloud/auth/client'
 
 export function NotificationToast() {
   const { toast } = useToast()
+  const { isAuthenticated, isLoading } = useAuth()
+  
+  // Only fetch notifications if user is authenticated
   const { data: notifications } = api.notification.getNotifications.useQuery(
     { limit: 1, unreadOnly: true },
     { 
-      refetchInterval: 30000, // Poll every 30 seconds
-      refetchIntervalInBackground: true 
+      enabled: !isLoading && isAuthenticated, // 🔒 Auth guard
+      refetchInterval: isAuthenticated ? 30000 : false, // Only poll if authenticated
+      refetchIntervalInBackground: isAuthenticated, // Only background refresh if authenticated
+      retry: isAuthenticated ? 3 : false, // Don't retry if not authenticated
     }
   )
 
   useEffect(() => {
+    // Only process notifications if user is authenticated
+    if (!isAuthenticated || isLoading) return
+    
     if (notifications?.[0]) {
       const notification = notifications[0]
       
@@ -39,7 +48,12 @@ export function NotificationToast() {
         })
       }
     }
-  }, [notifications, toast])
+  }, [notifications, toast, isAuthenticated, isLoading])
+
+  // Return early if not authenticated to avoid any side effects
+  if (!isAuthenticated || isLoading) {
+    return null
+  }
 
   return null
 }

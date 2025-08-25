@@ -1,13 +1,12 @@
 import { Badge, BadgeProps } from "@kitchencloud/ui"
-import { OrderStatus } from "@kitchencloud/database/types"
 
 interface OrderStatusBadgeProps {
-  status: OrderStatus
+  status: string // Accept any string to be compatible with both enum types
   className?: string
 }
 
 const statusConfig: Record<
-  OrderStatus,
+  string, // Use string instead of specific enum to be more flexible
   { 
     label: string
     variant: BadgeProps["variant"]
@@ -62,7 +61,11 @@ const statusConfig: Record<
 }
 
 export function OrderStatusBadge({ status, className }: OrderStatusBadgeProps) {
-  const config = statusConfig[status]
+  const config = statusConfig[status as string] || {
+    label: status,
+    variant: "default" as const,
+    className: "bg-gray-100 text-gray-800"
+  }
   
   return (
     <Badge 

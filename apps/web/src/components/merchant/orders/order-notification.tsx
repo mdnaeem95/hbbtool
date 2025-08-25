@@ -74,7 +74,7 @@ export function ConnectionStatusBadge() {
     <div className="flex items-center gap-2">
       <Badge 
         variant={isConnected ? "default" : "secondary"}
-        className={`gap-1 ${isConnected ? 'bg-green-600' : 'bg-gray-400'}`}
+        className={`gap-1 p-1 ${isConnected ? 'bg-green-600' : 'bg-gray-400'}`}
       >
         {isConnected ? (
           <>

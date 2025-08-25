@@ -1,10 +1,10 @@
-// trpc/routers/merchant.ts
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { router, merchantProcedure, publicProcedure } from '../../core'
 import { postalCodeSchema, phoneSchema } from '../../../utils/validation'
 import { handleDatabaseError } from '../../../utils/errors'
 import { SearchService } from '../../../services/search'
+import { subDays, startOfMonth, endOfMonth } from 'date-fns'
 
 /* =========================
    Types & Schemas
@@ -107,6 +107,15 @@ function hhmmToMinutes(hhmm: string): number {
 function minutesNowSGT(): number {
   const now = sgtNow()
   return now.getHours() * 60 + now.getMinutes()
+}
+
+// Helper to convert Prisma Decimal to number
+const toNumber = (value: unknown): number => {
+  if (typeof value === 'number') return value
+  if (value && typeof value === 'object' && 'toNumber' in value) {
+    return (value as any).toNumber()
+  }
+  return 0
 }
 
 /* =========================
@@ -245,10 +254,34 @@ export const merchantRouter = router({
   getDashboard: merchantProcedure.query(async ({ ctx }) => {
     const merchantId = ctx.session!.user.id
     const now = new Date()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const startOfCurrentMonth = startOfMonth(now)
+    const endOfCurrentMonth = endOfMonth(now)
+    
+    // Previous month for comparison
+    const startOfPrevMonth = startOfMonth(subDays(startOfCurrentMonth, 1))
+    const endOfPrevMonth = endOfMonth(subDays(startOfCurrentMonth, 1))
 
-    const [merchant, ordersByStatus, revenueAgg, recentOrders, topProducts] = await Promise.all([
-      // add merchant query
+    const [
+      merchant,
+      // Current month data
+      currentMonthStats,
+      currentMonthRevenue,
+      currentMonthCustomers,
+      currentMonthProductsSold,
+      // Previous month data for comparison
+      prevMonthStats,
+      prevMonthRevenue,
+      // CORRECTED quick stats data
+      allTimeCompletedOrders, // Changed: Get all completed orders for completion rate
+      allTimeOrdersCount,     // Changed: Get all orders count
+      avgPreparationTimeData,
+      reviewsData,
+      activeProductsCount,
+      // Other dashboard data
+      recentOrders,
+      topProducts
+    ] = await Promise.all([
+      // Merchant info
       ctx.db.merchant.findUnique({
         where: { id: merchantId },
         select: {
@@ -260,43 +293,224 @@ export const merchantRouter = router({
           status: true
         }
       }),
+      
+      // Current month order stats by status
       ctx.db.order.groupBy({
         by: ['status'],
-        where: { merchantId, createdAt: { gte: startOfMonth } },
+        where: { 
+          merchantId, 
+          createdAt: { gte: startOfCurrentMonth, lte: endOfCurrentMonth } 
+        },
         _count: { _all: true },
       }),
+      
+      // Current month revenue (completed orders only)
       ctx.db.order.aggregate({
-        where: { merchantId, status: 'COMPLETED', createdAt: { gte: startOfMonth } },
+        where: { 
+          merchantId, 
+          status: { in: ['COMPLETED', 'DELIVERED'] },
+          createdAt: { gte: startOfCurrentMonth, lte: endOfCurrentMonth }
+        },
         _sum: { total: true },
       }),
+      
+      // Current month unique customers
+      ctx.db.order.findMany({
+        where: {
+          merchantId,
+          createdAt: { gte: startOfCurrentMonth, lte: endOfCurrentMonth },
+          customerId: { not: null },
+        },
+        select: { customerId: true },
+        distinct: ['customerId'],
+      }),
+      
+      // Current month products sold
+      ctx.db.orderItem.aggregate({
+        where: {
+          order: {
+            merchantId,
+            createdAt: { gte: startOfCurrentMonth, lte: endOfCurrentMonth },
+            status: { in: ['COMPLETED', 'DELIVERED'] },
+          },
+        },
+        _sum: { quantity: true },
+      }),
+      
+      // Previous month order count
+      ctx.db.order.count({
+        where: { 
+          merchantId, 
+          createdAt: { gte: startOfPrevMonth, lte: endOfPrevMonth } 
+        },
+      }),
+      
+      // Previous month revenue
+      ctx.db.order.aggregate({
+        where: { 
+          merchantId, 
+          status: { in: ['COMPLETED', 'DELIVERED'] },
+          createdAt: { gte: startOfPrevMonth, lte: endOfPrevMonth }
+        },
+        _sum: { total: true },
+      }),
+
+      // CORRECTED QUICK STATS CALCULATIONS
+
+      // All-time completed orders for completion rate
+      ctx.db.order.count({
+        where: {
+          merchantId,
+          status: { in: ['COMPLETED', 'DELIVERED'] }
+        }
+      }),
+
+      // All-time total orders for completion rate
+      ctx.db.order.count({
+        where: { merchantId }
+      }),
+
+      // Average preparation time (last 30 days with actual data)
+      ctx.db.$queryRaw<Array<{ avg_prep_time: number | null }>>`
+        SELECT AVG(
+          EXTRACT(EPOCH FROM ("readyAt" - "confirmedAt")) / 60
+        ) as avg_prep_time
+        FROM "Order"
+        WHERE "merchantId" = ${merchantId}
+          AND "readyAt" IS NOT NULL
+          AND "confirmedAt" IS NOT NULL
+          AND "createdAt" >= ${subDays(now, 30)}
+      `,
+
+      // Reviews data for average rating (all-time)
+      ctx.db.review.aggregate({
+        where: { 
+          merchantId,
+          isVisible: true 
+        },
+        _avg: { rating: true },
+        _count: { rating: true }
+      }),
+
+      // CORRECTED: Active products count
+      ctx.db.product.count({
+        where: {
+          merchantId,
+          status: 'ACTIVE',
+          deletedAt: null
+        }
+      }),
+      
+      // Recent orders for the dashboard table
       ctx.db.order.findMany({
         where: { merchantId },
         orderBy: { createdAt: 'desc' },
         take: 10,
-        include: { customer: true, items: true },
+        include: { 
+          customer: { select: { name: true, email: true } }, 
+          items: { select: { productName: true, quantity: true } } 
+        },
       }),
+      
+      // Top products this month
       ctx.db.orderItem.groupBy({
         by: ['productId', 'productName'],
-        where: { order: { merchantId, createdAt: { gte: startOfMonth } } },
-        _sum: { quantity: true },
-        orderBy: { _sum: { quantity: 'desc' } },
+        where: { 
+          order: { 
+            merchantId, 
+            createdAt: { gte: startOfCurrentMonth, lte: endOfCurrentMonth }
+          } 
+        },
+        _sum: { quantity: true, total: true },
+        orderBy: { _sum: { total: 'desc' } },
         take: 5,
-      }),
+      })
     ])
 
-    if (!merchant) throw new TRPCError({ code: "NOT_FOUND", message: "Merchant not found" })
+    if (!merchant) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Merchant not found" })
+    }
 
-    const totalOrders = ordersByStatus.reduce((s, o) => s + (o._count?._all ?? 0), 0)
-    const pendingOrders = ordersByStatus.find(o => o.status === 'PENDING')?._count?._all ?? 0
-    const revenue = revenueAgg._sum.total ? Number(revenueAgg._sum.total) : 0
+    // Calculate current month totals
+    const totalOrders = currentMonthStats.reduce((s, o) => s + (o._count?._all ?? 0), 0)
+    const pendingOrders = currentMonthStats.find(o => o.status === 'PENDING')?._count?._all ?? 0
+    const revenue = toNumber(currentMonthRevenue._sum.total)
+    const totalCustomers = currentMonthCustomers.length
+    const productsSold = currentMonthProductsSold._sum.quantity || 0
+    
+    // Calculate percentage changes
+    const prevRevenue = toNumber(prevMonthRevenue._sum.total)
+    const revenueChange = prevRevenue > 0 
+      ? ((revenue - prevRevenue) / prevRevenue) * 100 
+      : revenue > 0 ? 100 : 0
+      
+    const orderChange = prevMonthStats > 0 
+      ? ((totalOrders - prevMonthStats) / prevMonthStats) * 100 
+      : totalOrders > 0 ? 100 : 0
+
+    // CORRECTED quick stats calculations
+    const completionRate = allTimeOrdersCount > 0 
+      ? (allTimeCompletedOrders / allTimeOrdersCount) * 100 
+      : 0
+
+    const avgPreparationTime = Math.max(0, avgPreparationTimeData[0]?.avg_prep_time || 0)
+
+    const avgRating = toNumber(reviewsData._avg.rating) || 0
+    const reviewCount = reviewsData._count.rating || 0
+
+    console.log('🔍 Quick Stats Debug:', {
+      allTimeOrdersCount,
+      allTimeCompletedOrders,
+      completionRate,
+      avgPreparationTime,
+      activeProductsCount,
+      avgRating,
+      reviewCount
+    })
 
     return {
-      merchantId,
       merchant,
-      stats: { totalOrders, pendingOrders, revenue },
-      ordersByStatus,
+      stats: {
+        // Basic stats (for backward compatibility)
+        totalOrders,
+        pendingOrders,
+        revenue,
+        
+        // Enhanced analytics including corrected quick stats
+        analytics: {
+          revenue: {
+            value: revenue,
+            change: revenueChange,
+            trend: revenueChange >= 0 ? 'up' as const : 'down' as const,
+          },
+          orders: {
+            value: totalOrders,
+            change: orderChange,
+            trend: orderChange >= 0 ? 'up' as const : 'down' as const,
+          },
+          customers: {
+            value: totalCustomers,
+          },
+          productsSold: {
+            value: productsSold,
+          },
+          reviews: {
+            value: reviewCount,
+          },
+          // CORRECTED quick stats
+          completionRate: Math.round(completionRate * 10) / 10, // Round to 1 decimal
+          avgPreparationTime: Math.round(avgPreparationTime),
+          avgRating: Math.round(avgRating * 10) / 10, // Round to 1 decimal
+          activeProducts: activeProductsCount,
+        }
+      },
       recentOrders,
-      topProducts,
+      topProducts: topProducts.map(p => ({
+        id: p.productId,
+        name: p.productName,
+        quantitySold: p._sum.quantity || 0,
+        revenue: toNumber(p._sum.total),
+      })),
     }
   }),
 

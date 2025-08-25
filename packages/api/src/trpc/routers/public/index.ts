@@ -37,8 +37,8 @@ export const publicRouter = router({
           merchantId: merchant.id,
           event: 'storefront_view',
           properties: {
-            referrer: ctx.header('referer') ?? null,
-            userAgent: ctx.header('user-agent') ?? null,
+            referrer: ctx.req.headers.get('referer') ?? null,
+            userAgent: ctx.req.headers.get('user-agent') ?? null,
           },
         },
       }).catch(() => {})
@@ -247,8 +247,8 @@ export const publicRouter = router({
           deliveryFee,
           total,
           promotionCodes: [],                            // ← required array field
-          ipAddress: ctx.header('x-forwarded-for') ?? ctx.header('x-real-ip') ?? ctx.ip,
-          userAgent: ctx.header('user-agent'),
+          ipAddress: ctx.req.headers.get('x-forwarded-for') ?? ctx.req.headers.get('x-real-ip') ?? ctx.ip,
+          userAgent: ctx.req.headers.get('user-agent'),
           // expiresAt has no default; createdAt has a default; updatedAt is @updatedAt
           expiresAt: new Date(Date.now() + 30 * 60 * 1000),
         },
