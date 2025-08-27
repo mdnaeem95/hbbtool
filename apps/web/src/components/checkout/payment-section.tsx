@@ -1,276 +1,223 @@
-import { useState } from 'react'
-import { 
-  Button, 
-  Card, 
-  Alert, 
-  AlertDescription,
-  Separator,
-  useToast,
-} from '@kitchencloud/ui'
-import { 
-  Copy, 
-  CheckCircle, 
-  Info,
-  Smartphone,
-  Loader2
-} from 'lucide-react'
-import { PaynowQR, PaymentUpload, PaymentInstructionsDialog } from "@/components/checkout"
+'use client'
+
+import { useState, useEffect } from 'react'
+import { Button, Card, Label, Input, useToast } from '@kitchencloud/ui'
+import { Upload, Copy, CheckCircle } from 'lucide-react'
 import { api } from '@/lib/trpc/client'
+import Image from 'next/image'
 
 interface PaymentSectionProps {
   sessionId: string
-  paymentReference: string
+  paymentReference?: string
   amount: number
   merchant: {
     businessName: string
     paynowNumber?: string
     paynowQrCode?: string
   }
-  contactInfo: {
-    name: string
-    email: string
-    phone: string
-  }
-  deliveryAddress?: any
-  deliveryMethod: 'DELIVERY' | 'PICKUP'
+  contactInfo: any
+  deliveryAddress: any
+  deliveryMethod: string
   onSuccess: (orderId: string, orderNumber: string) => void
 }
 
-export function PaymentSection({ 
+export function PaymentSection({
   sessionId,
-  paymentReference,
   amount,
   merchant,
-  contactInfo,
-  deliveryAddress,
-  deliveryMethod,
-  onSuccess
+  onSuccess,
+  ...props
 }: PaymentSectionProps) {
   const { toast } = useToast()
-  const [paymentProof, setPaymentProof] = useState<string>()
-  const [isUploading, setIsUploading] = useState(false)
+  const [orderId, setOrderId] = useState<string>()
+  const [qrCode, setQrCode] = useState<string>()
+  const [proofUrl, setProofUrl] = useState<string>()
+  const [transactionId, setTransactionId] = useState('')
   const [isCompleting, setIsCompleting] = useState(false)
-  const [showInstructions, setShowInstructions] = useState(false)
-  const uploadPaymentProof = api.payment.uploadProof.useMutation()
   
-  const completeCheckout = api.checkout.complete.useMutation({
-    onSuccess: async (data) => {
-      // Upload payment proof if available
-      if (paymentProof) {
-        try {
-          await uploadPaymentProof.mutateAsync({
-            orderId: data.orderId,
-            fileUrl: paymentProof,
-            fileName: 'payment-proof.jpg',
-            fileSize: 1024 * 1024, // Estimate
-            mimeType: 'image/jpeg',
-          })
-        } catch (error) {
-          console.error('Failed to upload payment proof:', error)
-        }
-      }
-      
-      toast({
-        title: "Order placed successfully!",
-        description: `Your order ${data.orderNumber} has been received.`,
-      })
-      
-      onSuccess(data.orderId, data.orderNumber)
-    },
-    onError: (error) => {
-      toast({
-        title: "Failed to place order",
-        description: error.message,
-        variant: "destructive",
-      })
-      setIsCompleting(false)
+  const generateQR = api.payment.generateQR.useMutation()
+  const uploadProof = api.payment.uploadProof.useMutation()
+  const completeOrder = api.checkout.complete.useMutation()
+  
+  // Complete the order first
+  useEffect(() => {
+    if (!orderId) {
+      handleCompleteOrder()
     }
-  })
-  
-  const handleCopy = (text: string, label: string) => {
-    navigator.clipboard.writeText(text)
-    toast({
-      title: "Copied!",
-      description: `${label} copied to clipboard`,
-    })
-  }
-  
-  const handleProofUpload = (fileUrl: string) => {
-    setPaymentProof(fileUrl)
-  }
+  }, [])
   
   const handleCompleteOrder = async () => {
-    if (!paymentProof) {
-      toast({
-        title: "Payment proof required",
-        description: "Please upload a screenshot of your payment",
-        variant: "destructive",
-      })
-      return
-    }
-    
     setIsCompleting(true)
+    try {
+      const result = await completeOrder.mutateAsync({
+        sessionId,
+        contactInfo: props.contactInfo,
+        deliveryAddress: props.deliveryAddress,
+        deliveryMethod: props.deliveryMethod as any
+      })
+      
+      setOrderId(result.orderId)
+      
+      // Generate QR code
+      const qrResult = await generateQR.mutateAsync({
+        orderId: result.orderId
+      })
+      
+      setQrCode(qrResult.qrCode!)
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to process order',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsCompleting(false)
+    }
+  }
+  
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !orderId) return
     
-    const deliveryAddressData = deliveryMethod === 'DELIVERY' && deliveryAddress ? {
-      line1: deliveryAddress.line1,
-      line2: deliveryAddress.line2,
-      postalCode: deliveryAddress.postalCode,
-      notes: deliveryAddress.notes,
-    } : undefined
-    
-    completeCheckout.mutate({
-      sessionId,
-      contactInfo,
-      deliveryAddress: deliveryAddressData,
-      deliveryNotes: deliveryAddress?.notes,
+    // For now, create a simple data URL
+    const reader = new FileReader()
+    reader.onloadend = async () => {
+      const dataUrl = reader.result as string
+      setProofUrl(dataUrl)
+      
+      // Upload proof
+      await uploadProof.mutateAsync({
+        orderId,
+        proofUrl: dataUrl,
+        transactionId: transactionId || undefined
+      })
+      
+      toast({
+        title: 'Payment proof uploaded',
+        description: 'The merchant will verify your payment shortly.'
+      })
+      
+      // Redirect after a delay
+      setTimeout(() => {
+        if (orderId) {
+          onSuccess(orderId, 'ORDER-' + orderId.slice(-6))
+        }
+      }, 2000)
+    }
+    reader.readAsDataURL(file)
+  }
+  
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+    toast({
+      title: 'Copied!',
+      duration: 2000
     })
+  }
+  
+  if (isCompleting) {
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4" />
+        <p>Processing your order...</p>
+      </div>
+    )
   }
   
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold mb-2">Payment via PayNow</h2>
-        <p className="text-sm text-muted-foreground">
-          Secure, instant, and free payment method
-        </p>
-      </div>
+      <h3 className="text-lg font-semibold">Complete Payment</h3>
       
-      {/* Payment Amount */}
-      <Card className="bg-primary/5 border-primary/20">
-        <div className="p-6">
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground mb-1">Amount to Pay</p>
-            <p className="text-3xl font-bold text-primary">${amount.toFixed(2)}</p>
-            <p className="text-sm text-muted-foreground mt-1">Singapore Dollars</p>
-          </div>
-        </div>
-      </Card>
-      
-      {/* PayNow Instructions */}
-      <Alert>
-        <Info className="h-4 w-4" />
-        <AlertDescription className="space-y-3">
-          <p className="font-medium">How to pay:</p>
-          <ol className="list-decimal list-inside space-y-2 text-sm">
-            <li>Open your banking app or PayNow</li>
-            <li>Scan the QR code below or enter the PayNow number</li>
-            <li>Enter amount: <span className="font-semibold">${amount.toFixed(2)}</span></li>
-            <li>Use reference: <span className="font-mono font-semibold">{paymentReference}</span></li>
-            <li>Take a screenshot of the payment confirmation</li>
-            <li>Upload the screenshot below</li>
-          </ol>
-        </AlertDescription>
-      </Alert>
-      
-      {/* PayNow Details */}
-      <div className="space-y-4">
-        {/* QR Code */}
-        {merchant.paynowQrCode && (
-          <PaynowQR 
-            qrCodeUrl={merchant.paynowQrCode} 
-            merchantName={merchant.businessName}
-          />
-        )}
+      {/* Step 1: PayNow */}
+      <Card className="p-6">
+        <h4 className="font-medium mb-4">Step 1: Make PayNow Transfer</h4>
         
-        {/* PayNow Number */}
-        {merchant.paynowNumber && (
-          <Card>
-            <div className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Smartphone className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">PayNow Number</p>
-                    <p className="font-mono font-semibold">{merchant.paynowNumber}</p>
-                  </div>
-                </div>
+        {qrCode ? (
+          <div className="text-center">
+            <div className="bg-white p-4 rounded-lg border inline-block">
+              <Image
+                src={qrCode}
+                alt="PayNow QR"
+                width={200}
+                height={200}
+              />
+            </div>
+            <p className="text-sm text-muted-foreground mt-2">
+              Scan with your banking app
+            </p>
+          </div>
+        ) : merchant.paynowNumber && (
+          <div className="space-y-3">
+            <div className="flex justify-between p-3 bg-muted rounded">
+              <span>PayNow to:</span>
+              <div className="flex items-center gap-2">
+                <strong>{merchant.paynowNumber}</strong>
                 <Button
                   size="sm"
-                  variant="outline"
-                  onClick={() => handleCopy(merchant.paynowNumber!, "PayNow number")}
+                  variant="ghost"
+                  onClick={() => copyToClipboard(merchant.paynowNumber!)}
                 >
-                  <Copy className="h-4 w-4" />
+                  <Copy className="h-3 w-3" />
                 </Button>
               </div>
             </div>
-          </Card>
-        )}
-        
-        {/* Payment Reference */}
-        <Card>
-          <div className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Payment Reference</p>
-                <p className="font-mono font-semibold">{paymentReference}</p>
+            <div className="flex justify-between p-3 bg-muted rounded">
+              <span>Amount:</span>
+              <div className="flex items-center gap-2">
+                <strong>SGD ${amount.toFixed(2)}</strong>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => copyToClipboard(amount.toFixed(2))}
+                >
+                  <Copy className="h-3 w-3" />
+                </Button>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleCopy(paymentReference, "Payment reference")}
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
             </div>
           </div>
-        </Card>
-      </div>
-      
-      <Separator />
-      
-      {/* Payment Proof Upload */}
-      <div className="space-y-3">
-        <h3 className="font-medium">Upload Payment Proof</h3>
-        <PaymentUpload 
-          onUpload={handleProofUpload}
-          isUploading={isUploading}
-          setIsUploading={setIsUploading}
-        />
-        {paymentProof && (
-          <Alert className="bg-green-50 border-green-200">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-green-800">
-              Payment proof uploaded successfully
-            </AlertDescription>
-          </Alert>
         )}
-      </div>
+      </Card>
       
-      {/* Help Button */}
-      <div className="text-center">
-        <Button
-          variant="link"
-          onClick={() => setShowInstructions(true)}
-        >
-          Need help with PayNow?
-        </Button>
-      </div>
-      
-      {/* Complete Order Button */}
-      <Button
-        size="lg"
-        className="w-full"
-        onClick={handleCompleteOrder}
-        disabled={!paymentProof || isCompleting}
-      >
-        {isCompleting ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Placing Order...
-          </>
+      {/* Step 2: Upload Proof */}
+      <Card className="p-6">
+        <h4 className="font-medium mb-4">Step 2: Upload Payment Proof</h4>
+        
+        {!proofUrl ? (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="txn">Transaction Reference (Optional)</Label>
+              <Input
+                id="txn"
+                placeholder="e.g., REF123456"
+                value={transactionId}
+                onChange={(e) => setTransactionId(e.target.value)}
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="proof">Payment Screenshot</Label>
+              <label htmlFor="proof" className="block mt-2">
+                <div className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary">
+                  <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm">Click to upload screenshot</p>
+                </div>
+              </label>
+              <input
+                id="proof"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+            </div>
+          </div>
         ) : (
-          <>
-            <CheckCircle className="mr-2 h-4 w-4" />
-            Complete Order
-          </>
+          <div className="flex items-center gap-2 text-green-600">
+            <CheckCircle className="h-5 w-5" />
+            <span>Payment proof uploaded successfully!</span>
+          </div>
         )}
-      </Button>
-      
-      {/* Payment Instructions Dialog */}
-      <PaymentInstructionsDialog
-        open={showInstructions}
-        onOpenChange={setShowInstructions}
-      />
+      </Card>
     </div>
   )
 }

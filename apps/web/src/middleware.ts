@@ -52,10 +52,21 @@ export async function middleware(request: NextRequest) {
 
   // Merchant routes protection
   if (pathname.startsWith('/dashboard')) {
-    if (!user || user.user_metadata?.userType !== 'merchant') {
-      return NextResponse.redirect(
-        new URL(`/auth?type=merchant&redirect=${pathname}`, request.url)
-      )
+    if (!user) {
+      // Not logged in - redirect to login
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = '/merchant/login'
+      redirectUrl.searchParams.set('redirectedFrom', request.nextUrl.pathname)
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    // Check if user is a merchant (not customer)
+    const userType = user.user_metadata?.userType
+    if (userType !== 'merchant') {
+      // Not a merchant - redirect to homepage
+      const redirectUrl = request.nextUrl.clone()
+      redirectUrl.pathname = '/'
+      return NextResponse.redirect(redirectUrl)
     }
   }
 

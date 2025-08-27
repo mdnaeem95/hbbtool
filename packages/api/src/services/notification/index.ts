@@ -1,4 +1,3 @@
-// packages/api/src/services/notification/index.ts
 import { db, type NotificationType, NotificationPriority } from '@kitchencloud/database'
 import { emailProvider } from './provider/email'
 import { smsProvider } from './provider/sms'

@@ -25,13 +25,19 @@ export function NotificationBell() {
   )
   
   // 🔥 FIXED: Only fetch when authenticated AND dropdown is open
-  const { data: notifications = [], refetch } = api.notification.getNotifications.useQuery(
+  const { data, refetch } = api.notification.getNotifications.useQuery(
     { limit: 10, unreadOnly: false },
     { 
       enabled: isAuthenticated && !!user && !isLoading && open, // Auth guard + open state
       refetchOnWindowFocus: false,
     }
   )
+
+  const notifications = Array.isArray(data) 
+    ? data 
+    : (data && 'notifications' in data) 
+      ? data.notifications 
+      : []
   
   // Mark as read mutation
   const markAsReadMutation = api.notification.markAsRead.useMutation({

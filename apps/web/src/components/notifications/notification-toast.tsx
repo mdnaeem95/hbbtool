@@ -23,9 +23,9 @@ export function NotificationToast() {
 
   useEffect(() => {
     // Only process notifications if user is authenticated
-    if (!isAuthenticated || isLoading) return
+    if (!isAuthenticated || isLoading || !notifications) return
     
-    if (notifications?.[0]) {
+    if ('notifications' in notifications && Array.isArray(notifications)) {
       const notification = notifications[0]
       
       // Don't show toast for notifications older than 1 minute

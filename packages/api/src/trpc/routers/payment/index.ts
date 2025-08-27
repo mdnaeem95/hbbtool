@@ -1,92 +1,33 @@
 import { z } from 'zod'
-import { router, publicProcedure, merchantProcedure } from '../../core'
+import { router, publicProcedure, merchantProcedure, protectedProcedure } from '../../core'
 import { TRPCError } from '@trpc/server'
-import { PaymentMethod, PaymentStatus } from '@kitchencloud/database'
+import { PaymentMethod } from '@kitchencloud/database'
+import { generatePayNowQR } from '../../../utils/paynow'
 
 export const paymentRouter = router({
   // 1) Customer uploads a PayNow proof (public; we verify order existence only)
   uploadProof: publicProcedure
     .input(z.object({
-      orderId: z.string().cuid(),
-      fileUrl: z.string().url(),
-      fileName: z.string(),
-      fileSize: z.number().nonnegative(),
-      mimeType: z.string(),
+      orderId: z.string(),
+      proofUrl: z.string(),
+      transactionId: z.string().optional()
     }))
     .mutation(async ({ ctx, input }) => {
-      // Load order (need total, merchant, etc.)
-      const order = await ctx.db.order.findUnique({
-        where: { id: input.orderId },
-        select: {
-          id: true,
-          total: true,
-          paymentStatus: true,
-          paymentMethod: true,
-          paymentReference: true,
-          merchantId: true,
-        },
-      })
-
-      if (!order) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Order not found' })
-      }
-
-      // If already completed, no further proof should be accepted
-      if (order.paymentStatus === 'COMPLETED') {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Payment already completed',
-        })
-      }
-
-      // Upsert a Payment row tied to this order
-      const payment = await ctx.db.payment.upsert({
-        where: { orderId: input.orderId },
-        create: {
-          orderId: input.orderId,
-          amount: order.total,       // Decimal in schema; Prisma accepts number/Decimal
-          currency: 'SGD',
-          method: 'PAYNOW' as PaymentMethod,
-          status: 'PENDING' as PaymentStatus,
-          referenceNumber: order.paymentReference ?? undefined,
-          gatewayProvider: 'paynow',
-        },
-        update: {
-          status: 'PENDING',
-          method: 'PAYNOW',
-          referenceNumber: order.paymentReference ?? undefined,
-          gatewayProvider: 'paynow',
-          // Keep amount as-is (or align to order total again)
-          amount: order.total,
-        },
-      })
-
-      // Update order with proof + set paymentStatus → PENDING
       await ctx.db.order.update({
         where: { id: input.orderId },
         data: {
-          paymentStatus: 'PENDING',
-          paymentMethod: 'PAYNOW',
-          paymentProof: input.fileUrl,
-        },
+          paymentProof: input.proofUrl,
+          paymentStatus: 'PROCESSING',
+          payment: {
+            update: {
+              status: 'PROCESSING',
+              transactionId: input.transactionId
+            }
+          }
+        }
       })
-
-      // Log event
-      await ctx.db.orderEvent.create({
-        data: {
-          orderId: input.orderId,
-          event: 'payment_proof_uploaded',
-          data: {
-            fileUrl: input.fileUrl,
-            fileName: input.fileName,
-            fileSize: input.fileSize,
-            mimeType: input.mimeType,
-            paymentId: payment.id,
-          },
-        },
-      })
-
-      return { success: true, paymentId: payment.id }
+      
+      return { success: true }
     }),
 
   // 2) Poll payment status (public)
@@ -122,78 +63,33 @@ export const paymentRouter = router({
     }),
 
   // 3) Merchant verifies payment manually
-  verifyPayment: merchantProcedure
+  verifyPayment: protectedProcedure
     .input(z.object({
-      orderId: z.string().cuid(),
-      amount: z.number().positive(),
-      transactionId: z.string().optional(),
+      orderId: z.string(),
+      amount: z.number(),
+      transactionId: z.string()
     }))
     .mutation(async ({ ctx, input }) => {
-      // Ensure the order belongs to the merchant
-      const order = await ctx.db.order.findFirst({
-        where: { id: input.orderId, merchantId: ctx.session.user.id },
-        select: {
-          id: true,
-          total: true,
-          status: true,
-          paymentStatus: true,
-          paymentReference: true,
-        },
-      })
-
-      if (!order) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Order not found' })
-      }
-
-      // Upsert payment -> COMPLETED
-      const payment = await ctx.db.payment.upsert({
-        where: { orderId: input.orderId },
-        create: {
-          orderId: input.orderId,
-          amount: input.amount,
-          currency: 'SGD',
-          method: 'PAYNOW',
-          status: 'COMPLETED',
-          transactionId: input.transactionId,
-          gatewayProvider: 'paynow',
-          referenceNumber: order.paymentReference ?? undefined,
-          processedAt: new Date(),
-        },
-        update: {
-          status: 'COMPLETED',
-          amount: input.amount,
-          transactionId: input.transactionId,
-          processedAt: new Date(),
-          method: 'PAYNOW',
-        },
-      })
-
-      // Update order payment fields and bump status to CONFIRMED (if still pending)
+      // Update existing verifyPayment to also update order status
       await ctx.db.order.update({
         where: { id: input.orderId },
         data: {
+          status: 'CONFIRMED',
           paymentStatus: 'COMPLETED',
-          paymentMethod: 'PAYNOW',
           paymentConfirmedAt: new Date(),
           paymentConfirmedBy: ctx.session.user.id,
-          // Move to CONFIRMED only if not already beyond that state
-          status: order.status === 'PENDING' ? 'CONFIRMED' : order.status,
-        },
+          confirmedAt: new Date(),
+          payment: {
+            update: {
+              status: 'COMPLETED',
+              processedAt: new Date(),
+              transactionId: input.transactionId,
+              amount: input.amount
+            }
+          }
+        }
       })
-
-      await ctx.db.orderEvent.create({
-        data: {
-          orderId: input.orderId,
-          event: 'payment_verified',
-          data: {
-            amount: input.amount,
-            transactionId: input.transactionId,
-            paymentId: payment.id,
-            confirmedBy: ctx.session.user.id,
-          },
-        },
-      })
-
+      
       return { success: true }
     }),
 
@@ -277,4 +173,60 @@ export const paymentRouter = router({
 
       return methods
     }),
+
+  generateQR: publicProcedure
+    .input(z.object({
+      orderId: z.string()
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const order = await ctx.db.order.findUnique({
+        where: { id: input.orderId },
+        include: {
+          merchant: {
+            select: {
+              paynowNumber: true,
+              paynowQrCode: true,
+              businessName: true
+            }
+          }
+        }
+      })
+      
+      if (!order) throw new Error('Order not found')
+      
+      // Use existing QR or generate new one
+      let qrCode = order.merchant.paynowQrCode
+      if (!qrCode && order.merchant.paynowNumber) {
+        qrCode = await generatePayNowQR(
+          order.merchant.paynowNumber,
+          Number(order.total),
+          order.orderNumber
+        )
+      }
+      
+      return {
+        qrCode,
+        amount: Number(order.total),
+        merchantName: order.merchant.businessName,
+        paynowNumber: order.merchant.paynowNumber,
+        orderNumber: order.orderNumber
+      }
+    }),
+
+  getPendingPayments: protectedProcedure
+    .query(async ({ ctx }) => {
+      return await ctx.db.order.findMany({
+        where: {
+          merchantId: ctx.session!.user.id,
+          paymentStatus: 'PROCESSING',
+          paymentProof: { not: null }
+        },
+        include: {
+          customer: true,
+          items: { include: { product: true }},
+          payment: true,
+        },
+        orderBy: { createdAt: 'desc' }
+      })
+    })
 })
