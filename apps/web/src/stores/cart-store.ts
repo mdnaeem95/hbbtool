@@ -30,7 +30,8 @@ export interface CartStore {
   updateQuantity: (itemId: string, quantity: number) => void
   removeItem: (itemId: string) => void
   clearCart: () => void
-  
+  setMerchantInfo: (merchantId: string, merchantName: string) => void
+
   // Computed values
   getItemCount: () => number
   getSubtotal: () => number
@@ -171,6 +172,15 @@ export const useCartStore = create<CartStore>()(
       findItem: (productId) => {
         return get().items.find((item) => item.productId === productId)
       },
+
+      // set merchant info
+      setMerchantInfo: (merchantId: string, merchantName: string) => {
+        set((state) => ({
+          ...state,
+          merchantId,
+          merchantName,
+        }))
+      },
     }),
     {
       name: 'cart-store',
@@ -192,7 +202,8 @@ export const useCart = () => {
     canAddItem: store.canAddItem,
     findItem: store.findItem,
     getItemCount: store.getItemCount,
-    getSubtotal: store.getSubtotal
+    getSubtotal: store.getSubtotal,
+    setMerchantInfo: store.setMerchantInfo
   }
 }
 

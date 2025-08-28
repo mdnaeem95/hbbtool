@@ -1,15 +1,10 @@
 "use client"
 
-// Inspired by react-hot-toast library
 import * as React from "react"
+import { ToastProps, ToastActionElement } from "../toast"
 
-import type {
-  ToastActionElement,
-  ToastProps,
-} from "@kitchencloud/ui"
-
-const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+const TOAST_LIMIT = 5
+const TOAST_REMOVE_DELAY = 5000
 
 type ToasterToast = ToastProps & {
   id: string
@@ -28,7 +23,7 @@ const actionTypes = {
 let count = 0
 
 function genId() {
-  count = (count + 1) % Number.MAX_SAFE_INTEGER
+  count = (count + 1) % Number.MAX_VALUE
   return count.toString()
 }
 
@@ -93,8 +88,6 @@ export const reducer = (state: State, action: Action): State => {
     case "DISMISS_TOAST": {
       const { toastId } = action
 
-      // ! Side effects ! - This could be extracted into a dismissToast() action,
-      // but I'll keep it here for simplicity
       if (toastId) {
         addToRemoveQueue(toastId)
       } else {
@@ -142,7 +135,7 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, "id">
 
-function toast({ ...props }: Toast) {
+function toast({ variant = "default", ...props }: Toast & { variant?: ToastProps["variant"] }) {
   const id = genId()
 
   const update = (props: ToasterToast) =>
@@ -156,6 +149,7 @@ function toast({ ...props }: Toast) {
     type: "ADD_TOAST",
     toast: {
       ...props,
+      variant,
       id,
       open: true,
       onOpenChange: (open) => {
@@ -170,6 +164,19 @@ function toast({ ...props }: Toast) {
     update,
   }
 }
+
+// Helper functions for different toast types
+toast.success = (props: Omit<Toast, "variant">) => 
+  toast({ ...props, variant: "success" })
+
+toast.error = (props: Omit<Toast, "variant">) => 
+  toast({ ...props, variant: "destructive" })
+
+toast.warning = (props: Omit<Toast, "variant">) => 
+  toast({ ...props, variant: "warning" })
+
+toast.info = (props: Omit<Toast, "variant">) => 
+  toast({ ...props, variant: "info" })
 
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState)

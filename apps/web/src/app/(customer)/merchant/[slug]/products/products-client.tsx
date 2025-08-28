@@ -1,12 +1,16 @@
+// File: apps/web/src/app/(customer)/merchant/[slug]/products/products-client.tsx
+
 'use client'
 
 import { notFound } from "next/navigation"
-import { Suspense } from "react"
+import { Suspense, useEffect } from "react"
 import { ProductCatalog } from "@/components/product/product-catalog"
 import { ProductCatalogSkeleton } from "@/components/product/product-catalog-skeleton"
 import { api } from "@/lib/trpc/client"
 import { Spinner } from "@kitchencloud/ui"
 import { Clock } from "lucide-react"
+import { useMerchant } from "@/contexts/merchant-context"
+import { useCartStore } from "@/stores/cart-store"
 
 interface ProductsPageClientProps {
   slug: string
@@ -24,10 +28,35 @@ export function ProductsPageClient({
   slug,
   searchParams,
 }: ProductsPageClientProps) {
+  const { setMerchant } = useMerchant()
+  const setCartMerchantInfo = useCartStore(state => state.setMerchantInfo)
+  
   // Fetch merchant data
   const { data: merchant, isLoading, error } = api.public.getMerchant.useQuery({ 
     slug 
   })
+
+  // Update merchant context and cart store when merchant data is loaded
+  useEffect(() => {
+    if (merchant) {
+      // Update merchant context for the drawer to use
+      setMerchant({
+        id: merchant.id,
+        businessName: merchant.businessName,
+        slug: merchant.slug,
+        minimumOrder: Number(merchant.minimumOrder || 0),
+        deliveryEnabled: merchant.deliveryEnabled || false,
+        pickupEnabled: merchant.pickupEnabled || false,
+        deliveryFee: Number(merchant.deliveryFee || 0),
+        preparationTime: merchant.preparationTime.toString() || undefined,
+        logoUrl: merchant.logoUrl || undefined,
+        description: merchant.description || undefined,
+      })
+
+      // Also update cart store so it knows the merchant info
+      setCartMerchantInfo(merchant.id, merchant.businessName)
+    }
+  }, [merchant, setMerchant, setCartMerchantInfo])
 
   // Handle loading state
   if (isLoading) {
@@ -42,6 +71,14 @@ export function ProductsPageClient({
   if (error || !merchant) {
     notFound()
   }
+
+  // Transform categories to match expected format
+  const categoriesForCatalog = merchant.categories.map(cat => ({
+    id: cat.id,
+    name: cat.name,
+    slug: cat.slug,
+    productCount: undefined, // This could be populated from a _count if available
+  }))
 
   return (
     <div className="min-h-screen bg-background">
@@ -70,7 +107,7 @@ export function ProductsPageClient({
                     <span>Est. {merchant.preparationTime}</span>
                   </div>
                 )}
-                {merchant.minimumOrder && (
+                {merchant.minimumOrder && Number(merchant.minimumOrder) > 0 && (
                   <span className="text-muted-foreground">
                     Min order: ${Number(merchant.minimumOrder).toFixed(2)}
                   </span>
@@ -81,13 +118,12 @@ export function ProductsPageClient({
         </div>
       </div>
 
-      {/* Product Catalog */}
+      {/* Product Catalog - Using correct props based on the actual component */}
       <Suspense fallback={<ProductCatalogSkeleton />}>
         <ProductCatalog
-          merchantId={merchant.id}
           merchantSlug={merchant.slug}
-          categories={merchant.categories}
-          searchParams={searchParams}
+          categories={categoriesForCatalog}
+          initialSearchParams={searchParams}
         />
       </Suspense>
     </div>

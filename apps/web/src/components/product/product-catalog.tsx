@@ -1,4 +1,3 @@
-// apps/web/src/components/product/product-catalog.tsx
 "use client"
 
 import * as React from "react"

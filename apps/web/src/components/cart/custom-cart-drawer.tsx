@@ -3,30 +3,34 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button, Separator, cn } from "@kitchencloud/ui"
-import { X, ShoppingCart, Trash2, Plus, Minus, AlertCircle } from "lucide-react"
-import { useCart, useCartTotal } from "@/stores/cart-store"
+import { X, ShoppingCart, Trash2, Plus, Minus, AlertCircle, ArrowRight } from "lucide-react"
+import { useCart } from "@/stores/cart-store"
 import { motion, AnimatePresence } from "framer-motion"
 import { useToast } from "@kitchencloud/ui"
+import { useMerchant } from "@/contexts/merchant-context"
 
 interface CustomCartDrawerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-// Minimum order amount - in production, this should come from merchant data
-const MERCHANT_MINIMUM_ORDER = 20.00
-
 export function CustomCartDrawer({ open, onOpenChange }: CustomCartDrawerProps) {
   const router = useRouter()
   const { toast } = useToast()
-  const { items, merchantName, updateQuantity, removeItem, clearCart } = useCart()
-  const { subtotal, deliveryFee, total } = useCartTotal()
+  const { merchant } = useMerchant()
+  const { items, updateQuantity, removeItem, clearCart, getSubtotal } = useCart()
   const overlayRef = useRef<HTMLDivElement>(null)
   const [removingItemId, setRemovingItemId] = useState<string | null>(null)
 
+  // Calculate totals
+  const subtotal = getSubtotal()
   const isEmpty = items.length === 0
-  const canCheckout = subtotal >= MERCHANT_MINIMUM_ORDER
-  const amountToMinimum = MERCHANT_MINIMUM_ORDER - subtotal
+  
+  // Use merchant data from context
+  const minimumOrder = merchant?.minimumOrder || 0
+  const canCheckout = subtotal >= minimumOrder
+  const amountToMinimum = Math.max(0, minimumOrder - subtotal)
+  const displayMerchantName = merchant?.businessName || "Loading..."
 
   // Handle escape key and focus trap
   useEffect(() => {
@@ -38,10 +42,8 @@ export function CustomCartDrawer({ open, onOpenChange }: CustomCartDrawerProps) 
 
     if (open) {
       document.addEventListener('keydown', handleEscape)
-      // Prevent body scroll when drawer is open
       document.body.style.overflow = 'hidden'
       
-      // Focus trap
       const drawer = document.getElementById('cart-drawer')
       if (drawer) {
         const focusableElements = drawer.querySelectorAll(
@@ -95,7 +97,6 @@ export function CustomCartDrawer({ open, onOpenChange }: CustomCartDrawerProps) 
   const handleRemoveItem = async (itemId: string, itemName: string) => {
     setRemovingItemId(itemId)
     
-    // Small delay for animation
     setTimeout(() => {
       removeItem(itemId)
       setRemovingItemId(null)
@@ -107,12 +108,18 @@ export function CustomCartDrawer({ open, onOpenChange }: CustomCartDrawerProps) 
   }
 
   const handleClearCart = () => {
-    clearCart()
-    onOpenChange(false)
-    toast({
-      title: "Cart cleared",
-      description: "All items have been removed from your cart.",
-    })
+    if (window.confirm("Are you sure you want to clear your cart?")) {
+      clearCart()
+      onOpenChange(false)
+      toast({
+        title: "Cart cleared",
+        description: "All items have been removed from your cart.",
+      })
+    }
+  }
+
+  const formatPrice = (price: number) => {
+    return `$${price.toFixed(2)}`
   }
 
   if (!open) return null
@@ -146,19 +153,20 @@ export function CustomCartDrawer({ open, onOpenChange }: CustomCartDrawerProps) 
             aria-label="Shopping Cart"
           >
             {/* Header */}
-            <div className="flex items-center justify-between border-b p-6">
+            <div className="flex items-center justify-between border-b p-6 bg-gradient-to-r from-orange-50/50 to-orange-100/30">
               <div>
                 <h2 className="text-lg font-semibold">Shopping Cart</h2>
                 <p className="text-sm text-muted-foreground">
                   {isEmpty
                     ? "Your cart is empty"
-                    : `${items.length} ${items.length === 1 ? "item" : "items"} from ${merchantName}`}
+                    : `${items.length} ${items.length === 1 ? "item" : "items"} from ${displayMerchantName}`}
                 </p>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => onOpenChange(false)}
+                className="hover:bg-white/80 hover:scale-110 transition-all duration-200"
                 aria-label="Close cart"
               >
                 <X className="h-4 w-4" />
@@ -166,19 +174,27 @@ export function CustomCartDrawer({ open, onOpenChange }: CustomCartDrawerProps) 
             </div>
 
             {isEmpty ? (
+              // Empty cart state
               <div className="flex flex-1 flex-col items-center justify-center space-y-4 p-6">
                 <motion.div
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ duration: 0.3 }}
-                  className="rounded-full bg-muted p-4"
+                  className="rounded-full bg-gradient-to-br from-orange-100 to-orange-50 p-6"
                 >
-                  <ShoppingCart className="h-8 w-8 text-muted-foreground" />
+                  <ShoppingCart className="h-10 w-10 text-orange-600" />
                 </motion.div>
+                <h3 className="text-lg font-medium">Your cart is empty</h3>
                 <p className="text-center text-muted-foreground">
-                  Add items to your cart to get started
+                  Add delicious items to your cart to get started
                 </p>
-                <Button onClick={() => onOpenChange(false)}>Continue Shopping</Button>
+                <Button 
+                  onClick={() => onOpenChange(false)}
+                  className="bg-orange-600 hover:bg-orange-700 hover:scale-105 transition-all duration-200"
+                >
+                  Continue Shopping
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
               </div>
             ) : (
               <>
@@ -186,6 +202,7 @@ export function CustomCartDrawer({ open, onOpenChange }: CustomCartDrawerProps) 
                 <div className="flex-1 overflow-y-auto p-6">
                   <AnimatePresence mode="popLayout">
                     {items.map((item, index) => (
+                      // Cart item component (unchanged)
                       <motion.div
                         key={item.id}
                         layout
@@ -199,10 +216,11 @@ export function CustomCartDrawer({ open, onOpenChange }: CustomCartDrawerProps) 
                         }}
                         className={cn(
                           "flex gap-4 rounded-lg border p-4 mb-4",
+                          "hover:border-orange-200 hover:bg-orange-50/30 transition-all duration-200",
                           removingItemId === item.id && "opacity-50"
                         )}
                       >
-                        {/* Item Image */}
+                        {/* Item content - same as before */}
                         {item.image && (
                           <div className="h-20 w-20 overflow-hidden rounded-lg bg-muted flex-shrink-0">
                             <img
@@ -213,21 +231,23 @@ export function CustomCartDrawer({ open, onOpenChange }: CustomCartDrawerProps) 
                           </div>
                         )}
 
-                        {/* Item Details */}
                         <div className="flex flex-1 flex-col justify-between min-w-0">
                           <div>
                             <h4 className="font-medium line-clamp-1">{item.name}</h4>
                             <p className="text-sm text-muted-foreground">
-                              ${item.price.toFixed(2)} each
+                              {formatPrice(item.price)} each
                             </p>
                           </div>
 
-                          {/* Quantity Controls */}
                           <div className="flex items-center gap-2 mt-2">
                             <Button
                               size="icon"
                               variant="outline"
-                              className="h-7 w-7"
+                              className={cn(
+                                "h-7 w-7",
+                                "hover:bg-gray-100 hover:border-gray-400",
+                                "active:scale-90 transition-all duration-200"
+                              )}
                               onClick={() =>
                                 item.quantity > 1
                                   ? updateQuantity(item.id, item.quantity - 1)
@@ -243,7 +263,12 @@ export function CustomCartDrawer({ open, onOpenChange }: CustomCartDrawerProps) 
                             <Button
                               size="icon"
                               variant="outline"
-                              className="h-7 w-7"
+                              className={cn(
+                                "h-7 w-7",
+                                "hover:bg-gray-100 hover:border-gray-400",
+                                "active:scale-90 transition-all duration-200",
+                                "disabled:opacity-50 disabled:cursor-not-allowed"
+                              )}
                               onClick={() => updateQuantity(item.id, item.quantity + 1)}
                               disabled={item.maxQuantity ? item.quantity >= item.maxQuantity : false}
                               aria-label="Increase quantity"
@@ -253,15 +278,18 @@ export function CustomCartDrawer({ open, onOpenChange }: CustomCartDrawerProps) 
                           </div>
                         </div>
 
-                        {/* Price and Remove */}
                         <div className="flex flex-col items-end justify-between">
                           <p className="font-semibold">
-                            ${(item.price * item.quantity).toFixed(2)}
+                            {formatPrice(item.price * item.quantity)}
                           </p>
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            className={cn(
+                              "h-8 w-8 text-muted-foreground",
+                              "hover:text-destructive hover:bg-red-50",
+                              "hover:scale-110 transition-all duration-200"
+                            )}
                             onClick={() => handleRemoveItem(item.id, item.name)}
                             aria-label={`Remove ${item.name} from cart`}
                           >
@@ -274,21 +302,21 @@ export function CustomCartDrawer({ open, onOpenChange }: CustomCartDrawerProps) 
                 </div>
 
                 {/* Footer */}
-                <div className="border-t p-6 space-y-4">
+                <div className="border-t p-6 space-y-4 bg-gradient-to-t from-gray-50/50 to-white">
                   {/* Minimum order warning */}
-                  {!canCheckout && (
+                  {minimumOrder > 0 && !canCheckout && (
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg"
+                      className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200"
                     >
                       <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
                       <div className="text-sm">
                         <p className="font-medium text-amber-900 dark:text-amber-100">
-                          Minimum order: ${MERCHANT_MINIMUM_ORDER.toFixed(2)}
+                          Minimum order: {formatPrice(minimumOrder)}
                         </p>
                         <p className="text-amber-700 dark:text-amber-200">
-                          Add ${amountToMinimum.toFixed(2)} more to checkout
+                          Add {formatPrice(amountToMinimum)} more to checkout
                         </p>
                       </div>
                     </motion.div>
@@ -296,18 +324,24 @@ export function CustomCartDrawer({ open, onOpenChange }: CustomCartDrawerProps) 
 
                   {/* Summary */}
                   <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-base font-medium">
                       <span>Subtotal</span>
-                      <span>${subtotal.toFixed(2)}</span>
+                      <span>{formatPrice(subtotal)}</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Delivery Fee</span>
-                      <span>${deliveryFee.toFixed(2)}</span>
-                    </div>
+                    
+                    {merchant?.deliveryEnabled && (
+                      <p className="text-xs text-muted-foreground italic">
+                        {merchant.pickupEnabled 
+                          ? "Delivery or pickup options available at checkout"
+                          : "Delivery fee will be calculated at checkout"}
+                      </p>
+                    )}
+                    
                     <Separator />
-                    <div className="flex justify-between font-medium text-lg">
+                    
+                    <div className="flex justify-between font-semibold text-lg">
                       <span>Total</span>
-                      <span>${total.toFixed(2)}</span>
+                      <span className="text-orange-600">{formatPrice(subtotal)}</span>
                     </div>
                   </div>
 
@@ -315,33 +349,53 @@ export function CustomCartDrawer({ open, onOpenChange }: CustomCartDrawerProps) 
                   <div className="space-y-2">
                     <Button
                       variant="outline"
-                      className="w-full"
+                      className={cn(
+                        "w-full",
+                        "hover:bg-gray-50 hover:border-gray-400",
+                        "hover:scale-[1.02] active:scale-[0.98]",
+                        "transition-all duration-200"
+                      )}
                       onClick={handleViewFullCart}
                     >
                       View Full Cart
                     </Button>
                     <Button 
-                      className="w-full" 
+                      className={cn(
+                        "w-full",
+                        canCheckout 
+                          ? "bg-orange-600 hover:bg-orange-700 hover:shadow-lg" 
+                          : "bg-gray-400 cursor-not-allowed",
+                        canCheckout && "hover:scale-[1.02] active:scale-[0.98]",
+                        "transition-all duration-200"
+                      )}
                       onClick={handleCheckout}
                       disabled={!canCheckout}
                     >
-                      {canCheckout 
-                        ? `Checkout • $${total.toFixed(2)}`
-                        : `Add $${amountToMinimum.toFixed(2)} more`
-                      }
+                      {canCheckout ? (
+                        <>
+                          Proceed to Checkout
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </>
+                      ) : minimumOrder > 0 ? (
+                        `Add ${formatPrice(amountToMinimum)} more`
+                      ) : (
+                        "Proceed to Checkout"
+                      )}
                     </Button>
                   </div>
 
                   {/* Clear Cart */}
                   <div className="text-center">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive"
+                    <button
+                      className={cn(
+                        "text-sm text-muted-foreground",
+                        "hover:text-destructive hover:underline",
+                        "transition-all duration-200"
+                      )}
                       onClick={handleClearCart}
                     >
                       Clear Cart
-                    </Button>
+                    </button>
                   </div>
                 </div>
               </>

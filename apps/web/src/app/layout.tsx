@@ -6,6 +6,7 @@ import { Toaster } from "@kitchencloud/ui"
 import { TRPCProvider } from "@/lib/trpc/client"
 import { AuthProvider } from "@kitchencloud/auth/provider"
 import { NotificationToast } from "@/components/notifications/notification-toast"
+import { MerchantProvider } from "@/contexts/merchant-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -56,8 +57,10 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <TRPCProvider>
-            {children}
-            <div id="portal-root"></div>
+            <MerchantProvider>
+              {children}
+              <div id="portal-root"></div>
+            </MerchantProvider>
             <NotificationToast />
             <Toaster />
           </TRPCProvider>
