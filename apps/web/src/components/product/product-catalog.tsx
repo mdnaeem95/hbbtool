@@ -71,32 +71,17 @@ export function ProductCatalog({
 
   const sort = urlParams.get("sort") || "featured"
 
-  // Debug logging
-  React.useEffect(() => {
-    console.log('Current filters:', filters)
-    console.log('Search params:', searchParams)
-  }, [filters, searchParams])
-
   // Page-based fetch - include all filters
-  const { data, isLoading, isError, error } = api.public.listProducts.useQuery(
+  const { data, isLoading, isError } = api.public.listProducts.useQuery(
     {
       merchantSlug,
       categoryId: filters.categories[0], // API only supports single category
       search: filters.search,
+      sort: sort as 'featured' | 'price-asc' | 'price-desc' | 'newest' | 'name',
       page,
       limit: 20,
     },
   )
-
-  // Log for debugging
-  React.useEffect(() => {
-    if (data) {
-      console.log('Products data:', data)
-    }
-    if (error) {
-      console.error('Error fetching products:', error)
-    }
-  }, [data, error])
 
   // Merge/replace items + compute hasMore
   React.useEffect(() => {
@@ -107,6 +92,12 @@ export function ProductCatalog({
     setHasMore(p < totalPages)
     setIsLoadingMore(false)
   }, [data, page])
+
+  React.useEffect(() => {
+    setPage(1)
+    setProducts([])
+    setHasMore(true)
+  }, [sort])
 
   // Load more: just bump the page (no .fetch)
   const loadMore = React.useCallback(() => {
@@ -234,6 +225,14 @@ export function ProductCatalog({
     }
   }
 
+  const sortOptions = [
+    { value: "featured", label: "Featured" },
+    { value: "price-asc", label: "Price: Low to High" },
+    { value: "price-desc", label: "Price: High to Low" },
+    { value: "newest", label: "Newest First" },
+    { value: "name", label: "Name (A-Z)" },
+  ]
+
   const categoryOptions = categories.map((category) => ({
     value: category.id,
     label: category.name,
@@ -248,6 +247,7 @@ export function ProductCatalog({
           <ProductFilters
             categories={categoryOptions}
             priceRange={priceRange}
+            sortOptions={sortOptions}
             selectedFilters={{
               categories: filters.categories,
               priceRange: filters.minPrice || filters.maxPrice 

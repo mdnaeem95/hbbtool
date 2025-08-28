@@ -2,8 +2,7 @@ import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure } from '../../core'
 import { paginationSchema, phoneSchema } from '../../../utils/validation'
-import { paginatedResponse } from '../../../utils/pagination'
-import { DeliveryMethod } from '@kitchencloud/database'
+import { DeliveryMethod, Prisma } from '@kitchencloud/database'
 import { nanoid } from 'nanoid'
 
 /* ---------------- helpers ---------------- */
@@ -100,6 +99,7 @@ export const publicRouter = router({
       merchantSlug: z.string(),
       categoryId: z.string().optional(),
       search: z.string().optional(),
+      sort: z.enum(['featured', 'price-asc', 'price-desc', 'newest', 'name']).optional().default('featured'),
       ...paginationSchema.shape,
     }))
     .query(async ({ ctx, input }) => {
@@ -109,30 +109,93 @@ export const publicRouter = router({
       })
       if (!merchant) throw new TRPCError({ code: 'NOT_FOUND' })
 
-      const where = {
+      const where: Prisma.ProductWhereInput = {
         merchantId: merchant.id,
-        status: 'ACTIVE' as const,
+        status: 'ACTIVE',
         deletedAt: null,
         ...(input.categoryId ? { categoryId: input.categoryId } : {}),
         ...(input.search
           ? {
               OR: [
-                { name: { contains: input.search, mode: 'insensitive' } },
-                { description: { contains: input.search, mode: 'insensitive' } },
+                { name: { contains: input.search, mode: 'insensitive' as Prisma.QueryMode } },
+                { description: { contains: input.search, mode: 'insensitive' as Prisma.QueryMode } },
               ],
             }
           : {}),
       }
 
-      return paginatedResponse(
-        ctx.db.product,
+      const total = await ctx.db.product.count({ where })
+
+      // For ALL sorting options, fetch products first
+      let items = await ctx.db.product.findMany({
         where,
-        input,
-        {
+        take: input.limit,
+        skip: (input.page - 1) * input.limit,
+        include: {
           category: true,
           variants: true,
-        }
-      )
+        },
+      })
+
+      // Apply sorting in JavaScript to handle Decimal type properly
+      switch (input.sort) {
+        case 'featured':
+          items = items.sort((a, b) => {
+            // First sort by featured flag
+            if (a.featured !== b.featured) {
+              return b.featured ? 1 : -1
+            }
+            // Then by creation date
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          })
+          break
+          
+        case 'price-asc':
+          items = items.sort((a, b) => {
+            const priceA = typeof a.price === 'object' && 'toNumber' in a.price 
+              ? (a.price as any).toNumber() 
+              : Number(a.price)
+            const priceB = typeof b.price === 'object' && 'toNumber' in b.price 
+              ? (b.price as any).toNumber() 
+              : Number(b.price)
+            return priceA - priceB // Low to High
+          })
+          break
+          
+        case 'price-desc':
+          items = items.sort((a, b) => {
+            const priceA = typeof a.price === 'object' && 'toNumber' in a.price 
+              ? (a.price as any).toNumber() 
+              : Number(a.price)
+            const priceB = typeof b.price === 'object' && 'toNumber' in b.price 
+              ? (b.price as any).toNumber() 
+              : Number(b.price)
+            return priceB - priceA // High to Low
+          })
+          break
+          
+        case 'newest':
+          items = items.sort((a, b) => {
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          })
+          break
+          
+        case 'name':
+          items = items.sort((a, b) => {
+            return a.name.localeCompare(b.name)
+          })
+          break
+      }
+
+      return {
+        items,
+        pagination: {
+          page: input.page,
+          limit: input.limit,
+          total,
+          totalPages: Math.ceil(total / input.limit),
+        },
+      }
     }),
 
   // Create checkout session (public)
