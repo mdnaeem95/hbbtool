@@ -46,10 +46,15 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
             
             return headers
           },
-          fetch: (url, opts) => fetch(url, { 
-            ...opts, 
-            credentials: 'include' 
-          }),
+          // CRITICAL: This ensures Supabase auth cookies are sent with every request
+          // Without credentials: 'include', the server won't receive the auth cookies
+          // and ctx.session will be null, causing UNAUTHORIZED errors
+          fetch(url, options) {
+            return fetch(url, {
+              ...options,
+              credentials: 'include', // This is the critical fix!
+            })
+          },
         }),
       ],
     })

@@ -18,12 +18,27 @@ export interface Context {
 export async function createTRPCContext(
   opts: FetchCreateContextFnOptions
 ): Promise<Context> {
+  console.log('\n=== createTRPCContext START ===')
   const { req, resHeaders } = opts
+  
+  // Log request details
+  console.log('Request URL:', req.url)
+  console.log('Cookie header:', req.headers.get('cookie') ? 'PRESENT' : 'MISSING')
 
-  // Get auth session (handles both merchant and customer auth)
-  const session = await getAuthSession(req)
+  // IMPORTANT: In App Router API routes, we need to call getAuthSession
+  // which will use cookies() internally. We can't pass the request.
+  console.log('\nCalling getAuthSession...')
+  const session = await getAuthSession()
+  
+  console.log('Session result:', session ? 'FOUND' : 'NULL')
+  if (session) {
+    console.log('  User ID:', session.user.id)
+    console.log('  User Type:', session.user.userType)
+    console.log('  User Email:', session.user.email)
+  }
   
   // Create Supabase client
+  console.log('\nCreating Supabase client...')
   const supabase = await createServerSupabaseClient()
 
   // Extract IP address
@@ -32,7 +47,7 @@ export async function createTRPCContext(
     req.headers.get('x-real-ip') ??
     undefined
 
-  return {
+  const context = {
     db,
     session,
     supabase,
@@ -40,6 +55,11 @@ export async function createTRPCContext(
     resHeaders,
     ip,
   }
+  
+  console.log('\n=== createTRPCContext END ===')
+  console.log('Context created with session:', context.session ? 'YES' : 'NO')
+  
+  return context
 }
 
 export type TRPCContext = Awaited<ReturnType<typeof createTRPCContext>>

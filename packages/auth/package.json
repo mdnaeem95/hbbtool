@@ -20,6 +20,7 @@
   "dependencies": {
     "@kitchencloud/database": "workspace:*",
     "@supabase/ssr": "^0.6.1",
+    "cookie": "^1.0.2",
     "dotenv": "^17.2.1",
     "nanoid": "^5.0.7",
     "zod": "^4.0.17"

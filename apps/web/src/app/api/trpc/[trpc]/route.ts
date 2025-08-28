@@ -3,18 +3,16 @@ import { appRouter, createTRPCContext } from '@kitchencloud/api'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const revalidate = 0
 
 const handler = (req: Request) =>
   fetchRequestHandler({
     endpoint: '/api/trpc',
     req,
     router: appRouter,
-    createContext: (opts) => createTRPCContext(opts), // forward req, resHeaders, info
+    createContext: createTRPCContext,
     onError({ error, path, type }) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.error(`[tRPC ${type}] ${path ?? '<root>'}:`, error)
-      }
+      console.error(`[tRPC ${type}] ${path ?? '<root>'}:`, error.message)
+      console.error('Error code:', error.code)
     },
   })
 

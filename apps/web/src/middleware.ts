@@ -2,12 +2,24 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
 export async function middleware(request: NextRequest) {
+  // Create response with proper headers
   let response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   })
 
+  // Skip middleware for static files and API routes
+  const pathname = request.nextUrl.pathname
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/api') ||
+    pathname.includes('.')
+  ) {
+    return response
+  }
+
+  // Create Supabase client with proper cookie handling
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -17,11 +29,16 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
+          // Update request cookies
           cookiesToSet.forEach(({ name, value, options }) => {
             request.cookies.set({ name, value, ...options })
-            response = NextResponse.next({
-              request,
-            })
+          })
+          // Create new response with updated request
+          response = NextResponse.next({
+            request,
+          })
+          // Update response cookies
+          cookiesToSet.forEach(({ name, value, options }) => {
             response.cookies.set({ name, value, ...options })
           })
         },
@@ -29,17 +46,16 @@ export async function middleware(request: NextRequest) {
     }
   )
 
+  // Get user session
   const { data: { user } } = await supabase.auth.getUser()
-  const pathname = request.nextUrl.pathname
 
   // Public routes that don't need protection
   const publicRoutes = [
     '/',
     '/auth',
     '/merchant',
-    '/api',
-    '/_next',
-    '/favicon.ico',
+    '/store',
+    '/track',
   ]
 
   const isPublicRoute = publicRoutes.some(route => 
@@ -50,17 +66,17 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // Merchant routes protection
+  // Protect dashboard routes
   if (pathname.startsWith('/dashboard')) {
     if (!user) {
-      // Not logged in - redirect to login
+      // Not logged in - redirect to auth
       const redirectUrl = request.nextUrl.clone()
-      redirectUrl.pathname = '/merchant/login'
-      redirectUrl.searchParams.set('redirectedFrom', request.nextUrl.pathname)
+      redirectUrl.pathname = '/auth'
+      redirectUrl.searchParams.set('redirect', pathname)
       return NextResponse.redirect(redirectUrl)
     }
 
-    // Check if user is a merchant (not customer)
+    // Check if user is a merchant
     const userType = user.user_metadata?.userType
     if (userType !== 'merchant') {
       // Not a merchant - redirect to homepage
@@ -69,10 +85,6 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(redirectUrl)
     }
   }
-
-  // Customer account routes (optional auth)
-  // Note: Customer auth is handled client-side with session tokens
-  // This middleware only protects Supabase-authenticated routes
 
   return response
 }
@@ -85,8 +97,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
-     * - api routes that should be public
+     * - file extensions
      */
-    '/((?!_next/static|_next/image|favicon.ico|public|api/webhook).*)',
+    '/((?!_next/static|_next/image|favicon.ico|public|.*\\.).*)',
   ],
 }

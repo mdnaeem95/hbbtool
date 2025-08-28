@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { DashboardStats, RecentOrders, PopularProducts, QuickStats } from "@/components/merchant"
 import { AlertCircle, ArrowUpRight, Loader2 } from "lucide-react"
@@ -12,24 +12,43 @@ import { useAuth } from "@kitchencloud/auth/client"
 export default function DashboardPage() {
   const router = useRouter()
   const { user, isLoading: authLoading, isMerchant } = useAuth()
+  const [authChecked, setAuthChecked] = useState(false)
   
-  // Fetch dashboard data
+  // Fetch dashboard data - only enable when we're sure user is a merchant
   const { data: dashboardData, isLoading, error } = api.merchant.getDashboard.useQuery(
     undefined,
     {
-      enabled: !!user && isMerchant,
+      enabled: authChecked && !!user && isMerchant,
+      retry: 1
     }
   )
 
   // Handle authentication
   useEffect(() => {
-    if (!authLoading && (!user || !isMerchant)) {
+    // wait for auth to finish loading
+    if (authLoading) return
+
+    //mark auth as checked
+    setAuthChecked(true)
+
+    //if no user or not a merchant after auth loaded, redirect
+    if (!user || !isMerchant) {
       router.push("/auth?redirect=/dashboard")
     }
   }, [authLoading, user, isMerchant, router])
 
-  // Show loading state
-  if (authLoading || isLoading) {
+  // Show loading state while auth is loading or hasn't been checked yet
+  if (authLoading || !authChecked) {
+    return <DashboardLoadingState />
+  }
+
+  // If auth is checked but no user/not merchant, show loading while redirecting
+  if (!user || !isMerchant) {
+    return <DashboardLoadingState />
+  }
+
+  // Show loading state while fetching dashboard data
+  if (isLoading) {
     return <DashboardLoadingState />
   }
 

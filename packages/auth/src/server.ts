@@ -1,30 +1,41 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { db } from '@kitchencloud/database'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import type { AuthUser, AuthSession } from './types'
 
 /**
  * Create server-side Supabase client with cookie handling
  */
-export async function createServerSupabaseClient(): Promise<SupabaseClient> {
-  const cookieStore = await cookies()
+export async function createServerSupabaseClient() {
+  console.log('\n=== createServerSupabaseClient ===')
   
+  const cookieStore = await cookies()
+  const allCookies = cookieStore.getAll()
+  
+  console.log('Cookies found:', allCookies.length)
+  allCookies.forEach(cookie => {
+    if (cookie.name.startsWith('sb-')) {
+      console.log(`  ${cookie.name}: [${cookie.value.length} chars]`)
+    }
+  })
+
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cookiesToSet) => {
+        getAll() {
+          console.log('  getAll() called')
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          console.log('  setAll() called with', cookiesToSet.length, 'cookies')
           try {
-            cookiesToSet.forEach(({ name, value, options }) =>
+            cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options)
-            )
-          } catch {
-            // The `set` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
+            })
+          } catch (error: any) {
+            console.log('  setAll error (expected in route handlers):', error.message)
           }
         },
       },
@@ -33,24 +44,38 @@ export async function createServerSupabaseClient(): Promise<SupabaseClient> {
 }
 
 /**
- * Get the current auth session from cookies/headers
- * Handles both merchant (Supabase) and customer (token) auth
+ * Get the current auth session from cookies
  */
-export async function getAuthSession(
-  request?: Request
-): Promise<AuthSession | null> {
+export async function getAuthSession(): Promise<AuthSession | null> {
+  console.log('\n=== getAuthSession START ===')
+  
   try {
-    // Check Supabase session first (merchants)
     const supabase = await createServerSupabaseClient()
-    const { data: { user: supabaseUser } } = await supabase.auth.getUser()
     
+    console.log('Getting user from Supabase...')
+    const { data: { user: supabaseUser }, error } = await supabase.auth.getUser()
+    
+    if (error) {
+      console.log('Supabase auth error:', error.message)
+      return null
+    }
+    
+    console.log('Supabase user:', supabaseUser ? 'FOUND' : 'NOT FOUND')
     if (supabaseUser) {
+      console.log('  User ID:', supabaseUser.id)
+      console.log('  User email:', supabaseUser.email)
+      console.log('  User metadata:', JSON.stringify(supabaseUser.user_metadata))
+      
       const userType = supabaseUser.user_metadata?.userType as 'merchant' | 'customer'
+      console.log('  User type:', userType)
       
       if (userType === 'merchant') {
+        console.log('Looking up merchant in database...')
         const merchant = await db.merchant.findUnique({
           where: { id: supabaseUser.id }
         })
+        
+        console.log('Merchant found:', merchant ? 'YES' : 'NO')
         
         if (merchant) {
           const user: AuthUser = {
@@ -60,50 +85,17 @@ export async function getAuthSession(
             merchant,
           }
           
+          console.log('=== getAuthSession SUCCESS - Merchant ===')
           return { user }
         }
       }
     }
 
-    // Check for customer token in Authorization header
-    if (request) {
-      const authHeader = request.headers.get('authorization')
-      const token = authHeader?.startsWith('Bearer ') 
-        ? authHeader.slice(7) 
-        : null
-      
-      if (token) {
-        const session = await db.session.findFirst({
-          where: {
-            token,
-            expiresAt: { gt: new Date() },
-            customerId: { not: null },
-          },
-          include: {
-            customer: true,
-          },
-        })
-        
-        if (session?.customer) {
-          const user: AuthUser = {
-            id: session.customer.id,
-            phone: session.customer.phone,
-            userType: 'customer',
-            customer: session.customer,
-          }
-          
-          return { 
-            user,
-            token,
-            expiresAt: session.expiresAt,
-          }
-        }
-      }
-    }
-
+    console.log('=== getAuthSession FAILED - No valid session ===')
     return null
   } catch (error) {
-    console.error('Error getting auth session:', error)
+    console.error('=== getAuthSession ERROR ===')
+    console.error(error)
     return null
   }
 }
@@ -111,11 +103,11 @@ export async function getAuthSession(
 /**
  * Require authenticated user or throw
  */
-export async function requireAuth(request?: Request): Promise<AuthSession> {
-  const session = await getAuthSession(request)
+export async function requireAuth(): Promise<AuthSession> {
+  const session = await getAuthSession()
   
   if (!session) {
-    throw new Error('Authentication required')
+    throw new Error('Unauthorized')
   }
   
   return session
@@ -124,8 +116,8 @@ export async function requireAuth(request?: Request): Promise<AuthSession> {
 /**
  * Require merchant user or throw
  */
-export async function requireMerchant(request?: Request): Promise<AuthSession> {
-  const session = await requireAuth(request)
+export async function requireMerchant() {
+  const session = await requireAuth()
   
   if (session.user.userType !== 'merchant') {
     throw new Error('Merchant access required')
@@ -135,41 +127,19 @@ export async function requireMerchant(request?: Request): Promise<AuthSession> {
 }
 
 /**
- * Require customer user or throw  
- */
-export async function requireCustomer(request?: Request): Promise<AuthSession> {
-  const session = await requireAuth(request)
-  
-  if (session.user.userType !== 'customer') {
-    throw new Error('Customer access required')
-  }
-  
-  return session
-}
-
-/**
- * Get merchant by ID with proper typing
+ * Get merchant by ID
  */
 export async function getMerchantById(id: string) {
   return db.merchant.findUnique({
-    where: { id },
-    include: {
-      categories: {
-        where: { deletedAt: null },
-        orderBy: { sortOrder: 'asc' },
-      },
-    },
+    where: { id }
   })
 }
 
 /**
- * Get customer by ID with proper typing
+ * Get customer by ID
  */
 export async function getCustomerById(id: string) {
   return db.customer.findUnique({
-    where: { id },
-    include: {
-      addresses: true,
-    },
+    where: { id }
   })
 }
