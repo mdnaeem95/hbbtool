@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Button, Label, Slider, Badge, Checkbox, Separator } from "@kitchencloud/ui"
+import { Button, Label, Slider, Badge, Checkbox, Separator, cn } from "@kitchencloud/ui"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@kitchencloud/ui"
 import { 
   Select,
@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@kitchencloud/ui"
 import { RadioGroup, RadioGroupItem } from "@kitchencloud/ui"
-import { X, Filter } from "lucide-react"
+import { X, Filter, XCircle } from "lucide-react"
 
 export interface FilterOption {
   value: string
@@ -259,35 +259,60 @@ export function ProductFilters({
   )
 }
 
+export interface ActiveFilter {
+  key: string
+  value: string
+  label: string
+}
+
+export interface ActiveFiltersProps {
+  filters: ActiveFilter[]
+  onRemove: (key: string, value?: string) => void
+  onClearAll?: () => void
+  className?: string
+}
+
 // Active filter badges
 export function ActiveFilters({
   filters,
   onRemove,
-}: {
-  filters: Array<{ key: string; value: string; label: string }>
-  onRemove: (key: string, value?: string) => void
-}) {
+  onClearAll,
+  className,
+}: ActiveFiltersProps) {
   if (filters.length === 0) return null
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className={cn("flex flex-wrap items-center gap-2", className)}>
+      <span className="text-sm text-muted-foreground">Active filters:</span>
+      
       {filters.map((filter, index) => (
         <Badge
           key={`${filter.key}-${filter.value}-${index}`}
           variant="secondary"
-          className="pr-1"
+          className="gap-1 pr-1 hover:bg-secondary/80 transition-colors"
         >
-          {filter.label}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="ml-1 h-4 w-4 p-0 hover:bg-transparent"
+          <span className="text-xs">{filter.label}</span>
+          <button
             onClick={() => onRemove(filter.key, filter.value)}
+            className="ml-1 rounded-sm hover:bg-background/80 transition-colors p-0.5"
+            aria-label={`Remove ${filter.label} filter`}
           >
             <X className="h-3 w-3" />
-          </Button>
+          </button>
         </Badge>
       ))}
+      
+      {onClearAll && filters.length > 1 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClearAll}
+          className="h-7 text-xs gap-1"
+        >
+          <XCircle className="h-3.5 w-3.5" />
+          Clear all
+        </Button>
+      )}
     </div>
   )
 }

@@ -14,6 +14,33 @@ const asNumber = (v: unknown): number => {
   return Number(v ?? 0)
 }
 
+// Enhanced sorting schema
+const sortSchema = z.enum([
+  'featured',
+  'price-asc', 
+  'price-desc',
+  'newest',
+  'popular',
+  'name-asc',
+  'name-desc',
+  'rating',
+])
+
+// Enhanced filter schema
+const productFilterSchema = z.object({
+  merchantSlug: z.string(),
+  categoryId: z.string().optional(),
+  categoryIds: z.array(z.string()).optional(), // Support multiple categories
+  search: z.string().optional(),
+  minPrice: z.number().optional(),
+  maxPrice: z.number().optional(),
+  tags: z.array(z.string()).optional(),
+  featured: z.boolean().optional(),
+  inStock: z.boolean().optional(),
+  sort: sortSchema.optional().default('featured'),
+  ...paginationSchema.shape,
+})
+
 /* ---------------- router ---------------- */
 export const publicRouter = router({
   // Get merchant storefront
@@ -93,107 +120,230 @@ export const publicRouter = router({
       return product
     }),
 
-  // Browse products (public)
+  // Enhanced product listing with proper filtering and sorting
   listProducts: publicProcedure
-    .input(z.object({
-      merchantSlug: z.string(),
-      categoryId: z.string().optional(),
-      search: z.string().optional(),
-      sort: z.enum(['featured', 'price-asc', 'price-desc', 'newest', 'name']).optional().default('featured'),
-      ...paginationSchema.shape,
-    }))
+    .input(productFilterSchema)
     .query(async ({ ctx, input }) => {
       const merchant = await ctx.db.merchant.findFirst({
-        where: { slug: input.merchantSlug, status: 'ACTIVE', deletedAt: null },
+        where: { 
+          slug: input.merchantSlug, 
+          status: 'ACTIVE', 
+          deletedAt: null 
+        },
         select: { id: true },
       })
-      if (!merchant) throw new TRPCError({ code: 'NOT_FOUND' })
+      
+      if (!merchant) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Merchant not found' })
+      }
 
+      // Build where clause with all filters
       const where: Prisma.ProductWhereInput = {
         merchantId: merchant.id,
         status: 'ACTIVE',
         deletedAt: null,
-        ...(input.categoryId ? { categoryId: input.categoryId } : {}),
-        ...(input.search
-          ? {
-              OR: [
-                { name: { contains: input.search, mode: 'insensitive' as Prisma.QueryMode } },
-                { description: { contains: input.search, mode: 'insensitive' as Prisma.QueryMode } },
-              ],
-            }
-          : {}),
       }
 
+      // Category filter (support single or multiple)
+      if (input.categoryId) {
+        where.categoryId = input.categoryId
+      } else if (input.categoryIds && input.categoryIds.length > 0) {
+        where.categoryId = { in: input.categoryIds }
+      }
+
+      // Search filter
+      if (input.search) {
+        const searchTerm = input.search.trim()
+        if (searchTerm) {
+          where.OR = [
+            { name: { contains: searchTerm, mode: 'insensitive' } },
+            { description: { contains: searchTerm, mode: 'insensitive' } },
+            { tags: { hasSome: [searchTerm.toLowerCase()] } },
+            { sku: { contains: searchTerm, mode: 'insensitive' } },
+          ]
+        }
+      }
+
+      // Price range filter
+      if (input.minPrice !== undefined || input.maxPrice !== undefined) {
+        where.price = {}
+        if (input.minPrice !== undefined) {
+          where.price.gte = input.minPrice
+        }
+        if (input.maxPrice !== undefined) {
+          where.price.lte = input.maxPrice
+        }
+      }
+
+      // Tags filter
+      if (input.tags && input.tags.length > 0) {
+        where.tags = { hasSome: input.tags }
+      }
+
+      // Featured filter
+      if (input.featured !== undefined) {
+        where.featured = input.featured
+      }
+
+      // In stock filter
+      if (input.inStock === true) {
+        where.OR = [
+          { trackInventory: false },
+          { 
+            AND: [
+              { trackInventory: true },
+              { inventory: { gt: 0 } }
+            ]
+          }
+        ]
+      }
+
+      // Build order by clause based on sort parameter
+      let orderBy: Prisma.ProductOrderByWithRelationInput | Prisma.ProductOrderByWithRelationInput[]
+      
+      switch (input.sort) {
+        case 'price-asc':
+          orderBy = { price: 'asc' }
+          break
+        case 'price-desc':
+          orderBy = { price: 'desc' }
+          break
+        case 'newest':
+          orderBy = { createdAt: 'desc' }
+          break
+        case 'name-asc':
+          orderBy = { name: 'asc' }
+          break
+        case 'name-desc':
+          orderBy = { name: 'desc' }
+          break
+        case 'popular':
+          // Sort by order count (requires aggregation)
+          orderBy = [
+            { orderItems: { _count: 'desc' } },
+            { viewCount: 'desc' },
+            { createdAt: 'desc' }
+          ]
+          break
+        case 'rating':
+          // Sort by average rating
+          orderBy = [
+            { reviews: { _count: 'desc' } },  // Use reviews relation count
+            { viewCount: 'desc' },
+            { createdAt: 'desc' }
+          ]
+          break
+        case 'featured':
+        default:
+          // Featured first, then by popularity/recency
+          orderBy = [
+            { featured: 'desc' },
+            { orderItems: { _count: 'desc' } },
+            { createdAt: 'desc' }
+          ]
+          break
+      }
+
+      // Get total count for pagination
       const total = await ctx.db.product.count({ where })
 
-      // For ALL sorting options, fetch products first
-      let items = await ctx.db.product.findMany({
+      // Calculate pagination
+      const limit = input.limit || 20
+      const page = input.page || 1
+      const skip = (page - 1) * limit
+
+      // Fetch products with all related data
+      const products = await ctx.db.product.findMany({
         where,
-        take: input.limit,
-        skip: (input.page - 1) * input.limit,
+        orderBy,
+        skip,
+        take: limit,
         include: {
-          category: true,
-          variants: true,
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            }
+          },
+          _count: {
+            select: {
+              orderItems: true,
+              reviews: true,
+            }
+          },
         },
       })
 
-      // Apply sorting in JavaScript to handle Decimal type properly
-      switch (input.sort) {
-        case 'featured':
-          items = items.sort((a, b) => {
-            // First sort by featured flag
-            if (a.featured !== b.featured) {
-              return b.featured ? 1 : -1
-            }
-            // Then by creation date
-            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          })
-          break
-          
-        case 'price-asc':
-          items = items.sort((a, b) => {
-            const priceA = typeof a.price === 'object' && 'toNumber' in a.price 
-              ? (a.price as any).toNumber() 
-              : Number(a.price)
-            const priceB = typeof b.price === 'object' && 'toNumber' in b.price 
-              ? (b.price as any).toNumber() 
-              : Number(b.price)
-            return priceA - priceB // Low to High
-          })
-          break
-          
-        case 'price-desc':
-          items = items.sort((a, b) => {
-            const priceA = typeof a.price === 'object' && 'toNumber' in a.price 
-              ? (a.price as any).toNumber() 
-              : Number(a.price)
-            const priceB = typeof b.price === 'object' && 'toNumber' in b.price 
-              ? (b.price as any).toNumber() 
-              : Number(b.price)
-            return priceB - priceA // High to Low
-          })
-          break
-          
-        case 'newest':
-          items = items.sort((a, b) => {
-            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          })
-          break
-          
-        case 'name':
-          items = items.sort((a, b) => {
-            return a.name.localeCompare(b.name)
-          })
-          break
-      }
+      // Transform products to include computed fields
+      const transformedProducts = products.map(product => ({
+        ...product,
+        // Convert Decimal to number for frontend
+        price: asNumber(product.price),
+        compareAtPrice: product.compareAtPrice ? asNumber(product.compareAtPrice) : null,
+        // Add effective price (considering variants)
+        effectivePrice: asNumber(product.price),
+        // Add computed fields
+        isOnSale: product.compareAtPrice && product.compareAtPrice > product.price,
+        discountPercentage: product.compareAtPrice && product.compareAtPrice > product.price
+          ? Math.round(((asNumber(product.compareAtPrice) - asNumber(product.price)) / asNumber(product.compareAtPrice)) * 100)
+          : null,
+        // Stock status
+        inStock: !product.trackInventory || product.inventory > 0,
+        lowStock: product.trackInventory && product.inventory > 0 && product.inventory <= 5,
+      }))
 
+      // Return paginated response
       return {
-        items,
+        items: transformedProducts,
         pagination: {
-          page: input.page,
-          limit: input.limit,
+          page,
+          limit,
           total,
-          totalPages: Math.ceil(total / input.limit),
+          totalPages: Math.ceil(total / limit),
+          hasMore: page * limit < total,
+        },
+        // Include filter metadata
+        appliedFilters: {
+          categories: input.categoryIds || (input.categoryId ? [input.categoryId] : []),
+          priceRange: (input.minPrice || input.maxPrice) ? {
+            min: input.minPrice,
+            max: input.maxPrice,
+          } : null,
+          search: input.search || null,
+          sort: input.sort,
+        },
+        // Include aggregations for dynamic filter options
+        aggregations: {
+          priceRange: await ctx.db.product.aggregate({
+            where: {
+              merchantId: merchant.id,
+              status: 'ACTIVE',
+              deletedAt: null,
+            },
+            _min: { price: true },
+            _max: { price: true },
+            _avg: { price: true },
+          }).then(agg => ({
+            min: agg._min.price ? asNumber(agg._min.price) : 0,
+            max: agg._max.price ? asNumber(agg._max.price) : 0,
+            avg: agg._avg.price ? asNumber(agg._avg.price) : 0,
+          })),
+          categoryCount: await ctx.db.product.groupBy({
+            by: ['categoryId'],
+            where: {
+              merchantId: merchant.id,
+              status: 'ACTIVE',
+              deletedAt: null,
+              categoryId: { not: null },
+            },
+            _count: true,
+          }).then(groups => 
+            groups.reduce((acc, g) => ({
+              ...acc,
+              [g.categoryId!]: g._count,
+            }), {} as Record<string, number>)
+          ),
         },
       }
     }),
