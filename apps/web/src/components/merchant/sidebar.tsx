@@ -11,6 +11,7 @@ import {
   Settings,
   HelpCircle,
   Store,
+  DollarSign,
 } from "lucide-react"
 import { RouterOutputs } from "@/lib/trpc/types"
 
@@ -37,6 +38,11 @@ export function MerchantSidebar({ dashboardData, className }: MerchantSidebarPro
       href: "/dashboard/orders",
       icon: ShoppingBag,
       badge: dashboardData.stats.pendingOrders,
+    },
+    {
+      name: "Payment",
+      href: "/dashboard/payments",
+      icon: DollarSign
     },
     {
       name: "Products",

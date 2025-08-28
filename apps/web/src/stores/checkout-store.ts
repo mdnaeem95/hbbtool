@@ -30,7 +30,7 @@ interface CheckoutState {
   contactInfo: ContactInfo | null
   
   // Actions
-  setSessionId: (id: string) => void
+  setSessionId: (id: string | null) => void
   setDeliveryMethod: (method: 'DELIVERY' | 'PICKUP') => void
   setDeliveryAddress: (patch: Partial<DeliveryAddress>) => void
   setPickupNotes: (notes: string) => void

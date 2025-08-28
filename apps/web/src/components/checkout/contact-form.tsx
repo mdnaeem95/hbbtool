@@ -15,7 +15,8 @@ export function ContactForm() {
 
   // Pre-fill with user data if logged in
   useEffect(() => {
-    if (user && (!contactInfo || !contactInfo.name)) {
+    // Only run if we have a user and haven't already set contact info
+    if (user && !contactInfo?.name) {
       let prefillData = { ...blankContact }
       
       if (isCustomerUser(user)) {
@@ -36,9 +37,12 @@ export function ContactForm() {
         }
       }
       
-      setContactInfo(prefillData)
+     // Only set if we actually have data to prefill
+      if (prefillData.name || prefillData.email || prefillData.phone) {
+        setContactInfo(prefillData)
+      }
     }
-  }, [user, contactInfo, setContactInfo, blankContact])
+  }, [user, setContactInfo, blankContact])
 
   const value = contactInfo ?? blankContact
 

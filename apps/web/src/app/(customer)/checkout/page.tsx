@@ -53,6 +53,12 @@ export default function CheckoutPage() {
 
   const createCheckoutSession = async () => {
     if (!merchantId) return
+    
+    // Clear any existing session first
+    if (sessionId) {
+      resetCheckout()
+    }
+    
     setIsCreatingSession(true)
 
     try {

@@ -174,43 +174,36 @@ export const paymentRouter = router({
       return methods
     }),
 
-  generateQR: publicProcedure
+  generateQR: protectedProcedure
     .input(z.object({
-      orderId: z.string()
+      orderId: z.string().optional(),
+      paynowNumber: z.string().optional(),
+      amount: z.number().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const order = await ctx.db.order.findUnique({
-        where: { id: input.orderId },
-        include: {
-          merchant: {
-            select: {
-              paynowNumber: true,
-              paynowQrCode: true,
-              businessName: true
-            }
-          }
+      const merchant = await ctx.db.merchant.findUnique({
+        where: { id: ctx.session.user.id },
+        select: { 
+          paynowNumber: true, 
+          businessName: true 
         }
       })
       
-      if (!order) throw new Error('Order not found')
-      
-      // Use existing QR or generate new one
-      let qrCode = order.merchant.paynowQrCode
-      if (!qrCode && order.merchant.paynowNumber) {
-        qrCode = await generatePayNowQR(
-          order.merchant.paynowNumber,
-          Number(order.total),
-          order.orderNumber
-        )
+      if (!merchant?.paynowNumber) {
+        throw new TRPCError({ 
+          code: 'BAD_REQUEST', 
+          message: 'PayNow number not configured' 
+        })
       }
       
-      return {
-        qrCode,
-        amount: Number(order.total),
-        merchantName: order.merchant.businessName,
-        paynowNumber: order.merchant.paynowNumber,
-        orderNumber: order.orderNumber
-      }
+      const qrCode = await generatePayNowQR(
+        merchant.paynowNumber,
+        input.amount || 0,
+        input.orderId,
+        merchant.businessName
+      )
+      
+      return { qrCode }
     }),
 
   getPendingPayments: protectedProcedure
