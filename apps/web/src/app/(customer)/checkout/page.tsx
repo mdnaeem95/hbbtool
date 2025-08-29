@@ -10,7 +10,7 @@ import {
 import { 
   ArrowLeft, 
   ArrowRight, 
-  ShoppingBag,
+  Shield
 } from 'lucide-react'
 import { useCart, useCartTotal } from '@/stores/cart-store'
 import { CheckoutSteps, DeliverySection, ContactForm, PaymentSection, OrderSummary } from "@/components/checkout"
@@ -22,7 +22,7 @@ type CheckoutStep = 'delivery' | 'contact' | 'payment'
 export default function CheckoutPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { items, merchantId, merchantName, clearCart } = useCart()
+  const { items, merchantId, clearCart } = useCart()
   const { subtotal } = useCartTotal()
   const createSession = api.checkout.createSession.useMutation()
   
@@ -169,44 +169,40 @@ export default function CheckoutPage() {
   const currentSessionData = session || sessionData
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container max-w-6xl py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push('/cart')}
-            className="mb-4"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Cart
-          </Button>
-          
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Checkout</h1>
-              <p className="text-muted-foreground mt-1">
-                Complete your order from {merchantName}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <ShoppingBag className="h-4 w-4" />
-              {items.length} {items.length === 1 ? 'item' : 'items'}
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-100">
+        <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/cart')}
+              className="flex items-center gap-2 text-slate-600 hover:text-slate-900"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="font-medium">Back to Cart</span>
+            </Button>
+            
+            <div className="flex items-center gap-2 text-sm text-slate-500">
+              <Shield className="w-4 h-4" />
+              <span className="hidden sm:inline">Secure Checkout</span>
             </div>
           </div>
         </div>
+      </header>
 
-        {/* Checkout Steps */}
+      <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Your existing CheckoutSteps component with new design */}
         <CheckoutSteps currentStep={currentStep} />
 
-        {/* Main Content */}
-        <div className="mt-8 grid gap-8 lg:grid-cols-3">
+        {/* Main Content Grid */}
+        <div className="grid lg:grid-cols-3 gap-8">
           {/* Form Section */}
           <div className="lg:col-span-2">
-            <Card className="p-6">
-              <div className="space-y-8">
-                {/* Delivery Section */}
+            <Card className="rounded-2xl shadow-sm border-slate-100 overflow-hidden">
+              <div className="p-6 sm:p-8">
+                {/* Your existing step content */}
                 {currentStep === 'delivery' && (
                   <DeliverySection 
                     merchantId={merchantId!}
@@ -214,10 +210,8 @@ export default function CheckoutPage() {
                   />
                 )}
 
-                {/* Contact Form */}
                 {currentStep === 'contact' && <ContactForm />}
 
-                {/* Payment Section */}
                 {currentStep === 'payment' && (
                   <PaymentSection
                     sessionId={sessionId!}
@@ -244,13 +238,14 @@ export default function CheckoutPage() {
                   />
                 )}
 
-                {/* Navigation */}
+                {/* Navigation buttons with new styling */}
                 {currentStep !== 'payment' && (
                   <div className="mt-8 flex justify-between">
                     {currentStep !== 'delivery' && (
                       <Button
                         variant="outline"
                         onClick={handleBack}
+                        className="rounded-xl"
                       >
                         <ArrowLeft className="mr-2 h-4 w-4" />
                         Back
@@ -259,7 +254,7 @@ export default function CheckoutPage() {
 
                     <Button
                       onClick={handleNext}
-                      className="ml-auto"
+                      className="ml-auto bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl shadow-lg shadow-orange-500/25 hover:shadow-xl hover:shadow-orange-500/30 transform hover:-translate-y-0.5 transition-all"
                     >
                       Continue
                       <ArrowRight className="ml-2 h-4 w-4" />
@@ -272,7 +267,7 @@ export default function CheckoutPage() {
 
           {/* Order Summary Sidebar */}
           <div className="lg:col-span-1">
-            <div className="sticky top-20">
+            <div className="sticky top-24">
               <OrderSummary
                 items={items}
                 subtotal={subtotal}

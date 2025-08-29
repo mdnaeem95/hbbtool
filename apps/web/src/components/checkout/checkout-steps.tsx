@@ -1,68 +1,80 @@
 import { cn } from "@kitchencloud/ui"
-import { Check } from "lucide-react"
+import { Check, Truck, User, CreditCard } from "lucide-react"
 
 interface CheckoutStepsProps {
   currentStep: 'delivery' | 'contact' | 'payment'
 }
 
 const steps = [
-  { id: 'delivery', name: 'Delivery', description: 'Choose delivery method' },
-  { id: 'contact', name: 'Contact', description: 'Your information' },
-  { id: 'payment', name: 'Payment', description: 'Complete payment' },
+  { id: 'delivery', name: 'Delivery', icon: Truck },
+  { id: 'contact', name: 'Contact', icon: User },
+  { id: 'payment', name: 'Payment', icon: CreditCard },
 ]
 
 export function CheckoutSteps({ currentStep }: CheckoutStepsProps) {
   const currentStepIndex = steps.findIndex(step => step.id === currentStep)
   
   return (
-    <nav aria-label="Progress">
-      <ol role="list" className="flex items-center">
-        {steps.map((step, stepIdx) => (
-          <li 
-            key={step.name} 
-            className={cn(
-              stepIdx !== steps.length - 1 ? 'pr-8 sm:pr-20' : '',
-              'relative'
-            )}
-          >
-            {stepIdx < currentStepIndex ? (
-              <>
-                <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                  <div className="h-0.5 w-full bg-primary" />
+    <>
+      {/* Desktop Progress */}
+      <div className="hidden md:flex items-center justify-center mb-8">
+        <div className="flex items-center gap-8">
+          {steps.map((step, idx) => {
+            const Icon = step.icon
+            const isActive = currentStepIndex >= idx
+            const isCompleted = currentStepIndex > idx
+            
+            return (
+              <div key={step.id} className="flex items-center gap-8">
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "w-10 h-10 rounded-full flex items-center justify-center transition-all",
+                    isActive 
+                      ? "bg-orange-500 text-white shadow-lg shadow-orange-500/25" 
+                      : "bg-slate-100 text-slate-400"
+                  )}>
+                    {isCompleted ? (
+                      <Check className="w-5 h-5" />
+                    ) : (
+                      <Icon className="w-5 h-5" />
+                    )}
+                  </div>
+                  <span className={cn(
+                    "font-medium transition-colors",
+                    isActive ? "text-slate-900" : "text-slate-400"
+                  )}>
+                    {step.name}
+                  </span>
                 </div>
-                <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-primary">
-                  <Check className="h-5 w-5 text-white" />
-                  <span className="sr-only">{step.name}</span>
-                </div>
-              </>
-            ) : stepIdx === currentStepIndex ? (
-              <>
-                <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                  <div className="h-0.5 w-full bg-gray-200" />
-                </div>
-                <div className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-primary bg-white">
-                  <span className="h-2.5 w-2.5 rounded-full bg-primary" />
-                  <span className="sr-only">{step.name}</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                  <div className="h-0.5 w-full bg-gray-200" />
-                </div>
-                <div className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-gray-300 bg-white">
-                  <span className="h-2.5 w-2.5 rounded-full bg-transparent" />
-                  <span className="sr-only">{step.name}</span>
-                </div>
-              </>
-            )}
-            <span className="absolute top-10 -left-2 sm:left-0 text-xs sm:text-sm">
-              <span className="font-medium block">{step.name}</span>
-              <span className="text-muted-foreground hidden sm:block">{step.description}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
-    </nav>
+                {idx < steps.length - 1 && (
+                  <div className={cn(
+                    "w-12 h-0.5 transition-colors",
+                    isCompleted ? "bg-orange-500" : "bg-slate-200"
+                  )} />
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Mobile Progress Bar */}
+      <div className="md:hidden mb-6">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-sm font-medium text-slate-900">
+            Step {currentStepIndex + 1} of 3: {steps[currentStepIndex]?.name}
+          </span>
+          <span className="text-xs text-slate-500">
+            {Math.round(((currentStepIndex + 1) / 3) * 100)}% complete
+          </span>
+        </div>
+        <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+          <div 
+            className="h-full bg-gradient-to-r from-orange-500 to-orange-600 transition-all duration-300 ease-out"
+            style={{ width: `${((currentStepIndex + 1) / 3) * 100}%` }}
+          />
+        </div>
+      </div>
+    </>
   )
 }

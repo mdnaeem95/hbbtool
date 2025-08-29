@@ -1,11 +1,6 @@
 import { z } from "zod"
 import { TRPCError } from "@trpc/server"
-import { 
-  businessProfileSchema,
-  storeSettingsSchema,
-  paymentSettingsSchema,
-  notificationSettingsSchema,
-  securitySettingsSchema 
+import { businessProfileSchema, storeSettingsSchema, paymentSettingsSchema, notificationSettingsSchema, securitySettingsSchema 
 } from "../../../utils/settings-validation"
 import { authenticator } from "otplib"
 import { merchantProcedure, router } from "../../core"
@@ -22,6 +17,37 @@ type OperatingHours = {
   saturday: { isOpen: boolean; open?: string; close?: string }
   sunday: { isOpen: boolean; open?: string; close?: string }
 }
+
+// Validation schemas
+const deliveryPricingModelEnum = z.enum(['FLAT', 'DISTANCE', 'ZONE', 'FREE'])
+
+const deliveryZoneRatesSchema = z.object({
+  sameZone: z.number().min(0).max(50),
+  adjacentZone: z.number().min(0).max(50),
+  crossZone: z.number().min(0).max(50),
+  specialArea: z.number().min(0).max(100)
+})
+
+const deliveryDistanceTierSchema = z.object({
+  minKm: z.number().min(0),
+  maxKm: z.number().max(50),
+  additionalFee: z.number().min(0).max(100)
+})
+
+const deliveryDistanceRatesSchema = z.object({
+  baseRate: z.number().min(0).max(50),
+  perKmRate: z.number().min(0).max(10),
+  tiers: z.array(deliveryDistanceTierSchema).max(5)
+})
+
+const deliverySettingsSchema = z.object({
+  pricingModel: deliveryPricingModelEnum,
+  flatRate: z.number().min(0).max(50).optional(),
+  zoneRates: deliveryZoneRatesSchema.optional(),
+  distanceRates: deliveryDistanceRatesSchema.optional(),
+  freeDeliveryMinimum: z.number().min(0).max(500).optional(),
+  specialAreaSurcharge: z.number().min(0).max(50).optional(),
+})
 
 export const settingsRouter = router({
   // Get all settings
@@ -535,5 +561,128 @@ export const settingsRouter = router({
       })
 
       return { success: true, qrCodeUrl }
+    }),
+
+  // Get merchant's delivery settings
+  getDeliverySettings: merchantProcedure
+    .query(async ({ ctx }) => {
+      const merchant = await ctx.db.merchant.findUnique({
+        where: { id: ctx.session.user.id },
+        select: {
+          deliveryEnabled: true,
+          pickupEnabled: true,
+          deliveryFee: true,
+          deliveryRadius: true,
+          minimumOrder: true,
+          deliverySettings: true,
+          preparationTime: true,
+          deliveryAreas: true,
+        }
+      })
+
+      if (!merchant) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Merchant not found'
+        })
+      }
+
+      // Parse existing settings or provide defaults
+      const defaultSettings = {
+        pricingModel: 'FLAT' as const,
+        flatRate: Number(merchant.deliveryFee || 5),
+        specialAreaSurcharge: 5,
+        freeDeliveryMinimum: Number(merchant.minimumOrder || 0),
+        zoneRates: {
+          sameZone: 5,
+          adjacentZone: 7,
+          crossZone: 10,
+          specialArea: 15
+        },
+        distanceRates: {
+          baseRate: 5,
+          perKmRate: 0,
+          tiers: [
+            { minKm: 0, maxKm: 3, additionalFee: 0 },
+            { minKm: 3, maxKm: 5, additionalFee: 2 },
+            { minKm: 5, maxKm: 10, additionalFee: 4 },
+            { minKm: 10, maxKm: 15, additionalFee: 6 }
+          ]
+        }
+      }
+
+      const deliverySettings = merchant.deliverySettings 
+        ? { ...defaultSettings, ...(merchant.deliverySettings as any) }
+        : defaultSettings
+
+      return {
+        deliveryEnabled: merchant.deliveryEnabled,
+        pickupEnabled: merchant.pickupEnabled,
+        deliveryRadius: merchant.deliveryRadius,
+        preparationTime: merchant.preparationTime,
+        deliveryAreas: merchant.deliveryAreas,
+        ...deliverySettings
+      }
+    }),
+
+  // Update delivery settings
+  updateDeliverySettings: merchantProcedure
+    .input(deliverySettingsSchema.extend({
+      deliveryRadius: z.number().min(1).max(50),
+      preparationTime: z.number().min(5).max(180),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { deliveryRadius, preparationTime, ...deliverySettings } = input
+
+      // Update merchant settings
+      await ctx.db.merchant.update({
+        where: { id: ctx.session.user.id },
+        data: {
+          deliverySettings: deliverySettings as any,
+          deliveryRadius,
+          preparationTime,
+          // Update base fields for backward compatibility
+          deliveryFee: 
+            deliverySettings.pricingModel === 'FLAT' ? deliverySettings.flatRate :
+            deliverySettings.pricingModel === 'ZONE' ? deliverySettings.zoneRates?.sameZone :
+            deliverySettings.pricingModel === 'DISTANCE' ? deliverySettings.distanceRates?.baseRate :
+            0,
+          minimumOrder: deliverySettings.freeDeliveryMinimum || 0,
+        }
+      })
+
+      return {
+        success: true,
+        message: 'Delivery settings updated successfully'
+      }
+    }),
+
+  // Toggle delivery/pickup options
+  toggleDeliveryOptions: merchantProcedure
+    .input(z.object({
+      deliveryEnabled: z.boolean(),
+      pickupEnabled: z.boolean(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Ensure at least one option is enabled
+      if (!input.deliveryEnabled && !input.pickupEnabled) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'At least one delivery option must be enabled'
+        })
+      }
+
+      await ctx.db.merchant.update({
+        where: { id: ctx.session.user.id },
+        data: {
+          deliveryEnabled: input.deliveryEnabled,
+          pickupEnabled: input.pickupEnabled,
+        }
+      })
+
+      return {
+        success: true,
+        message: 'Delivery options updated'
+      }
     }),
 })

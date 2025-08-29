@@ -3,12 +3,115 @@ import { TRPCError } from '@trpc/server'
 import { router, publicProcedure } from '../../core'
 import { phoneSchema, postalCodeSchema } from '../../../utils/validation'
 import { nanoid } from 'nanoid'
-import {
-  DeliveryMethod,
-  PaymentMethod,
-  OrderStatus,
-  PaymentStatus,
-} from '@kitchencloud/database'
+import { DeliveryMethod, PaymentMethod, OrderStatus, PaymentStatus } from '@kitchencloud/database'
+
+// ---------- types ----------
+enum DeliveryPricingModel {
+  FLAT = 'FLAT',
+  DISTANCE = 'DISTANCE',
+  ZONE = 'ZONE',
+  FREE = 'FREE'
+}
+
+interface DeliverySettings {
+  pricingModel: DeliveryPricingModel
+  flatRate?: number
+  zoneRates?: {
+    sameZone: number
+    adjacentZone: number
+    crossZone: number
+    specialArea: number
+  }
+  distanceRates?: {
+    baseRate: number
+    perKmRate: number
+    tiers: Array<{
+      minKm: number
+      maxKm: number
+      additionalFee: number
+    }>
+  }
+  freeDeliveryMinimum?: number
+  specialAreaSurcharge?: number
+}
+
+// Singapore zone mapping
+const SINGAPORE_ZONES: Record<string, string> = {
+  // Central
+  '01': 'central', '02': 'central', '03': 'central', '04': 'central',
+  '05': 'central', '06': 'central', '07': 'central', '08': 'central',
+  '09': 'central', '10': 'central', '11': 'central', '12': 'central',
+  '13': 'central', '14': 'central', '15': 'central', '16': 'central',
+  '17': 'central', '18': 'central', '19': 'central', '20': 'central',
+  '58': 'central', '59': 'central',
+  
+  // West
+  '21': 'west', '22': 'west', '23': 'west', '24': 'west',
+  '60': 'west', '61': 'west', '62': 'west', '63': 'west',
+  '64': 'west', '65': 'west', '66': 'west', '67': 'west',
+  '68': 'west', '69': 'west',
+  
+  // North
+  '25': 'north', '26': 'north', '27': 'north', '28': 'north',
+  '70': 'north', '71': 'north', '72': 'north', '73': 'north',
+  '75': 'north', '76': 'north', '77': 'north', '78': 'north',
+  
+  // Northeast
+  '29': 'northeast', '30': 'northeast', '31': 'northeast',
+  '53': 'northeast', '54': 'northeast', '55': 'northeast',
+  '56': 'northeast', '57': 'northeast', '79': 'northeast',
+  '80': 'northeast', '81': 'northeast', '82': 'northeast',
+  
+  // East
+  '34': 'east', '35': 'east', '36': 'east', '37': 'east',
+  '38': 'east', '39': 'east', '40': 'east', '41': 'east',
+  '42': 'east', '43': 'east', '44': 'east', '45': 'east',
+  '46': 'east', '47': 'east', '48': 'east', '49': 'east',
+  '50': 'east', '51': 'east', '52': 'east',
+}
+
+const ADJACENT_ZONES: Record<string, string[]> = {
+  'central': ['east', 'west', 'north', 'northeast'],
+  'east': ['central', 'northeast'],
+  'west': ['central', 'north'],
+  'north': ['central', 'west', 'northeast'],
+  'northeast': ['central', 'north', 'east'],
+}
+
+// District coordinates for distance calculation
+const DISTRICT_COORDINATES: Record<string, { lat: number; lon: number }> = {
+  '01': { lat: 1.2836, lon: 103.8515 }, // Raffles Place
+  '02': { lat: 1.2836, lon: 103.8515 }, // Raffles Place  
+  '03': { lat: 1.2931, lon: 103.8520 }, // Queenstown
+  '04': { lat: 1.2897, lon: 103.8422 }, // Telok Blangkar
+  '05': { lat: 1.2719, lon: 103.8078 }, // Pasir Panjang
+  '06': { lat: 1.2931, lon: 103.8520 }, // City Hall
+  '07': { lat: 1.3054, lon: 103.8547 }, // Beach Road
+  '08': { lat: 1.3088, lon: 103.8622 }, // Little India
+  '09': { lat: 1.2494, lon: 103.8303 }, // Sentosa/Orchard
+  '10': { lat: 1.3032, lon: 103.8307 }, // Tanglin
+  '11': { lat: 1.3146, lon: 103.8154 }, // Newton
+  '12': { lat: 1.3271, lon: 103.8527 }, // Toa Payoh
+  '13': { lat: 1.3404, lon: 103.8759 }, // Macpherson
+  '14': { lat: 1.3317, lon: 103.8890 }, // Geylang
+  '15': { lat: 1.3088, lon: 103.9054 }, // Katong
+  '16': { lat: 1.3345, lon: 103.9034 }, // Bedok
+  '17': { lat: 1.3179, lon: 103.9423 }, // Changi
+  '18': { lat: 1.3534, lon: 103.9448 }, // Pasir Ris
+  '19': { lat: 1.3711, lon: 103.8863 }, // Hougang
+  '20': { lat: 1.3766, lon: 103.8485 }, // Bishan
+  '21': { lat: 1.3516, lon: 103.8083 }, // Upper Bukit Timah
+  '22': { lat: 1.3403, lon: 103.6935 }, // Jurong
+  '23': { lat: 1.3526, lon: 103.7543 }, // Hillview
+  '24': { lat: 1.3420, lon: 103.7321 }, // Jurong East/West
+  '25': { lat: 1.4419, lon: 103.7768 }, // Woodlands
+  '26': { lat: 1.3932, lon: 103.8483 }, // Upper Thomson
+  '27': { lat: 1.4382, lon: 103.8002 }, // Sembawang
+  '28': { lat: 1.3807, lon: 103.8759 }, // Sengkang
+  '29': { lat: 1.4058, lon: 103.9032 }, // Seletar
+  '30': { lat: 1.3639, lon: 103.8095 }, // Mandai
+  // Add more as needed
+}
 
 // ---------- helpers ----------
 const asNumber = (v: unknown): number => {
@@ -69,6 +172,56 @@ const checkoutSessions = new Map<
     orderId?: string
   }
 >()
+
+function getZoneFromPostalCode(postalCode: string): string {
+  const district = postalCode.substring(0, 2)
+  
+  // Special check for Sentosa
+  if (postalCode.startsWith('098') || postalCode.startsWith('099')) {
+    return 'sentosa'
+  }
+  
+  return SINGAPORE_ZONES[district] || 'central'
+}
+
+function getCoordinatesFromPostalCode(postalCode: string): { lat: number; lon: number } | null {
+  const district = postalCode.substring(0, 2)
+  return DISTRICT_COORDINATES[district] || null
+}
+
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371 // Earth's radius in km
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
+  
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2)
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return Math.round(R * c * 10) / 10
+}
+
+function toRad(degrees: number): number {
+  return degrees * (Math.PI / 180)
+}
+
+function isSpecialArea(postalCode: string): boolean {
+  // Sentosa
+  if (postalCode.startsWith('098') || postalCode.startsWith('099')) {
+    return true
+  }
+  // Jurong Island
+  if (postalCode.startsWith('627') || postalCode.startsWith('628') || postalCode.startsWith('629')) {
+    return true
+  }
+  // Tuas
+  if (postalCode.startsWith('636') || postalCode.startsWith('637') || postalCode.startsWith('638')) {
+    return true
+  }
+  return false
+}
 
 // ---------- zod shapes ----------
 const lineItemsZ = z.array(z.object({
@@ -437,6 +590,217 @@ export const checkoutRouter = router({
       } catch (error) {
         console.error('❌ [Checkout] Completion failed:', error)
         throw error
+      }
+    }),
+
+  // Calculate delivery fee endpoint
+  calculateDeliveryFee: publicProcedure
+    .input(z.object({
+      merchantId: z.string().uuid(),
+      postalCode: z.string().regex(/^\d{6}$/, 'Invalid Singapore postal code'),
+      orderTotal: z.number().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      // Get merchant with all delivery-related fields
+      const merchant = await ctx.db.merchant.findUnique({
+        where: { id: input.merchantId },
+        select: {
+          id: true,
+          businessName: true,
+          postalCode: true,
+          latitude: true,
+          longitude: true,
+          deliveryEnabled: true,
+          deliveryFee: true,
+          deliveryRadius: true,
+          minimumOrder: true,
+          deliverySettings: true,
+          preparationTime: true,
+        }
+      })
+
+      if (!merchant) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Merchant not found'
+        })
+      }
+
+      if (!merchant.deliveryEnabled) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Merchant does not offer delivery'
+        })
+      }
+
+      // Parse delivery settings or use defaults
+      const settings: DeliverySettings = (merchant.deliverySettings as any) || {
+        pricingModel: DeliveryPricingModel.FLAT,
+        flatRate: Number(merchant.deliveryFee || 5),
+        specialAreaSurcharge: 5
+      }
+
+      // Get merchant postal code and coordinates
+      const merchantPostalCode = merchant.postalCode || '238874'
+      const specialArea = isSpecialArea(input.postalCode)
+      
+      // Get zones
+      const customerZone = getZoneFromPostalCode(input.postalCode)
+      const merchantZone = getZoneFromPostalCode(merchantPostalCode)
+      
+      // Calculate distance if coordinates available
+      let distance = 0
+      if (merchant.latitude && merchant.longitude) {
+        // Use actual merchant coordinates if available
+        const customerCoords = getCoordinatesFromPostalCode(input.postalCode)
+        if (customerCoords) {
+          distance = calculateDistance(
+            merchant.latitude,
+            merchant.longitude,
+            customerCoords.lat,
+            customerCoords.lon
+          )
+        }
+      } else {
+        // Fallback to postal code coordinates
+        const merchantCoords = getCoordinatesFromPostalCode(merchantPostalCode)
+        const customerCoords = getCoordinatesFromPostalCode(input.postalCode)
+        if (merchantCoords && customerCoords) {
+          distance = calculateDistance(
+            merchantCoords.lat,
+            merchantCoords.lon,
+            customerCoords.lat,
+            customerCoords.lon
+          )
+        }
+      }
+
+      // Check delivery radius
+      const maxRadius = merchant.deliveryRadius || 10
+      if (distance > 0 && distance > maxRadius) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Delivery not available to this area. We only deliver within ${maxRadius}km.`
+        })
+      }
+
+      // Check if eligible for free delivery
+      const orderTotal = input.orderTotal || 0
+      const freeDeliveryThreshold = settings.freeDeliveryMinimum || Number(merchant.minimumOrder || 0)
+      if (freeDeliveryThreshold > 0 && orderTotal >= freeDeliveryThreshold) {
+        return {
+          fee: 0,
+          estimatedTime: 30,
+          distance,
+          zone: customerZone,
+          message: `Free delivery (minimum order $${freeDeliveryThreshold} met)`,
+          pricingModel: settings.pricingModel,
+          isSpecialArea: specialArea
+        }
+      }
+
+      let fee = 0
+      let message = ''
+
+      // Calculate fee based on pricing model
+      switch (settings.pricingModel) {
+        case DeliveryPricingModel.FREE:
+          fee = 0
+          message = 'Free delivery'
+          break
+
+        case DeliveryPricingModel.FLAT:
+          fee = settings.flatRate || Number(merchant.deliveryFee || 5)
+          if (specialArea) {
+            fee += settings.specialAreaSurcharge || 5
+            message = 'Standard delivery fee + special area surcharge'
+          } else {
+            message = 'Standard delivery fee'
+          }
+          break
+
+        case DeliveryPricingModel.DISTANCE:
+          if (!distance) {
+            fee = Number(merchant.deliveryFee || 5)
+            message = 'Standard delivery fee'
+          } else {
+            const rates = settings.distanceRates || {
+              baseRate: 5,
+              perKmRate: 0,
+              tiers: [
+                { minKm: 0, maxKm: 3, additionalFee: 0 },
+                { minKm: 3, maxKm: 5, additionalFee: 2 },
+                { minKm: 5, maxKm: 10, additionalFee: 4 },
+                { minKm: 10, maxKm: 15, additionalFee: 6 }
+              ]
+            }
+            
+            fee = rates.baseRate
+            const tier = rates.tiers.find(t => distance >= t.minKm && distance <= t.maxKm)
+            if (tier) {
+              fee += tier.additionalFee
+            }
+            
+            if (specialArea) {
+              fee += settings.specialAreaSurcharge || 5
+            }
+            
+            message = `Distance-based pricing (${distance}km)`
+            if (specialArea) {
+              message += ' + special area surcharge'
+            }
+          }
+          break
+
+        case DeliveryPricingModel.ZONE:
+          const rates = settings.zoneRates || {
+            sameZone: 5,
+            adjacentZone: 7,
+            crossZone: 10,
+            specialArea: 15
+          }
+          
+          if (specialArea) {
+            fee = rates.specialArea
+            message = 'Special area delivery'
+          } else if (customerZone === merchantZone) {
+            fee = rates.sameZone
+            message = `Same zone delivery (${customerZone})`
+          } else {
+            const adjacentZones = ADJACENT_ZONES[merchantZone] || []
+            if (adjacentZones.includes(customerZone)) {
+              fee = rates.adjacentZone
+              message = `Adjacent zone delivery (${merchantZone} to ${customerZone})`
+            } else {
+              fee = rates.crossZone
+              message = `Cross-zone delivery (${merchantZone} to ${customerZone})`
+            }
+          }
+          break
+
+        default:
+          fee = Number(merchant.deliveryFee || 5)
+          message = 'Standard delivery fee'
+      }
+
+      // Calculate estimated time
+      let estimatedTime = merchant.preparationTime || 30
+      if (distance > 0) {
+        // Add travel time based on distance (assuming 30km/h average speed)
+        estimatedTime += Math.round((distance / 30) * 60)
+      } else if (customerZone !== merchantZone) {
+        // Zone-based estimate
+        estimatedTime += 20
+      }
+
+      return {
+        fee: Math.round(fee * 100) / 100,
+        estimatedTime,
+        distance,
+        zone: customerZone,
+        message,
+        pricingModel: settings.pricingModel,
+        isSpecialArea: specialArea
       }
     }),
 })

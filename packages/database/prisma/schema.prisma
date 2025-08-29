@@ -181,14 +181,15 @@ model Merchant {
   holidayDates   DateTime[] // Dates when closed
 
   // Delivery Settings
-  deliveryEnabled Boolean  @default(true)
-  pickupEnabled   Boolean  @default(true)
-  dineInEnabled   Boolean  @default(false)
-  deliveryFee     Decimal  @default(0) @db.Decimal(10, 2)
-  minimumOrder    Decimal  @default(0) @db.Decimal(10, 2)
-  deliveryRadius  Int      @default(5) // in km
-  preparationTime Int      @default(30) // default prep time in minutes
-  deliveryAreas   String[] // Specific areas served
+  deliverySettings Json?    @default("{\"pricingModel\":\"FLAT\"}") // Flexible delivery pricing configuration
+  deliveryEnabled  Boolean  @default(true)
+  pickupEnabled    Boolean  @default(true)
+  dineInEnabled    Boolean  @default(false)
+  deliveryFee      Decimal  @default(0) @db.Decimal(10, 2)
+  minimumOrder     Decimal  @default(0) @db.Decimal(10, 2)
+  deliveryRadius   Int      @default(5) // in km
+  preparationTime  Int      @default(30) // default prep time in minutes
+  deliveryAreas    String[] // Specific areas served
 
   // Payment Settings
   paymentMethods PaymentMethod[] @default([PAYNOW, CASH])
@@ -213,15 +214,15 @@ model Merchant {
   completionRate      Decimal? @db.Decimal(3, 2) // % of orders completed
 
   // Merchant Preferences
-  autoAcceptOrders       Boolean @default(false)
-  autoConfirmPayment     Boolean @default(false)
+  autoAcceptOrders       Boolean   @default(false)
+  autoConfirmPayment     Boolean   @default(false)
   orderNotificationEmail String?
   orderNotificationPhone String?
-  language               String  @default("en") // en, zh, ms, ta
-  timezone               String  @default("Asia/Singapore")
-  emailNotifications     Boolean @default(true)
-  smsNotifications       Boolean @default(true)
-  whatsappNotifications  Boolean @default(true)
+  language               String    @default("en") // en, zh, ms, ta
+  timezone               String    @default("Asia/Singapore")
+  emailNotifications     Boolean   @default(true)
+  smsNotifications       Boolean   @default(true)
+  whatsappNotifications  Boolean   @default(true)
   whatsappOptedInAt      DateTime? // When user opted into WhatsApp
   whatsappOptedOutAt     DateTime? // When user opted out
   whatsappVerified       Boolean   @default(false) // Phone verified for WhatsApp
