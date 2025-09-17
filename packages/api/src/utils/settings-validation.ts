@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { PaymentMethod } from "@kitchencloud/database/types"
+
 
 // Operating hours schema
 const timeSchema = z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format (HH:MM)")
@@ -64,7 +64,7 @@ export const storeSettingsSchema = z.object({
 
 // Payment settings schema
 export const paymentSettingsSchema = z.object({
-  paymentMethods: z.array(z.nativeEnum(PaymentMethod)).min(1, "At least one payment method is required"),
+  paymentMethods: z.array(z.enum(['PAYNOW', 'CASH'])).min(1, "At least one payment method is required"),
   paynowNumber: z.string().optional(),
   paynowQrCode: z.string().url().optional(),
   bankAccountNumber: z.string().optional(),

@@ -193,7 +193,7 @@ export const settingsRouter = router({
 
   // Update store settings
   updateStoreSettings: merchantProcedure
-    .input(storeSettingsSchema)
+    .input(storeSettingsSchema.partial())
     .mutation(async ({ ctx, input }) => {
       const merchantId = ctx.session!.user.id
       
@@ -256,7 +256,7 @@ export const settingsRouter = router({
 
   // Update payment settings
   updatePaymentSettings: merchantProcedure
-    .input(paymentSettingsSchema)
+    .input(paymentSettingsSchema.partial())
     .mutation(async ({ ctx, input }) => {
       const merchantId = ctx.session!.user.id
       
@@ -303,7 +303,7 @@ export const settingsRouter = router({
 
   // Update notification settings
   updateNotificationSettings: merchantProcedure
-    .input(notificationSettingsSchema)
+    .input(notificationSettingsSchema.partial())
     .mutation(async ({ ctx, input }) => {
       const merchantId = ctx.session!.user.id
       
