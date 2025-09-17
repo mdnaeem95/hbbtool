@@ -136,13 +136,16 @@ async function triggerOrderNotification(
       case 'CONFIRMED':
         // Notify customer that order is confirmed
         if (order.customerId) {
-          await NotificationService.orderConfirmed({
+          await NotificationService.createNotification({
             customerId: order.customerId,
-            orderId: order.id,
-            orderNumber: order.orderNumber,
-            estimatedTime: order.estimatedDeliveryTime,
+            type: 'ORDER_CONFIRMED',
             channels,
             priority: NotificationPriority.NORMAL,
+            data: {
+              orderId: order.id,
+              orderNumber: order.orderNumber,
+              estimatedTime: order.estimatedDeliveryTime,
+            }
           })
         }
         break
@@ -150,12 +153,15 @@ async function triggerOrderNotification(
       case 'READY':
         // Notify customer that order is ready
         if (order.customerId) {
-          await NotificationService.orderReady({
+          await NotificationService.createNotification({
             customerId: order.customerId,
-            orderId: order.id,
-            orderNumber: order.orderNumber,
+            type: 'ORDER_READY',
             channels,
             priority: NotificationPriority.HIGH,
+            data: {
+              orderId: order.id,
+              orderNumber: order.orderNumber,
+            }
           })
         }
         break
@@ -166,11 +172,11 @@ async function triggerOrderNotification(
         if (order.customerId) {
           await NotificationService.createNotification({
             customerId: order.customerId,
-            orderId: order.id,
             type: 'ORDER_DELIVERED',
             channels,
             priority: NotificationPriority.NORMAL,
             data: {
+              orderId: order.id,
               orderNumber: order.orderNumber,
               deliveryMethod: order.deliveryMethod,
             }
@@ -198,14 +204,17 @@ async function triggerOrderNotification(
 
     // For new orders, notify merchant
     if (newStatus === 'PENDING' && oldStatus !== 'PENDING') {
-      await NotificationService.orderPlaced({
+      await NotificationService.createNotification({
         merchantId: order.merchantId,
-        orderId: order.id,
-        customerName: order.customer?.name || order.customerName,
-        orderNumber: order.orderNumber,
-        amount: parseFloat(order.total.toString()),
+        type: 'ORDER_PLACED',
         channels,
         priority: NotificationPriority.HIGH,
+        data: {
+          orderId: order.id,
+          customerName: order.customer?.name || order.customerName,
+          orderNumber: order.orderNumber,
+          amount: parseFloat(order.total.toString()),
+        }
       })
     }
 
