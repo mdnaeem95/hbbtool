@@ -1,0 +1,4 @@
+{
+  "buildCommand": "cd ../.. && pnpm prisma generate --schema=packages/database/prisma/schema.prisma && pnpm run build",
+  "framework": "nextjs"
+}
