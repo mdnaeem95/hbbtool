@@ -1,16 +1,14 @@
-// File: apps/web/src/app/(customer)/merchant/[slug]/products/products-client.tsx
-
 'use client'
 
 import { notFound } from "next/navigation"
 import { Suspense, useEffect } from "react"
-import { ProductCatalog } from "@/components/product/product-catalog"
-import { ProductCatalogSkeleton } from "@/components/product/product-catalog-skeleton"
-import { api } from "@/lib/trpc/client"
+import { ProductCatalog } from "../../../../../components/product/product-catalog"
+import { ProductCatalogSkeleton } from "../../../../../components/product/product-catalog-skeleton"
+import { api } from "../../../../../lib/trpc/client"
 import { Spinner } from "@kitchencloud/ui"
 import { Clock } from "lucide-react"
-import { useMerchant } from "@/contexts/merchant-context"
-import { useCartStore } from "@/stores/cart-store"
+import { useMerchant } from "../../../../../contexts/merchant-context"
+import { useCartStore } from "../../../../../stores/cart-store"
 
 interface ProductsPageClientProps {
   slug: string
