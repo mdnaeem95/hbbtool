@@ -62,7 +62,7 @@ export function DateRangePicker({
             mode="range"
             defaultMonth={date?.from}
             selected={date}
-            onSelect={(newDate) => {
+            onSelect={(newDate: DateRange | undefined) => {
               setDate(newDate)
               onSelect(newDate)
             }}
