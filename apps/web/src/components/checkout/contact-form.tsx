@@ -103,7 +103,7 @@ export function ContactForm() {
                 type="tel"
                 placeholder="+65 9XXX XXXX"
                 value={value.phone}
-                onChange={(e) => setContactInfo({ ...value, phone: e.target.value })}
+                onChange={(e: any) => setContactInfo({ ...value, phone: e.target.value })}
                 className="pl-10"
                 required
               />
