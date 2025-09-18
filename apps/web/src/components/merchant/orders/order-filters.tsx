@@ -244,7 +244,7 @@ export function OrderFilters({
                       <CalendarComponent
                         mode="single"
                         selected={filters.dateFrom}
-                        onSelect={(date) => handleDateChange("from", date)}
+                        onSelect={(date: any) => handleDateChange("from", date)}
                         disabled={(date) => {
                           // disabled future
                           if (date > new Date()) return true
@@ -290,7 +290,7 @@ export function OrderFilters({
                       <CalendarComponent
                         mode="single"
                         selected={filters.dateTo}
-                        onSelect={(date) => handleDateChange("to", date)}
+                        onSelect={(date: any) => handleDateChange("to", date)}
                         disabled={(date) => {
                           // Disable future dates
                           if (date > new Date()) return true
