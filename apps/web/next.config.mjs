@@ -1,5 +1,5 @@
+import { PrismaPlugin } from '@prisma/nextjs-monorepo-workaround-plugin'
 /** @type {import('next').NextConfig} */
-const { PrismaPlugin } = require('@prisma/nextjs-monorepo-workaround-plugin')
 
 const nextConfig = {
   reactStrictMode: true,
@@ -27,4 +27,4 @@ const nextConfig = {
   },
 }
 
-module.exports = nextConfig
+export default nextConfig
