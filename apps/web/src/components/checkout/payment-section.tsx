@@ -226,7 +226,7 @@ export function PaymentSection({
                   <Input
                     id="transactionId"
                     value={transactionId}
-                    onChange={(e) => setTransactionId(e.target.value)}
+                    onChange={(e: any) => setTransactionId(e.target.value)}
                     placeholder="Enter transaction reference"
                   />
                 </div>

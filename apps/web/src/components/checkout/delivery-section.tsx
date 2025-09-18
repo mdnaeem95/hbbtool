@@ -173,7 +173,7 @@ export function DeliverySection({ merchantId, merchantAddress }: DeliverySection
                     id="line1"
                     placeholder="Block/Street name"
                     value={deliveryAddress.line1 || ''}
-                    onChange={(e) => setDeliveryAddress({ line1: e.target.value })}
+                    onChange={(e: any) => setDeliveryAddress({ line1: e.target.value })}
                     className="pl-10"
                     required
                   />
@@ -189,7 +189,7 @@ export function DeliverySection({ merchantId, merchantAddress }: DeliverySection
                   id="line2"
                   placeholder="Unit number, building name, floor"
                   value={deliveryAddress.line2 || ''}
-                  onChange={(e) => setDeliveryAddress({ line2: e.target.value })}
+                  onChange={(e: any) => setDeliveryAddress({ line2: e.target.value })}
                   className="mt-1.5"
                 />
               </div>
@@ -206,7 +206,7 @@ export function DeliverySection({ merchantId, merchantAddress }: DeliverySection
                       id="postalCode"
                       placeholder="123456"
                       value={deliveryAddress.postalCode || ''}
-                      onChange={(e) => handlePostalCodeChange(e.target.value)}
+                      onChange={(e: any) => handlePostalCodeChange(e.target.value)}
                       maxLength={6}
                       pattern="[0-9]{6}"
                       className="pl-10"
@@ -252,7 +252,7 @@ export function DeliverySection({ merchantId, merchantAddress }: DeliverySection
                   rows={3}
                   placeholder="Any special instructions for the delivery person? (e.g., Ring doorbell, Leave at door)"
                   value={deliveryAddress.notes || ''}
-                  onChange={(e) => setDeliveryAddress({ notes: e.target.value })}
+                  onChange={(e: any) => setDeliveryAddress({ notes: e.target.value })}
                   className="mt-1.5 resize-none"
                 />
               </div>
@@ -292,7 +292,7 @@ export function DeliverySection({ merchantId, merchantAddress }: DeliverySection
                   rows={2}
                   placeholder="Any special requests for pickup?"
                   value={pickupNotes || ''}
-                  onChange={(e) => setPickupNotes(e.target.value)}
+                  onChange={(e: any) => setPickupNotes(e.target.value)}
                   className="mt-1.5 bg-white/50"
                 />
               </div>
