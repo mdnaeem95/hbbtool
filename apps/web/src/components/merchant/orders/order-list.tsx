@@ -126,7 +126,7 @@ export function OrderList({
                 )}
                 onClick={() => setDetailOrder(order)}
               >
-                <TableCell onClick={(e) => e.stopPropagation()}>
+                <TableCell onClick={(e: any) => e.stopPropagation()}>
                   <Checkbox
                     checked={selectedOrders.has(order.id)}
                     onCheckedChange={() => toggleOrderSelection(order.id)}
@@ -157,7 +157,7 @@ export function OrderList({
                 <TableCell className="text-sm text-muted-foreground">
                   {formatDistanceToNow(new Date(order.createdAt), { addSuffix: true })}
                 </TableCell>
-                <TableCell onClick={(e) => e.stopPropagation()}>
+                <TableCell onClick={(e: any) => e.stopPropagation()}>
                   <OrderRowActions
                     order={order}
                     onViewDetails={() => setDetailOrder(order)}

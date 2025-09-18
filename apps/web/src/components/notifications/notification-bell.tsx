@@ -132,7 +132,7 @@ export function NotificationBell() {
                     variant="link"
                     size="sm"
                     className="p-0 h-auto text-xs ml-4"
-                    onClick={(e) => {
+                    onClick={(e: any) => {
                       e.stopPropagation()
                       // 🔥 IMPROVED: Use Next.js router instead of window.location
                       // You might want to import { useRouter } from 'next/navigation' for better navigation
