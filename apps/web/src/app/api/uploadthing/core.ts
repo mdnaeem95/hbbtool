@@ -1,4 +1,4 @@
-import { getServerSession } from "@/lib/helpers/auth"
+import { getServerSession } from "../../../lib/helpers/auth"
 import { createUploadthing, type FileRouter } from "uploadthing/next"
 
 

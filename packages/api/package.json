@@ -31,6 +31,7 @@
     "otplib": "^12.0.1",
     "qrcode": "^1.5.4",
     "resend": "^6.0.1",
+    "json2csv": "6.0.0-alpha.2",
     "superjson": "^2.2.1",
     "twilio": "^5.8.0",
     "zod": "^4.0.17"
@@ -39,7 +40,6 @@
     "@types/json2csv": "^5.0.7",
     "@types/node": "^24.2.1",
     "@types/qrcode": "^1.5.5",
-    "json2csv": "6.0.0-alpha.2",
     "typescript": "^5.5.4",
     "vitest": "^2.1.8"
   }

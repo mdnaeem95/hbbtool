@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server"
-import { getMerchantSession } from "@/app/actions/merchant-auth"
+import { getMerchantSession } from "../../../../app/actions/merchant-auth"
 import { db } from "@kitchencloud/database"
 
 // Helper to format SSE message
