@@ -24,6 +24,7 @@
     "@trpc/next": "^11.0.0",
     "@trpc/react-query": "^11.0.0",
     "@trpc/server": "^11.0.0",
+    "@types/json2csv": "^5.0.7",
     "bcryptjs": "^3.0.2",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.1",
@@ -37,7 +38,6 @@
     "zod": "^4.0.17"
   },
   "devDependencies": {
-    "@types/json2csv": "^5.0.7",
     "@types/node": "^24.2.1",
     "@types/qrcode": "^1.5.5",
     "typescript": "^5.5.4",
