@@ -245,7 +245,7 @@ export function OrderFilters({
                         mode="single"
                         selected={filters.dateFrom}
                         onSelect={(date: any) => handleDateChange("from", date)}
-                        disabled={(date) => {
+                        disabled={(date: any) => {
                           // disabled future
                           if (date > new Date()) return true
                           // if there's a to date, disable dates after it
@@ -291,7 +291,7 @@ export function OrderFilters({
                         mode="single"
                         selected={filters.dateTo}
                         onSelect={(date: any) => handleDateChange("to", date)}
-                        disabled={(date) => {
+                        disabled={(date: any) => {
                           // Disable future dates
                           if (date > new Date()) return true
                           // If there's a from date, disable dates before it
