@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Button, Input, Label } from '@kitchencloud/ui'
 import { Loader2, Store, User } from 'lucide-react'
 import { useAuth } from '@kitchencloud/auth/client'
-import { validatePassword, validatePhoneNumber } from '@/lib/utils/validation'
+import { validatePassword, validatePhoneNumber } from '../../../lib/utils/validation'
 
 export default function AuthPageContent() {
   const router = useRouter()

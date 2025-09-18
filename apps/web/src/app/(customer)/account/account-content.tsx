@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '../../../lib/supabase/client'
 import { Button, Card } from '@kitchencloud/ui'
 import { User, MapPin, ShoppingBag, LogOut } from 'lucide-react'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
