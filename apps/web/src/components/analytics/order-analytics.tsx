@@ -196,6 +196,7 @@ export function OrderAnalytics({ data, isLoading }: OrderAnalyticsProps) {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={hourlyData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  {/* @ts-ignore */}
                   <XAxis 
                     dataKey="hour"
                     className="text-xs"
