@@ -326,6 +326,12 @@ importers:
       '@supabase/ssr':
         specifier: ^0.6.1
         version: 0.6.1(@supabase/supabase-js@2.55.0)
+      '@types/node':
+        specifier: ^24.2.1
+        version: 24.2.1
+      '@types/react':
+        specifier: 19.1.10
+        version: 19.1.10
       cookie:
         specifier: ^1.0.2
         version: 1.0.2
@@ -338,19 +344,13 @@ importers:
       next:
         specifier: ^15.4.6
         version: 15.4.6(@babel/core@7.28.3)(@playwright/test@1.55.0)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      react:
+        specifier: 19.1.1
+        version: 19.1.1
       zod:
         specifier: ^4.0.17
         version: 4.0.17
     devDependencies:
-      '@types/node':
-        specifier: ^24.2.1
-        version: 24.2.1
-      '@types/react':
-        specifier: 19.1.10
-        version: 19.1.10
-      react:
-        specifier: 19.1.1
-        version: 19.1.1
       supabase:
         specifier: ^2.34.3
         version: 2.34.3
