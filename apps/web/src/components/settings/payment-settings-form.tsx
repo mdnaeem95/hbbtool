@@ -151,7 +151,7 @@ export function PaymentSettingsForm({ data, onSuccess }: PaymentSettingsFormProp
                                 <FormControl>
                                   <Checkbox
                                     checked={field.value?.includes(method.value) || false}
-                                    onCheckedChange={(checked) => {
+                                    onCheckedChange={(checked: any) => {
                                       const currentValue = field.value || []
                                       if (checked) {
                                         field.onChange([...currentValue, method.value])
