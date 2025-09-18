@@ -64,7 +64,7 @@ export default function OrderPrintPage() {
   return (
     <>
       {/* Global print styles - this ensures ONLY the order content prints */}
-      <style jsx global>{`
+      <style dangerouslySetInnerHTML={{ __html: `...` }}>{`
         /* Hide everything by default when printing */
         @media print {
           * {
