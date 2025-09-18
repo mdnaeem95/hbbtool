@@ -277,6 +277,9 @@ importers:
       dotenv:
         specifier: ^17.2.1
         version: 17.2.1
+      json2csv:
+        specifier: 6.0.0-alpha.2
+        version: 6.0.0-alpha.2
       nanoid:
         specifier: ^5.0.7
         version: 5.1.5
@@ -308,9 +311,6 @@ importers:
       '@types/qrcode':
         specifier: ^1.5.5
         version: 1.5.5
-      json2csv:
-        specifier: 6.0.0-alpha.2
-        version: 6.0.0-alpha.2
       typescript:
         specifier: ^5.5.4
         version: 5.9.2
