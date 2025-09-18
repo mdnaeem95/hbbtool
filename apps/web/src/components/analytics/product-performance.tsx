@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, Skeleton, Badge } from "@kitchencloud/ui"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency } from "../../lib/utils"
 import { Eye, ShoppingBag, TrendingUp, AlertCircle } from "lucide-react"
 
 interface ProductPerformanceProps {

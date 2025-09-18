@@ -12,7 +12,7 @@ import {
   useToast,
 } from "@kitchencloud/ui"
 import { Loader2, Save, Truck, ShoppingBag, Clock } from "lucide-react"
-import { api } from "@/lib/trpc/client"
+import { api } from "../../lib/trpc/client"
 import { storeSettingsSchema } from "@kitchencloud/api/utils"
 
 type StoreSettingsData = z.input<typeof storeSettingsSchema>

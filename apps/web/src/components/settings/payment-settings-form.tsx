@@ -33,7 +33,7 @@ import {
   AlertCircle,
   DollarSign,
 } from "lucide-react"
-import { api } from "@/lib/trpc/client"
+import { api } from "../../lib/trpc/client"
 import { paymentSettingsSchema } from "@kitchencloud/api/utils"
 import { PaymentMethod } from "@kitchencloud/database/types"
 

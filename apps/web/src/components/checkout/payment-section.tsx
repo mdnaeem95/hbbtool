@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Button, Card, Label, Input, useToast } from '@kitchencloud/ui'
 import { Upload, Copy, CheckCircle } from 'lucide-react'
-import { api } from '@/lib/trpc/client'
+import { api } from '../../lib/trpc/client'
 import Image from 'next/image'
 
 interface PaymentSectionProps {

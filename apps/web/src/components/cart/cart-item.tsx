@@ -1,10 +1,9 @@
 'use client'
 
-import { Button } from "@kitchencloud/ui"
-import { Card } from "@kitchencloud/ui"
+import { Button, Card } from "@kitchencloud/ui"
 import { Minus, Plus, Trash2 } from "lucide-react"
 import Image from "next/image"
-import { CartItem as CartItemType } from "@/stores/cart-store"
+import { CartItem as CartItemType } from "../../stores/cart-store"
 
 interface CartItemProps {
   item: CartItemType

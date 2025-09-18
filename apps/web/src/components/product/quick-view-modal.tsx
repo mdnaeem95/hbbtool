@@ -3,8 +3,8 @@
 import * as React from "react"
 import { X, ShoppingCart, Clock, Minus, Plus, ChevronLeft, ChevronRight } from "lucide-react"
 import Image from "next/image"
-import { api } from "@/lib/trpc/client"
-import { toNumber } from "@/lib/utils"
+import { api } from "../../lib/trpc/client"
+import { toNumber } from "../../lib/utils"
 import { cn } from "@kitchencloud/ui"
 
 interface QuickViewModalProps {

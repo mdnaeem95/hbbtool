@@ -4,14 +4,8 @@ import * as React from "react"
 import { format } from "date-fns"
 import { Calendar as CalendarIcon } from "lucide-react"
 import { DateRange } from "react-day-picker"
-import { cn } from "@/lib/utils"
-import { Button } from "@kitchencloud/ui"
-import { Calendar } from "@kitchencloud/ui"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@kitchencloud/ui"
+import { cn } from "../../lib/utils"
+import { Button, Calendar, Popover, PopoverContent, PopoverTrigger } from "@kitchencloud/ui"
 
 interface DateRangePickerProps {
   from: Date

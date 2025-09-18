@@ -50,7 +50,7 @@ import {
   CheckCircle,
   XCircle,
 } from "lucide-react"
-import { api } from "@/lib/trpc/client"
+import { api } from "../../lib/trpc/client"
 import { securitySettingsSchema } from "@kitchencloud/api/utils"
 import { QRCodeSVG } from "qrcode.react"
 

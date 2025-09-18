@@ -3,8 +3,8 @@
 import Link from "next/link"
 import { Button } from "@kitchencloud/ui"
 import { ShoppingCart } from "lucide-react"
-import { useCartCount } from "@/stores/cart-store"
-import { cn } from "@/lib/utils"
+import { useCartCount } from "../../stores/cart-store"
+import { cn } from "../../lib/utils"
 
 interface CartBadgeProps {
   className?: string

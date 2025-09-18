@@ -1,14 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle, Skeleton } from "@kitchencloud/ui"
-import { 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  Area,
-  AreaChart,
-} from "recharts"
-import { formatCurrency } from "@/lib/utils"
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts"
+import { formatCurrency } from "../../lib/utils"
 import { format, differenceInDays } from "date-fns"
 
 interface RevenueChartProps {

@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { Label, Input, Alert, AlertDescription } from '@kitchencloud/ui'
 import { User, Mail, Phone } from 'lucide-react'
-import { useCheckoutStore } from '@/stores/checkout-store'
+import { useCheckoutStore } from '../../stores/checkout-store'
 import { useAuth, isCustomerUser, isMerchantUser } from '@kitchencloud/auth/client'
 
 export function ContactForm() {

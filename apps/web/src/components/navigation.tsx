@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '../lib/supabase/client'
 import Link from 'next/link'
 import { Button } from '@kitchencloud/ui'
 import type { User } from '@supabase/supabase-js'

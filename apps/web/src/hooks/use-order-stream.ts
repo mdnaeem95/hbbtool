@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { api } from '@/lib/trpc/client'
+import { api } from '../lib/trpc/client'
 import { useToast } from '@kitchencloud/ui'
-import { useOrderStore } from '@/stores/order-store'
+import { useOrderStore } from '../stores/order-store'
 
 interface OrderStreamOptions {
   enabled?: boolean

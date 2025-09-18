@@ -13,7 +13,7 @@ import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@kitchencloud/ui"
 import { Loader2, Save, Mail, MessageSquare, Phone, Globe, Clock } from "lucide-react"
-import { api } from "@/lib/trpc/client"
+import { api } from "../../lib/trpc/client"
 import { notificationSettingsSchema } from "@kitchencloud/api/utils"
 
 type NotificationSettingsData = z.input<typeof notificationSettingsSchema>

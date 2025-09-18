@@ -4,44 +4,12 @@ import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Button,
-  Alert,
-  AlertDescription,
-  Switch,
-  Separator,
-  useToast,
-  Badge,
-} from '@kitchencloud/ui'
-import { 
-  Truck, 
-  MapPin, 
-  DollarSign, 
-  Info, 
-  Clock,
-  Zap,
-  Map,
-  Package
-} from 'lucide-react'
-import { api } from '@/lib/trpc/client'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle,
+  Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
+  Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Button,
+  Alert, AlertDescription, Switch, Separator, useToast, Badge } from '@kitchencloud/ui'
+import { Truck, MapPin, DollarSign, Info, Clock, Zap, Map, Package } from 'lucide-react'
+import { api } from '../../lib/trpc/client'
 
 const formSchema = z.object({
   pricingModel: z.enum(['FLAT', 'DISTANCE', 'ZONE', 'FREE']),

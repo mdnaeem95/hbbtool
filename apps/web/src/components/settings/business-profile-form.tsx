@@ -4,39 +4,14 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { 
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  Input,
-  Textarea,
-  Button,
-  Avatar,
-  AvatarImage,
-  AvatarFallback,
-  useToast,
-} from "@kitchencloud/ui"
-import { 
-  Upload, 
-  Loader2, 
-  Save,
-  Globe,
-  Instagram,
-  Facebook,
-} from "lucide-react"
-import { api } from "@/lib/trpc/client"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle,
+  Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
+  Input, Textarea, Button, Avatar, AvatarImage, AvatarFallback, useToast } from "@kitchencloud/ui"
+import { Upload, Loader2, Save, Globe, Instagram, Facebook } from "lucide-react"
+import { api } from "../../lib/trpc/client"
 import { businessProfileSchema } from "@kitchencloud/api/utils"
 import { OperatingHoursInput } from "./operating-hours-input"
-import { useUploadThing } from "@/hooks/use-uploadthing"
+import { useUploadThing } from "../../hooks/use-uploadthing"
 
 type BusinessProfileData = z.infer<typeof businessProfileSchema>
 

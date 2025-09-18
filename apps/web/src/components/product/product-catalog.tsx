@@ -2,20 +2,12 @@
 
 import * as React from "react"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
-import { useDebounce } from "@/hooks/use-debounce"
-import {
-  ProductGrid,
-  ProductFilters,
-  ActiveFilters,
-  Input,
-  useToast,
-  Spinner,
-  Button,
-} from "@kitchencloud/ui"
+import { useDebounce } from "../../hooks/use-debounce"
+import { ProductGrid, ProductFilters, ActiveFilters, Input, useToast, Spinner, Button } from "@kitchencloud/ui"
 import { Search, SlidersHorizontal, X } from "lucide-react"
 import { QuickViewModal } from "./quick-view-modal"
-import { useCartStore } from "@/stores/cart-store"
-import { api } from "@/lib/trpc/client"
+import { useCartStore } from "../../stores/cart-store"
+import { api } from "../../lib/trpc/client"
 
 interface Category {
   id: string

@@ -5,9 +5,9 @@ import { Bell } from 'lucide-react'
 import { Button, Badge, ScrollArea, 
     DropdownMenu, DropdownMenuContent, DropdownMenuHeader, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger 
 } from '@kitchencloud/ui'
-import { api } from "@/lib/trpc/client"
+import { api } from "../../lib/trpc/client"
 import { useAuth } from "@kitchencloud/auth/client"
-import { formatRelativeTime } from '@/lib/utils'
+import { formatRelativeTime } from '../../lib/utils'
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false)

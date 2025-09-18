@@ -1,16 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, Skeleton } from "@kitchencloud/ui"
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { Clock, CheckCircle2, XCircle, Truck } from "lucide-react"
 
 interface OrderAnalyticsProps {

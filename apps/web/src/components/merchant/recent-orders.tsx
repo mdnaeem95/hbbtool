@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, Button } from "@kitchencloud/
 import { formatDistanceToNow } from "date-fns"
 import { ArrowUpRight, Clock } from "lucide-react"
 import { OrderStatusBadge } from "./orders/order-status-badge"
-import { RouterOutputs } from "@/lib/trpc/types"
+import { RouterOutputs } from "../../lib/trpc/types"
 
 // Use the actual type from tRPC RouterOutputs - no more manual interface!
 type RecentOrdersProps = {

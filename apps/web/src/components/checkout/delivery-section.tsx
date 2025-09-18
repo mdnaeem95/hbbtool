@@ -1,17 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { 
-  Label, 
-  Input,
-  Textarea,
-  Alert,
-  AlertDescription,
-  cn 
-} from '@kitchencloud/ui'
+import { Label, Input, Textarea, Alert, AlertDescription, cn } from '@kitchencloud/ui'
 import { Truck, MapPin, Check, Clock, Info, Home, Mail } from 'lucide-react'
-import { useCheckoutStore } from '@/stores/checkout-store'
-import { api } from '@/lib/trpc/client'
+import { useCheckoutStore } from '../../stores/checkout-store'
+import { api } from '../../lib/trpc/client'
 
 interface DeliverySectionProps {
   merchantId: string

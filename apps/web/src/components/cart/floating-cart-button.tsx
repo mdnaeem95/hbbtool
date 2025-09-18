@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button, cn } from "@kitchencloud/ui"
 import { ShoppingCart } from "lucide-react"
-import { useCartCount, useCartTotal } from "@/stores/cart-store"
+import { useCartCount, useCartTotal } from "../../stores/cart-store"
 import { motion, AnimatePresence } from "framer-motion"
 import { CustomCartDrawer } from "./custom-cart-drawer"
 

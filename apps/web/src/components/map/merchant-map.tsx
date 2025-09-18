@@ -7,8 +7,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import Map, { Marker, Popup, NavigationControl, GeolocateControl } from 'react-map-gl/mapbox'
-import { MerchantMapMarker } from '@/types/merchant'
-import { SINGAPORE_CENTER, SINGAPORE_BOUNDS } from '@/lib/constants/map'
+import { MerchantMapMarker } from '../../types/merchant'
+import { SINGAPORE_CENTER, SINGAPORE_BOUNDS } from '../../lib/constants/map'
 
 interface MerchantMapProps {
   merchants: MerchantMapMarker[]

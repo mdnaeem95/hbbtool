@@ -2,9 +2,9 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { useAuth } from "@kitchencloud/auth/client"
-import { api } from "@/lib/trpc/client"
+import { api } from "../lib/trpc/client"
 import { useToast } from "@kitchencloud/ui"
-import { useOrderStore } from "@/stores/order-store"
+import { useOrderStore } from "../stores/order-store"
 
 interface OrderStreamContextValue {
   isConnected: boolean

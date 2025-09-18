@@ -2,18 +2,9 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
-import {
-  LayoutDashboard,
-  ShoppingBag,
-  Package,
-  BarChart3,
-  Settings,
-  HelpCircle,
-  Store,
-  DollarSign,
-} from "lucide-react"
-import { RouterOutputs } from "@/lib/trpc/types"
+import { cn } from "../../lib/utils"
+import { LayoutDashboard, ShoppingBag, Package, BarChart3, Settings, HelpCircle, Store, DollarSign } from "lucide-react"
+import { RouterOutputs } from "../../lib/trpc/types"
 
 
 type MerchantDashboardData = RouterOutputs["merchant"]["getDashboard"]

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { api } from "@/lib/trpc/client"
+import { api } from "../../../lib/trpc/client"
 import { Alert, AlertDescription, AlertTitle } from "@kitchencloud/ui"
 import { AlertCircle } from "lucide-react"
 import { OrderStatus } from "@kitchencloud/database/types"

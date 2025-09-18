@@ -4,7 +4,7 @@ import { Card } from '@kitchencloud/ui'
 import { Clock, MapPin, DollarSign, Star } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
-import type { MerchantMapMarker } from '@/types/merchant'
+import type { MerchantMapMarker } from '../../types/merchant'
 
 interface MerchantListSidebarProps {
   merchants: MerchantMapMarker[]
