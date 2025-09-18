@@ -5,34 +5,10 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  Input,
-  Button,
-  Switch,
-  Checkbox,
-  useToast,
-  Alert,
-  AlertDescription,
-} from "@kitchencloud/ui"
-import { 
-  Loader2, 
-  Save, 
-  Smartphone,
-  QrCode,
-  AlertCircle,
-  DollarSign,
-} from "lucide-react"
+  Card, CardContent, CardDescription, CardHeader, CardTitle,
+  Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
+  Input, Button, Switch, Checkbox, useToast, Alert, AlertDescription } from "@kitchencloud/ui"
+import { Loader2, Save, Smartphone, QrCode, AlertCircle, DollarSign } from "lucide-react"
 import { api } from "../../lib/trpc/client"
 import { paymentSettingsSchema } from "@kitchencloud/api/utils"
 import { PaymentMethod } from "@kitchencloud/database/types"
