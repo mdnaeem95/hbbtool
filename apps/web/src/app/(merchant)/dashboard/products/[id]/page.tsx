@@ -3,7 +3,7 @@
 import React, { useEffect } from "react"
 import { notFound, useRouter } from "next/navigation"
 import { ProductForm } from "@/components/product/product-form"
-import { api } from "@/lib/trpc/client"
+import { api } from "../../../../../lib/trpc/client"
 import { Spinner } from "@kitchencloud/ui"
 import { useAuth } from "@kitchencloud/auth/client"
 

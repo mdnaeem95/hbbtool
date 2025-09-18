@@ -1,7 +1,7 @@
 import { Metadata } from "next"
 import { redirect } from "next/navigation"
-import { getMerchantSession } from "@/app/actions/merchant-auth"
-import { OrdersContent } from "@/components/merchant/orders/orders-content"
+import { getMerchantSession } from "../../../../app/actions/merchant-auth"
+import { OrdersContent } from "../../../../components/merchant/orders/orders-content"
 
 export const metadata: Metadata = {
   title: "Orders - KitchenCloud",

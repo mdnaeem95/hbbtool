@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { format } from "date-fns"
-import { api } from "@/lib/trpc/client"
+import { api } from "../../../../../lib/trpc/client"
 import { Loader2 } from "lucide-react"
 
 // Helper function to convert Prisma Decimal to number

@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { api } from "@/lib/trpc/client"
+import { api } from "../../../../lib/trpc/client"
 import { useAuth } from "@kitchencloud/auth/client"
 import { 
   Tabs, 
@@ -26,12 +26,12 @@ import {
   Package,
   Users,
 } from "lucide-react"
-import { StatsOverview } from "@/components/analytics/stats-overview"
-import { RevenueChart } from "@/components/analytics/revenue-chart"
-import { OrderAnalytics } from "@/components/analytics/order-analytics"
-import { ProductPerformance } from "@/components/analytics/product-performance"
-import { CustomerInsights } from "@/components/analytics/customer-insights"
-import { DateRangePicker } from "@/components/analytics/date-range-picker"
+import { StatsOverview } from "../../../../components/analytics/stats-overview"
+import { RevenueChart } from "../../../../components/analytics/revenue-chart"
+import { OrderAnalytics } from "../../../../components/analytics/order-analytics"
+import { ProductPerformance } from "../../../../components/analytics/product-performance"
+import { CustomerInsights } from "../../../../components/analytics/customer-insights"
+import { DateRangePicker } from "../../../../components/analytics/date-range-picker"
 import { startOfDay, endOfDay, subDays } from "date-fns"
 
 type DatePreset = 'today' | '7days' | '30days' | '90days' | 'custom'

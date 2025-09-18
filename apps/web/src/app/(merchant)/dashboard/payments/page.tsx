@@ -1,7 +1,7 @@
 'use client'
 
 import { Button, Card, Badge, useToast } from '@kitchencloud/ui'
-import { api } from '@/lib/trpc/client'
+import { api } from '../../../../lib/trpc/client'
 import { CheckCircle, XCircle, Eye, Loader2 } from 'lucide-react'
 
 export default function PaymentsPage() {

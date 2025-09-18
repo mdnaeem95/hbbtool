@@ -1,44 +1,15 @@
-// apps/web/src/app/(merchant)/dashboard/orders/[id]/page.tsx
-
 "use client"
 
 import { use } from "react"
 import { notFound } from "next/navigation"
 import { format } from "date-fns"
 import Link from "next/link"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Badge,
-  Button,
-  Separator,
-  Alert,
-  AlertDescription,
-} from "@kitchencloud/ui"
-import {
-  ArrowLeft,
-  Clock,
-  Phone,
-  User,
-  DollarSign,
-  Package,
-  MessageSquare,
-  CheckCircle,
-  AlertCircle,
-  Truck,
-  ChefHat,
-  Printer,
-  Edit,
-  Mail,
-  MapPin,
-  Calendar,
-  Receipt,
-} from "lucide-react"
-import { api } from "@/lib/trpc/client"
-import { OrderStatusBadge } from "@/components/merchant/orders/order-status-badge"
-import { formatCurrency, toNumber } from "@/lib/utils"
+import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Separator, Alert, AlertDescription } from "@kitchencloud/ui"
+import { ArrowLeft, Clock, Phone, User, DollarSign, Package, MessageSquare, CheckCircle, AlertCircle, Truck, ChefHat,
+  Printer, Edit, Mail, MapPin, Calendar, Receipt } from "lucide-react"
+import { api } from "../../../../../lib/trpc/client"
+import { OrderStatusBadge } from "../../../../../components/merchant/orders/order-status-badge"
+import { formatCurrency, toNumber } from "../../../../../lib/utils"
 
 interface OrderPageProps {
   params: Promise<{ id: string }>

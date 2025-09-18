@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { DashboardStats, RecentOrders, PopularProducts, QuickStats } from "@/components/merchant"
+import { DashboardStats, RecentOrders, PopularProducts, QuickStats } from "../../../components/merchant"
 import { AlertCircle, ArrowUpRight, Loader2 } from "lucide-react"
 import { Alert, AlertDescription, Button } from "@kitchencloud/ui"
 import Link from "next/link"
-import { api } from "@/lib/trpc/client"
+import { api } from "../../../lib/trpc/client"
 import { useAuth } from "@kitchencloud/auth/client"
-import { DashboardStatsSkeleton, RecentOrdersSkeleton, PopularProductsSkeleton, QuickStatsSkeleton } from "@/components/merchant/dashboard"
+import { DashboardStatsSkeleton, RecentOrdersSkeleton, PopularProductsSkeleton, QuickStatsSkeleton } from "../../../components/merchant/dashboard"
 
 export default function DashboardPage() {
   const router = useRouter()
