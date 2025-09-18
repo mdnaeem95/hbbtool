@@ -2,20 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { 
-  Button, 
-  Card, 
-  useToast 
-} from '@kitchencloud/ui'
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  Shield
-} from 'lucide-react'
-import { useCart, useCartTotal } from '@/stores/cart-store'
-import { CheckoutSteps, DeliverySection, ContactForm, PaymentSection, OrderSummary } from "@/components/checkout"
-import { useCheckoutStore } from '@/stores/checkout-store'
-import { api } from '@/lib/trpc/client'
+import { Button, Card, useToast } from '@kitchencloud/ui'
+import { ArrowLeft, ArrowRight, Shield } from 'lucide-react'
+import { useCart, useCartTotal } from '../../../stores/cart-store'
+import { CheckoutSteps, DeliverySection, ContactForm, PaymentSection, OrderSummary } from "../../../components/checkout/index"
+import { useCheckoutStore } from '../../../stores/checkout-store'
+import { api } from '../../../lib/trpc/client'
 
 type CheckoutStep = 'delivery' | 'contact' | 'payment'
 
