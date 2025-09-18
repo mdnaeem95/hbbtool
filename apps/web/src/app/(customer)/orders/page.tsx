@@ -1,5 +1,5 @@
 import { Metadata } from "next"
-import { AuthGuard } from "@/components/auth/auth-guard"
+import { AuthGuard } from "../../../components/auth/auth-guard"
 import { Card } from "@kitchencloud/ui"
 import { Package } from "lucide-react"
 

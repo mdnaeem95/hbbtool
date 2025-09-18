@@ -1,4 +1,4 @@
-import { FloatingCartButton } from "@/components/cart/floating-cart-button"
+import { FloatingCartButton } from "../../../../components/cart/floating-cart-button"
 
 export default function MerchantShopLayout({
   children,
