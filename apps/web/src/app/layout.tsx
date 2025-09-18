@@ -3,10 +3,10 @@ import "./globals.css"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { Toaster } from "@kitchencloud/ui"
-import { TRPCProvider } from "@/lib/trpc/client"
+import { TRPCProvider } from "../lib/trpc/client"
 import { AuthProvider } from "@kitchencloud/auth/provider"
-import { NotificationToast } from "@/components/notifications/notification-toast"
-import { MerchantProvider } from "@/contexts/merchant-context"
+import { NotificationToast } from "../components/notifications/notification-toast"
+import { MerchantProvider } from "../contexts/merchant-context"
 
 const inter = Inter({ subsets: ["latin"] })
 

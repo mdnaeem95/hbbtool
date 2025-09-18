@@ -2,12 +2,12 @@
 
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
-import { MerchantMap } from '@/components/map/merchant-map'
-import { MapSearchHeader, FilterState } from '@/components/map/map-search-header'
-import { MerchantListSidebar } from '@/components/map/merchant-list-sidebar'
+import { MerchantMap } from '../components/map/merchant-map'
+import { MapSearchHeader, FilterState } from '../components/map/map-search-header'
+import { MerchantListSidebar } from '../components/map/merchant-list-sidebar'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup, Button } from '@kitchencloud/ui'
 import { Store, ArrowRight } from 'lucide-react'
-import { api } from '@/lib/trpc/client'
+import { api } from '../lib/trpc/client'
 import { LngLatBounds } from 'react-map-gl/mapbox'
 
 export default function HomePage() {
