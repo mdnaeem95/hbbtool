@@ -68,7 +68,7 @@ export function ContactForm() {
                 id="name"
                 placeholder="John Doe"
                 value={value.name}
-                onChange={(e) => setContactInfo({ ...value, name: e.target.value })}
+                onChange={(e: any) => setContactInfo({ ...value, name: e.target.value })}
                 className="pl-10"
                 required
               />
@@ -84,7 +84,7 @@ export function ContactForm() {
                 type="email"
                 placeholder="john@example.com"
                 value={value.email}
-                onChange={(e) => setContactInfo({ ...value, email: e.target.value })}
+                onChange={(e: any) => setContactInfo({ ...value, email: e.target.value })}
                 className="pl-10"
                 required // Always require email for order confirmations
               />
