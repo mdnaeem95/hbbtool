@@ -5,8 +5,8 @@ import { Button } from "@kitchencloud/ui"
 import { ArrowLeft, ArrowRight } from "lucide-react"
 import { useCart, useCartTotal } from "../../../stores/cart-store"
 import { EmptyCart } from "../../../components/cart/empty-cart"
-import { CartItem } from "@/components/cart/cart-item"
-import { CartSummary } from "@/components/cart/cart-summary"
+import { CartItem } from "../../../components/cart/cart-item"
+import { CartSummary } from "../../../components/cart/cart-summary"
 
 
 // Note: In a real implementation, this would be fetched from the database

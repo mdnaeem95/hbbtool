@@ -21,7 +21,7 @@ import {
   Package
 } from 'lucide-react'
 import confetti from 'canvas-confetti'
-import { api } from '@/lib/trpc/client' // 🔧 Fixed import path
+import { api } from '../../../../lib/trpc/client' // 🔧 Fixed import path
 
 const num = (v: unknown) =>
   typeof v === "number" ? v : v ? Number(v as any) : 0
