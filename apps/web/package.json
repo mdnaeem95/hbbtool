@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@googlemaps/markerclusterer": "^2.6.2",
+    "@tailwindcss/postcss": "^4.1.11",
     "@hookform/resolvers": "^5.2.1",
     "@kitchencloud/api": "workspace:*",
     "@kitchencloud/auth": "workspace:*",
@@ -65,7 +66,6 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.54.2",
-    "@tailwindcss/postcss": "^4.1.11",
     "@tanstack/react-query-devtools": "^5.85.0",
     "@types/canvas-confetti": "^1.9.0",
     "@types/google.maps": "^3.58.1",
