@@ -6,12 +6,13 @@ export default async function CustomerLayout({
   children: React.ReactNode
 }) {
   // Get optional user session
-  const supabase = createClient()
+  const supabase = await createClient()
   let user = null
   
   try {
     const { data: { user: authUser } } = await supabase.auth.getUser()
     user = authUser
+    console.log("User: ", user)
   } catch (error) {
     // User is not authenticated, which is fine for customer routes
     console.log('No authenticated user')

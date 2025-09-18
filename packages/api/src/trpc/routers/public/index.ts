@@ -508,4 +508,31 @@ export const publicRouter = router({
 
       return order
     }),
+
+  getMerchantBySlug: publicProcedure
+    .input(z.object({ slug: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const merchant = await ctx.db.merchant.findFirst({
+        where: { 
+          slug: input.slug, 
+          status: 'ACTIVE', 
+          deletedAt: null 
+        },
+        include: {
+          categories: { 
+            where: { isActive: true }, 
+            orderBy: { sortOrder: 'asc' } 
+          },
+          _count: { 
+            select: { products: true, reviews: true } 
+          },
+        },
+      })
+
+      if (!merchant) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Merchant not found' })
+      }
+
+      return merchant
+    }),
 })

@@ -2,7 +2,7 @@ import { db } from '@kitchencloud/database'
 
 interface WhatsAppProviderOptions {
   userId: string
-  title: string
+  title?: string
   message: string
   data?: Record<string, unknown>
 }
@@ -48,6 +48,7 @@ export const whatsappProvider = {
   async send({ userId, title, message, data = {} }: WhatsAppProviderOptions): Promise<WhatsAppResult> {
     try {
       // Get user details and phone number
+      console.log(title)
       const user = await whatsappProvider.getUserDetails(userId)
       if (!user) {
         return { success: false, error: 'User not found' }
@@ -232,9 +233,10 @@ export const whatsappProvider = {
   async sendTemplateMessage(
     to: string, 
     template: WhatsAppTemplate, 
-    data: Record<string, unknown>,
-    user: any
+    data?: Record<string, unknown>,
+    user?: any
   ): Promise<{ messageId: string }> {
+    console.log(data, user)
     const response = await fetch(
       `https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
       {

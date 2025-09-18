@@ -194,6 +194,7 @@ export class NotificationService {
   ): Promise<{ success: boolean; id?: string }> {
     try {
       // Check if user has SMS notifications enabled
+      console.log(title)
       const userSettings = await this.getUserNotificationSettings(userId)
       if (!userSettings?.smsNotifications) {
         console.log('[notification.service] SMS notifications disabled for user:', userId)
