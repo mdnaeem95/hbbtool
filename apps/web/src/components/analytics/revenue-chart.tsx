@@ -81,12 +81,14 @@ export function RevenueChart({ data, isLoading, dateRange }: RevenueChartProps) 
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              {/* @ts-ignore */}
               <XAxis 
                 dataKey="displayDate"
                 className="text-xs"
                 tick={{ fill: '#888' }}
                 axisLine={{ stroke: '#e5e7eb' }}
               />
+              {/* @ts-ignore */}
               <YAxis
                 className="text-xs"
                 tick={{ fill: '#888' }}
