@@ -10,6 +10,8 @@ import { api } from "../../../lib/trpc/client"
 import { useAuth } from "@kitchencloud/auth/client"
 import { DashboardStatsSkeleton, RecentOrdersSkeleton, PopularProductsSkeleton, QuickStatsSkeleton } from "../../../components/merchant/dashboard"
 
+export const dynamic = 'force-dynamic'
+
 export default function DashboardPage() {
   const router = useRouter()
   const { user, isLoading: authLoading, isMerchant } = useAuth()

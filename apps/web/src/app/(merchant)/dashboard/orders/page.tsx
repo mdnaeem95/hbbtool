@@ -3,6 +3,8 @@ import { redirect } from "next/navigation"
 import { getMerchantSession } from "../../../../app/actions/merchant-auth"
 import { OrdersContent } from "../../../../components/merchant/orders/orders-content"
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: "Orders - KitchenCloud",
   description: "Manage your orders",

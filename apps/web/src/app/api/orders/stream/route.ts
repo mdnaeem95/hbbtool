@@ -2,6 +2,8 @@ import { NextRequest } from "next/server"
 import { getMerchantSession } from "../../../../app/actions/merchant-auth"
 import { db } from "@kitchencloud/database"
 
+export const dynamic = 'force-dynamic'
+
 // Helper to format SSE message
 function formatSSE(data: any) {
   return `data: ${JSON.stringify(data)}\n\n`
