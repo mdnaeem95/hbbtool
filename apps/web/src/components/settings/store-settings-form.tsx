@@ -142,7 +142,7 @@ export function StoreSettingsForm({ data, onSuccess }: StoreSettingsFormProps) {
                           max="50"
                           placeholder="5.00"
                           {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                          onChange={(e: any) => field.onChange(parseFloat(e.target.value))}
                         />
                       </FormControl>
                       <FormDescription>
@@ -167,7 +167,7 @@ export function StoreSettingsForm({ data, onSuccess }: StoreSettingsFormProps) {
                           max="1000"
                           placeholder="20.00"
                           {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                          onChange={(e: any) => field.onChange(parseFloat(e.target.value))}
                         />
                       </FormControl>
                       <FormDescription>
@@ -190,7 +190,7 @@ export function StoreSettingsForm({ data, onSuccess }: StoreSettingsFormProps) {
                           max={20}
                           step={1}
                           value={[field.value]}
-                          onValueChange={(value) => field.onChange(value[0])}
+                          onValueChange={(value: any) => field.onChange(value[0])}
                           className="py-4"
                         />
                       </FormControl>
@@ -231,7 +231,7 @@ export function StoreSettingsForm({ data, onSuccess }: StoreSettingsFormProps) {
                       max={180}
                       step={5}
                       value={[field.value]}
-                      onValueChange={(value) => field.onChange(value[0])}
+                      onValueChange={(value: any) => field.onChange(value[0])}
                       className="py-4"
                     />
                   </FormControl>

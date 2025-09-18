@@ -113,7 +113,7 @@ export function ProductList({ searchParams }: ProductListProps) {
             <Input
               placeholder="Search products..."
               defaultValue={searchParams.search}
-              onChange={(e) => updateSearchParam("search", e.target.value || null)}
+              onChange={(e: any) => updateSearchParam("search", e.target.value || null)}
               className="pl-9"
             />
           </div>

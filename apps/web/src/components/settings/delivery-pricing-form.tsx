@@ -285,7 +285,7 @@ export function DeliveryPricingForm() {
                             min="0"
                             max="50"
                             {...field}
-                            onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                            onChange={(e: any) => field.onChange(parseFloat(e.target.value))}
                           />
                         </FormControl>
                         <FormDescription>
@@ -320,7 +320,7 @@ export function DeliveryPricingForm() {
                                 step="0.50"
                                 min="0"
                                 {...field}
-                                onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                                onChange={(e: any) => field.onChange(parseFloat(e.target.value))}
                               />
                             </FormControl>
                             <FormDescription>
@@ -343,7 +343,7 @@ export function DeliveryPricingForm() {
                                 step="0.50"
                                 min="0"
                                 {...field}
-                                onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                                onChange={(e: any) => field.onChange(parseFloat(e.target.value))}
                               />
                             </FormControl>
                             <FormDescription>
@@ -366,7 +366,7 @@ export function DeliveryPricingForm() {
                                 step="0.50"
                                 min="0"
                                 {...field}
-                                onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                                onChange={(e: any) => field.onChange(parseFloat(e.target.value))}
                               />
                             </FormControl>
                             <FormDescription>
@@ -389,7 +389,7 @@ export function DeliveryPricingForm() {
                                 step="0.50"
                                 min="0"
                                 {...field}
-                                onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                                onChange={(e: any) => field.onChange(parseFloat(e.target.value))}
                               />
                             </FormControl>
                             <FormDescription>
@@ -424,7 +424,7 @@ export function DeliveryPricingForm() {
                               step="0.50"
                               min="0"
                               {...field}
-                              onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                              onChange={(e: any) => field.onChange(parseFloat(e.target.value))}
                             />
                           </FormControl>
                           <FormDescription>
@@ -475,7 +475,7 @@ export function DeliveryPricingForm() {
                             min="1"
                             max="50"
                             {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            onChange={(e: any) => field.onChange(parseInt(e.target.value))}
                           />
                         </FormControl>
                         <FormDescription>
@@ -501,7 +501,7 @@ export function DeliveryPricingForm() {
                             min="5"
                             max="180"
                             {...field}
-                            onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            onChange={(e: any) => field.onChange(parseInt(e.target.value))}
                           />
                         </FormControl>
                         <FormDescription>
@@ -525,7 +525,7 @@ export function DeliveryPricingForm() {
                             min="0"
                             placeholder="0 for no free delivery"
                             {...field}
-                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                            onChange={(e: any) => field.onChange(parseFloat(e.target.value) || 0)}
                           />
                         </FormControl>
                         <FormDescription>
@@ -549,7 +549,7 @@ export function DeliveryPricingForm() {
                               step="1"
                               min="0"
                               {...field}
-                              onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                              onChange={(e: any) => field.onChange(parseFloat(e.target.value) || 0)}
                             />
                           </FormControl>
                           <FormDescription>

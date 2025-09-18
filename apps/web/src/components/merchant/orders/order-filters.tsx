@@ -159,7 +159,7 @@ export function OrderFilters({
             <Input
               placeholder="Search orders..."
               value={searchValue}
-              onChange={(e) => handleSearch(e.target.value)}
+              onChange={(e: any) => handleSearch(e.target.value)}
               className="pl-9"
             />
           </div>

@@ -420,7 +420,7 @@ export function ProductCatalog({
                 featured: filters.featured,
                 availability: filters.inStock,
               }}
-              onChange={(newFilters) => {
+              onChange={(newFilters: any) => {
                 Object.entries(newFilters).forEach(([key, value]) => {
                   if (key === "priceRange" && Array.isArray(value)) {
                     handleFilterChange("minPrice", value[0])
@@ -447,7 +447,7 @@ export function ProductCatalog({
                 type="search"
                 placeholder="Search products..."
                 value={localSearch}
-                onChange={(e) => setLocalSearch(e.target.value)}
+                onChange={(e: any) => setLocalSearch(e.target.value)}
                 className="pl-10"
               />
             </div>
@@ -565,7 +565,7 @@ export function ProductCatalog({
                   featured: filters.featured,
                   availability: filters.inStock,
                 }}
-                onChange={(newFilters) => {
+                onChange={(newFilters: any) => {
                   Object.entries(newFilters).forEach(([key, value]) => {
                     if (key === "priceRange" && Array.isArray(value)) {
                       handleFilterChange("minPrice", value[0])

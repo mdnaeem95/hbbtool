@@ -277,7 +277,7 @@ export function SecuritySettingsForm({ data, onSuccess }: SecuritySettingsFormPr
                   type="checkbox"
                   id="show-password"
                   checked={showPassword}
-                  onChange={(e) => setShowPassword(e.target.checked)}
+                  onChange={(e: any) => setShowPassword(e.target.checked)}
                   className="rounded border-gray-300"
                 />
                 <label

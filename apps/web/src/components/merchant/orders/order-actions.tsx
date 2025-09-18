@@ -230,7 +230,7 @@ export function OrderRowActions({ order, onViewDetails, onOrderUpdate }: OrderRo
                 id="cancel-reason"
                 placeholder="e.g., Out of stock, Customer requested, etc."
                 value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
+                onChange={(e: any) => setCancelReason(e.target.value)}
                 rows={3}
               />
             </div>
