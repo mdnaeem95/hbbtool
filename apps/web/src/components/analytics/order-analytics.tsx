@@ -205,6 +205,7 @@ export function OrderAnalytics({ data, isLoading }: OrderAnalyticsProps) {
                     textAnchor="end"
                     height={60}
                   />
+                  {/* @ts-ignore */}
                   <YAxis
                     className="text-xs"
                     tick={{ fill: '#888' }}
