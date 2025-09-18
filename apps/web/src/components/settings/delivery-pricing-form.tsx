@@ -139,7 +139,7 @@ export function DeliveryPricingForm() {
             </div>
             <Switch
               checked={settings?.deliveryEnabled}
-              onCheckedChange={(checked) => {
+              onCheckedChange={(checked: any) => {
                 if (!checked && !settings?.pickupEnabled) {
                   toast({
                     title: 'Cannot disable',
@@ -168,7 +168,7 @@ export function DeliveryPricingForm() {
             </div>
             <Switch
               checked={settings?.pickupEnabled}
-              onCheckedChange={(checked) => {
+              onCheckedChange={(checked: any) => {
                 if (!checked && !settings?.deliveryEnabled) {
                   toast({
                     title: 'Cannot disable',

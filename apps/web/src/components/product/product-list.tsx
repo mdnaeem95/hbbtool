@@ -195,7 +195,7 @@ export function ProductList({ searchParams }: ProductListProps) {
                   <TableCell>
                     <Checkbox
                       checked={selectedProducts.has(product.id)}
-                      onCheckedChange={(checked) => 
+                      onCheckedChange={(checked: any) => 
                         handleSelectProduct(product.id, checked as boolean)
                       }
                     />
