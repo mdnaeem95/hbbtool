@@ -1,5 +1,4 @@
-// apps/web/src/hooks/use-media-query.ts
-import { useEffect, useState } from "react"
+import { useState, useEffect } from 'react'
 
 export function useMediaQuery(query: string): boolean {
   const [matches, setMatches] = useState(false)
@@ -15,19 +14,21 @@ export function useMediaQuery(query: string): boolean {
       setMatches(event.matches)
     }
 
-    // Add listener
-    if (media.addListener) {
-      media.addListener(listener)
+    // Add event listener
+    if (media.addEventListener) {
+      media.addEventListener('change', listener)
     } else {
-      media.addEventListener("change", listener)
+      // Fallback for older browsers
+      media.addListener(listener)
     }
 
-    // Remove listener on cleanup
+    // Clean up
     return () => {
-      if (media.removeListener) {
-        media.removeListener(listener)
+      if (media.removeEventListener) {
+        media.removeEventListener('change', listener)
       } else {
-        media.removeEventListener("change", listener)
+        // Fallback for older browsers
+        media.removeListener(listener)
       }
     }
   }, [query])

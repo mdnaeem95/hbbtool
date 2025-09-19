@@ -1,40 +1,38 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { MerchantMap } from '../components/map/merchant-map'
-import { MapSearchHeader, FilterState } from '../components/map/map-search-header'
-import { MerchantListSidebar } from '../components/map/merchant-list-sidebar'
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup, Button } from '@kitchencloud/ui'
-import { Store, ArrowRight } from 'lucide-react'
+import { MobileSearchHeader } from '../components/map/mobile-search-header'
+import { MobileBottomSheet } from '../components/map/mobile-bottom-sheet'
+import { DesktopLayout } from '../components/map/desktop-layout'
+import { Button } from '@kitchencloud/ui'
+import { Store, MapPin } from 'lucide-react'
 import { api } from '../lib/trpc/client'
 import { LngLatBounds } from 'react-map-gl/mapbox'
+import { useMediaQuery } from '../hooks/use-media-query'
+
+export interface FilterState {
+  cuisineType?: string[]
+  dietaryOptions?: ('HALAL' | 'VEGETARIAN' | 'VEGAN')[]
+  priceRange?: { min?: number; max?: number }
+  deliveryOnly?: boolean
+  pickupOnly?: boolean
+}
 
 export default function HomePage() {
   const [selectedMerchantId, setSelectedMerchantId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [filters, setFilters] = useState<FilterState>({})
   const [mapBounds, setMapBounds] = useState<LngLatBounds | null>(null)
-
-  // Calculate search radius from map bounds
-  const calculateRadiusFromBounds = (bounds: LngLatBounds | null) => {
-    if (!bounds) return 10 // default 10km for initial load
-    
-    // Calculate distance between bounds corners to get diagonal
-    const north = bounds.getNorth()
-    const south = bounds.getSouth()
-    const east = bounds.getEast()
-    const west = bounds.getWest()
-    
-    // Simple approximation: use the larger of width or height
-    // Convert degrees to km (rough approximation at Singapore's latitude)
-    const latDiff = Math.abs(north - south) * 111 // 1 degree latitude ≈ 111km
-    const lngDiff = Math.abs(east - west) * 111 * Math.cos((north + south) / 2 * Math.PI / 180)
-    
-    // Use diagonal distance and add some buffer
-    const diagonal = Math.sqrt(latDiff * latDiff + lngDiff * lngDiff)
-    return Math.min(Math.max(diagonal * 0.75, 2), 20) // Between 2-20km
+  const [isListView, setIsListView] = useState(false)
+  const isMobile = useMediaQuery('(max-width: 768px)')
+  const [mapHeight, setMapHeight] = useState(() => {
+  if (typeof window !== 'undefined') {
+    return `${window.innerHeight}px`
   }
+  return '100vh'
+})
 
   // Fetch merchants with filters
   const { data, isLoading } = api.merchant.searchNearby.useQuery({
@@ -50,94 +48,139 @@ export default function HomePage() {
         south: mapBounds.getSouth(),
         east: mapBounds.getEast(),
         west: mapBounds.getWest()
-      } : undefined,
-      radius: calculateRadiusFromBounds(mapBounds)
-    }
+      } : undefined
+    },
   }, {
-    refetchInterval: 30000 // Refresh every 30 seconds for open/closed status
+    enabled: true,
+    refetchOnWindowFocus: false
   })
 
-  const merchants = data?.merchants || []
+  // Extract merchants array with default
+  const merchants = data?.merchants ?? []
+  const totalResults = data?.total ?? 0
 
-  // Handle search
-  const handleSearch = useCallback((query: string) => {
-    setSearchQuery(query)
-    setSelectedMerchantId(null)
-  }, [])
+  // Adjust map height based on content
+  useEffect(() => {
+    if (isMobile) {
+      const calculateHeight = () => {
+        const header = document.querySelector('.mobile-header')
+        const banner = document.querySelector('.merchant-banner')
+        const windowHeight = window.innerHeight
+        const headerHeight = header?.clientHeight || 0
+        const bannerHeight = banner?.clientHeight || 0
+        
+        const availableHeight = windowHeight - headerHeight - bannerHeight
+        setMapHeight(`${Math.max(availableHeight, 400)}px`)
+      }
 
-  // Handle filter change
-  const handleFilterChange = useCallback((newFilters: FilterState) => {
-    setFilters(newFilters)
-    setSelectedMerchantId(null)
-  }, [])
+      calculateHeight()
+      window.addEventListener('resize', calculateHeight)
 
-  // Handle bounds change
+      return () => window.removeEventListener('resize', calculateHeight)
+    } else {
+      setMapHeight('100vh')
+      return undefined
+    }
+  }, [isMobile])
+
   const handleBoundsChange = useCallback((bounds: LngLatBounds) => {
     setMapBounds(bounds)
   }, [])
 
-  // Handle merchant selection
-  const handleMerchantSelect = useCallback((merchantId: string | null) => {
-    setSelectedMerchantId(merchantId)
-  }, [])
-
-  return (
-    <div className="h-screen flex flex-col">
-      {/* Merchant Registration Banner */}
-      <div className="bg-primary/10 border-b border-primary/20">
-        <div className="container mx-auto px-4 py-2">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-sm">
-              <Store className="h-4 w-4" />
-              <span className="font-medium">Are you a home-based food business?</span>
-              <span className="hidden sm:inline text-muted-foreground">
-                Join KitchenCloud and start accepting orders online!
-              </span>
+  // Mobile view
+  if (isMobile) {
+    return (
+      <div className="relative min-h-screen bg-background">
+        {/* Merchant Banner - Only show when no merchants */}
+        {totalResults === 0 && !isLoading && (
+          <div className="merchant-banner bg-gradient-to-r from-orange-50 to-purple-50 border-b">
+            <div className="p-4 text-center">
+              <Store className="h-6 w-6 mx-auto mb-2 text-orange-500" />
+              <p className="text-sm font-medium text-gray-800">
+                Are you a home-based food business?
+              </p>
+              <Button 
+                asChild 
+                size="sm" 
+                className="mt-2 bg-orange-500 hover:bg-orange-600 text-white"
+              >
+                <Link href="/merchant/signup">
+                  Register Now →
+                </Link>
+              </Button>
             </div>
-            <Button size="sm" variant="outline" asChild>
-              <Link href="/auth">
-                Register Now
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
           </div>
+        )}
+
+        {/* Mobile Search Header */}
+        <div className="mobile-header">
+          <MobileSearchHeader
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            filters={filters}
+            setFilters={setFilters}
+            totalResults={totalResults}
+            isLoading={isLoading}
+            onToggleView={() => setIsListView(!isListView)}
+            isListView={isListView}
+          />
         </div>
-      </div>
 
-      {/* Search Header */}
-      <MapSearchHeader
-        onSearch={handleSearch}
-        onFilterChange={handleFilterChange}
-        totalResults={merchants.length}
-        isLoading={isLoading}
-      />
-
-      {/* Main Content */}
-      <div className="flex-1 relative">
-        <ResizablePanelGroup direction="horizontal">
-          {/* Sidebar */}
-          <ResizablePanel defaultSize={30} minSize={25} maxSize={40}>
-            <MerchantListSidebar
-              merchants={merchants}
-              selectedMerchantId={selectedMerchantId}
-              onMerchantSelect={handleMerchantSelect}
-              isLoading={isLoading}
-            />
-          </ResizablePanel>
-
-          <ResizableHandle />
-
-          {/* Map */}
-          <ResizablePanel defaultSize={70}>
+        {/* Map Container - Optimized height */}
+        {!isListView && (
+          <div 
+            className="relative bg-gray-100" 
+            style={{ height: mapHeight }}
+          >
             <MerchantMap
               merchants={merchants}
-              onBoundsChange={handleBoundsChange}
               selectedMerchantId={selectedMerchantId}
-              onMerchantSelect={handleMerchantSelect}
+              onMerchantSelect={setSelectedMerchantId}
+              onBoundsChange={handleBoundsChange}
+              showPopup={!isMobile}
             />
-          </ResizablePanel>
-        </ResizablePanelGroup>
+            
+            {/* Map overlay for loading/empty states */}
+            {totalResults === 0 && !isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-6 m-4 max-w-sm pointer-events-auto">
+                  <MapPin className="h-8 w-8 mx-auto mb-3 text-gray-400" />
+                  <h3 className="text-lg font-semibold text-center mb-2">
+                    No merchants found
+                  </h3>
+                  <p className="text-sm text-muted-foreground text-center">
+                    Try adjusting your search or filters to find home-based food businesses near you
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Mobile Bottom Sheet */}
+        <MobileBottomSheet
+          merchants={merchants}
+          selectedMerchantId={selectedMerchantId}
+          onMerchantSelect={setSelectedMerchantId}
+          isLoading={isLoading}
+          isListView={isListView}
+        />
       </div>
-    </div>
+    )
+  }
+
+  // Desktop view (existing layout with improvements)
+  return (
+    <DesktopLayout
+      merchants={merchants}
+      selectedMerchantId={selectedMerchantId}
+      onMerchantSelect={setSelectedMerchantId}
+      searchQuery={searchQuery}
+      setSearchQuery={setSearchQuery}
+      filters={filters}
+      setFilters={setFilters}
+      isLoading={isLoading}
+      onBoundsChange={handleBoundsChange}
+    />
   )
 }

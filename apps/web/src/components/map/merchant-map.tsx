@@ -15,13 +15,15 @@ interface MerchantMapProps {
   onBoundsChange?: (bounds: mapboxgl.LngLatBounds) => void
   selectedMerchantId?: string | null
   onMerchantSelect?: (merchantId: string | null) => void
+  showPopup?: boolean
 }
 
 export function MerchantMap({
   merchants,
   onBoundsChange,
   selectedMerchantId,
-  onMerchantSelect
+  onMerchantSelect,
+  showPopup = true 
 }: MerchantMapProps) {
   const [viewState, setViewState] = useState({
     longitude: SINGAPORE_CENTER.lng,
@@ -159,7 +161,7 @@ export function MerchantMap({
       ))}
 
       {/* Popup */}
-      {popupMerchant && (
+      {popupMerchant && showPopup && (
         <Popup
           longitude={popupMerchant.longitude!}
           latitude={popupMerchant.latitude!}
