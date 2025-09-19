@@ -44,28 +44,6 @@ const isAuthed = t.middleware(({ ctx, next }) => {
   })
 })
 
-const isMerchant = isAuthed.unstable_pipe(({ ctx, next }) => {
-  if (ctx.session.user.userType !== 'merchant') {
-    throw new TRPCError({ 
-      code: 'FORBIDDEN', 
-      message: 'Merchant access required' 
-    })
-  }
-  
-  return next({ ctx })
-})
-
-const isCustomer = isAuthed.unstable_pipe(({ ctx, next }) => {
-  if (ctx.session.user.userType !== 'customer') {
-    throw new TRPCError({ 
-      code: 'FORBIDDEN', 
-      message: 'Customer access required' 
-    })
-  }
-  
-  return next({ ctx })
-})
-
 // ---------- Export procedures ----------
 
 export const router = t.router
@@ -78,10 +56,5 @@ export const protectedProcedure = t.procedure
   .use(loggerMiddleware)
   .use(isAuthed)
 
-export const merchantProcedure = t.procedure
-  .use(loggerMiddleware)
-  .use(isMerchant)
-
-export const customerProcedure = t.procedure
-  .use(loggerMiddleware)
-  .use(isCustomer)
+// merchantProcedure is the same as protectedProcedure now
+export const merchantProcedure = protectedProcedure

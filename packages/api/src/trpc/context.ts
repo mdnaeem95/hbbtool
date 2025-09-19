@@ -13,7 +13,7 @@ export interface Context {
 }
 
 /**
- * Create tRPC context with unified auth
+ * Create tRPC context with merchant auth
  */
 export async function createTRPCContext(
   opts: FetchCreateContextFnOptions
@@ -25,16 +25,14 @@ export async function createTRPCContext(
   console.log('Request URL:', req.url)
   console.log('Cookie header:', req.headers.get('cookie') ? 'PRESENT' : 'MISSING')
 
-  // IMPORTANT: In App Router API routes, we need to call getAuthSession
-  // which will use cookies() internally. We can't pass the request.
+  // Get merchant session if authenticated
   console.log('\nCalling getAuthSession...')
   const session = await getAuthSession()
   
   console.log('Session result:', session ? 'FOUND' : 'NULL')
   if (session) {
-    console.log('  User ID:', session.user.id)
-    console.log('  User Type:', session.user.userType)
-    console.log('  User Email:', session.user.email)
+    console.log('  Merchant ID:', session.user.id)
+    console.log('  Merchant Email:', session.user.email)
   }
   
   // Create Supabase client

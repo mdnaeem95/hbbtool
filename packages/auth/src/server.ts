@@ -44,7 +44,7 @@ export async function createServerSupabaseClient() {
 }
 
 /**
- * Get the current auth session from cookies
+ * Get the current merchant auth session from cookies
  */
 export async function getAuthSession(): Promise<AuthSession | null> {
   console.log('\n=== getAuthSession START ===')
@@ -66,10 +66,12 @@ export async function getAuthSession(): Promise<AuthSession | null> {
       console.log('  User email:', supabaseUser.email)
       console.log('  User metadata:', JSON.stringify(supabaseUser.user_metadata))
       
-      const userType = supabaseUser.user_metadata?.userType as 'merchant' | 'customer'
+      // All authenticated users should be merchants
+      const userType = supabaseUser.user_metadata?.userType
       console.log('  User type:', userType)
       
-      if (userType === 'merchant') {
+      // Verify it's a merchant (or handle legacy users without userType)
+      if (userType === 'merchant' || !userType) {
         console.log('Looking up merchant in database...')
         const merchant = await db.merchant.findUnique({
           where: { id: supabaseUser.id }
@@ -81,13 +83,14 @@ export async function getAuthSession(): Promise<AuthSession | null> {
           const user: AuthUser = {
             id: supabaseUser.id,
             email: supabaseUser.email!,
-            userType: 'merchant',
             merchant,
           }
           
           console.log('=== getAuthSession SUCCESS - Merchant ===')
           return { user }
         }
+      } else {
+        console.log('  Non-merchant user type detected, ignoring')
       }
     }
 
@@ -101,7 +104,7 @@ export async function getAuthSession(): Promise<AuthSession | null> {
 }
 
 /**
- * Require authenticated user or throw
+ * Require authenticated merchant or throw
  */
 export async function requireAuth(): Promise<AuthSession> {
   const session = await getAuthSession()
@@ -115,15 +118,10 @@ export async function requireAuth(): Promise<AuthSession> {
 
 /**
  * Require merchant user or throw
+ * (Now just an alias for requireAuth since all authenticated users are merchants)
  */
 export async function requireMerchant() {
-  const session = await requireAuth()
-  
-  if (session.user.userType !== 'merchant') {
-    throw new Error('Merchant access required')
-  }
-  
-  return session
+  return requireAuth()
 }
 
 /**
@@ -136,10 +134,8 @@ export async function getMerchantById(id: string) {
 }
 
 /**
- * Get customer by ID
+ * Get merchant session helper for server components
  */
-export async function getCustomerById(id: string) {
-  return db.customer.findUnique({
-    where: { id }
-  })
+export async function getMerchantSession(): Promise<AuthSession | null> {
+  return getAuthSession()
 }

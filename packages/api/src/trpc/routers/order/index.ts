@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
-import { router, merchantProcedure, customerProcedure } from '../../core'
+import { router, merchantProcedure } from '../../core'
 import { paginationSchema } from '../../../utils/validation'
 import { paginatedResponse } from '../../../utils/pagination'
 import {
@@ -329,23 +329,6 @@ export const orderRouter = router({
       await triggerOrderNotification(input.id, from, to, ctx.db)
 
       return result
-    }),
-
-  /** -------- Customer order history -------- */
-  customerHistory: customerProcedure
-    .input(paginationSchema)
-    .query(async ({ ctx, input }) => {
-      const where: Prisma.OrderWhereInput = { customerId: ctx.session!.user.id }
-
-      return paginatedResponse(
-        ctx.db.order,
-        where,
-        { ...input, sortBy: 'createdAt' },
-        {
-          merchant: true,
-          items: { include: { product: true } },
-        }
-      )
     }),
 
   /** -------- Bulk update status (merchant) -------- */

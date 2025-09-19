@@ -2,20 +2,15 @@
 
 // Export types
 export type {
-  UserType,
-  BaseUser,
-  MerchantUser,
-  CustomerUser,
   AuthUser,
   AuthSession,
   AuthState,
   AuthContextValue,
-  SignInParams,
   SignUpParams,
 } from './types'
 
 // Export constants
-export { AUTH_STORAGE_KEYS, isMerchantUser, isCustomerUser } from './types'
+export { AUTH_STORAGE_KEYS, isMerchantUser } from './types'
 
 // Export React components and hooks
 export { AuthProvider, useAuth } from './provider'
@@ -25,7 +20,6 @@ export {
   createBrowserSupabaseClient,
   signInMerchant,
   signUpMerchant,
-  signInCustomer,
   signOut,
   refreshSession 
 } from './client'

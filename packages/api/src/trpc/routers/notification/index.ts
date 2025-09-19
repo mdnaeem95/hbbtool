@@ -23,13 +23,11 @@ export const notificationRouter = router({
       }
       
       const { limit, offset, unreadOnly, type } = input
-      const isCustomer = ctx.session.user.userType === 'customer'
       
       // Handle the case where NotificationService might not exist
       try {
         return await NotificationService.getNotifications({
           userId: ctx.session.user.id,
-          isCustomer,
           limit,
           offset,
           unreadOnly,
@@ -50,9 +48,8 @@ export const notificationRouter = router({
   getUnreadCount: protectedProcedure
     .query(async ({ ctx }) => {
       const { session } = ctx
-      const isCustomer = session.user.userType === 'customer'
       
-      return await NotificationService.getUnreadCount(session.user.id, isCustomer)
+      return await NotificationService.getUnreadCount(session.user.id)
     }),
 
   // Mark notification as read
@@ -73,12 +70,8 @@ export const notificationRouter = router({
       if (!notification) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Notification not found' })
       }
-      
-      const isOwner = 
-        (session.user.userType === 'merchant' && notification.merchantId === session.user.id) ||
-        (session.user.userType === 'customer' && notification.customerId === session.user.id)
-      
-      if (!isOwner) {
+     
+      if (notification.merchantId !== session.user.id) {
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Not authorized' })
       }
       
@@ -89,9 +82,8 @@ export const notificationRouter = router({
   markAllAsRead: protectedProcedure
     .mutation(async ({ ctx }) => {
       const { session } = ctx
-      const isCustomer = session.user.userType === 'customer'
-      
-      return await NotificationService.markAllAsRead(session.user.id, isCustomer)
+
+      return await NotificationService.markAllAsRead(session.user.id)
     }),
 
   // Send test notification (merchant only, for testing)

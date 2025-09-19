@@ -3,56 +3,38 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button, Input, Label } from '@kitchencloud/ui'
-import { Loader2, Store, User } from 'lucide-react'
+import { Loader2, Store, ArrowLeft } from 'lucide-react'
 import { useAuth } from '@kitchencloud/auth/client'
 import { validatePassword, validatePhoneNumber } from '../../../lib/utils/validation'
+import Link from 'next/link'
 
 export default function AuthPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirect = searchParams.get('redirect') || '/'
+  const redirect = searchParams.get('redirect') || '/dashboard'
   
   const { 
     signIn, 
     signUp, 
-    verifyOtp, 
     isLoading, 
     error: authError,
     isAuthenticated,
     isMerchant,
-    isCustomer,
     user 
   } = useAuth()
   
   const [error, setError] = useState<string | null>(null)
-  const [accountType, setAccountType] = useState<'customer' | 'merchant'>('customer')
-  const [merchantTab, setMerchantTab] = useState<'signin' | 'signup'>('signin')
-  const [showOtp, setShowOtp] = useState(false)
-  const [customerPhone, setCustomerPhone] = useState('')
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [isSigningIn, setIsSigningIn] = useState(false)
 
-  // Redirect if already authenticated with proper user type
+  // Redirect if already authenticated
   useEffect(() => {
-    // Don't redirect while auth is still loading or while signing in
     if (isLoading || isSigningIn) return
     
-    // Only redirect if we have a fully authenticated user with a type
-    if (isAuthenticated && user) {
-      // For merchant redirects, ensure they're actually a merchant
-      if (redirect.startsWith('/dashboard') && !isMerchant) {
-        // Don't redirect merchants to dashboard if they're not merchants
-        return
-      }
-      
-      // For customer redirects, ensure they're actually a customer
-      if (redirect.startsWith('/account') && !isCustomer) {
-        return
-      }
-      
-      // Safe to redirect now
+    if (isAuthenticated && isMerchant && user) {
       router.push(redirect)
     }
-  }, [isAuthenticated, isMerchant, isCustomer, user, redirect, router, isLoading, isSigningIn])
+  }, [isAuthenticated, isMerchant, user, redirect, router, isLoading, isSigningIn])
 
   // Handle auth errors
   useEffect(() => {
@@ -62,53 +44,7 @@ export default function AuthPageContent() {
     }
   }, [authError])
 
-  async function handleCustomerAuth(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setError(null)
-
-    const formData = new FormData(e.currentTarget)
-
-    if (!showOtp) {
-      // Step 1: Send OTP
-      const phone = formData.get('phone') as string
-      const name = formData.get('name') as string
-
-      if (!validatePhoneNumber(phone)) {
-        setError('Please enter a valid Singapore phone number')
-        return
-      }
-
-      const cleanPhone = phone.replace(/[\s-]/g, '')
-      setCustomerPhone(phone)
-      
-      try {
-        setIsSigningIn(true)
-        await signIn({ 
-          type: 'customer',
-          phone: cleanPhone,
-          name: name || undefined 
-        })
-        setShowOtp(true)
-      } catch (err) {
-        // Error handled by provider
-         setIsSigningIn(false)
-      }
-    } else {
-      // Step 2: Verify OTP
-      const otp = formData.get('otp') as string
-      
-      try {
-        setIsSigningIn(true)
-        await verifyOtp(otp)
-        router.push(redirect)
-      } catch (err) {
-        setIsSigningIn(false)
-        // Error handled by provider
-      }
-    }
-  }
-
-  async function handleMerchantSignIn(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSignIn(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
     setIsSigningIn(true)
@@ -118,20 +54,16 @@ export default function AuthPageContent() {
     const password = formData.get('password') as string
 
     try {
-      await signIn({ 
-        type: 'merchant',
-        email, 
-        password 
-      })
+      await signIn(email, password)
       await new Promise(resolve => setTimeout(resolve, 100))
-      router.push('/dashboard')
+      router.push(redirect)
     } catch (err) {
       setIsSigningIn(false)
-      // Error handled by provider
+      setError('Invalid email or password')
     }
   }
 
-  async function handleMerchantSignUp(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSignUp(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
     setIsSigningIn(true)
@@ -158,7 +90,6 @@ export default function AuthPageContent() {
 
     try {
       await signUp({ 
-        type: 'merchant',
         email, 
         password, 
         businessName,
@@ -167,49 +98,62 @@ export default function AuthPageContent() {
       router.push('/dashboard')
     } catch (err) {
       setIsSigningIn(false)
-      // Error handled by provider
+      setError('Failed to create account. Email may already be registered.')
     }
   }
 
   return (
-    <div className="w-full">
-      {/* Account Type Selector */}
-      <div className="flex gap-4 mb-6">
-        <button
-          type="button"
-          onClick={() => {
-            setAccountType('customer')
-            setError(null)
-            setShowOtp(false)
-          }}
-          className={`flex-1 p-4 rounded-lg border-2 transition-colors ${
-            accountType === 'customer' 
-              ? 'border-primary bg-primary/5 text-primary' 
-              : 'border-gray-200 hover:border-gray-300'
-          }`}
-          disabled={isLoading || isSigningIn}
-        >
-          <User className="h-6 w-6 mx-auto mb-2" />
-          <div className="font-medium">Customer</div>
-          <div className="text-sm text-muted-foreground">Order delicious food</div>
-        </button>
+    <div className="w-full max-w-md mx-auto">
+      {/* Header */}
+      <div className="text-center mb-8">
+        <Store className="h-12 w-12 mx-auto mb-4 text-primary" />
+        <h1 className="text-2xl font-bold text-gray-900">Merchant Portal</h1>
+        <p className="text-sm text-gray-600 mt-2">
+          Manage your home-based food business
+        </p>
+      </div>
 
+      {/* Customer CTA */}
+      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <p className="text-sm text-blue-900 text-center">
+          Looking to order food?{' '}
+          <Link href="/browse" className="font-semibold hover:underline">
+            Browse restaurants →
+          </Link>
+        </p>
+      </div>
+
+      {/* Tab Selector */}
+      <div className="flex border-b mb-6">
         <button
           type="button"
           onClick={() => {
-            setAccountType('merchant')
+            setMode('signin')
             setError(null)
           }}
-          className={`flex-1 p-4 rounded-lg border-2 transition-colors ${
-            accountType === 'merchant' 
-              ? 'border-primary bg-primary/5 text-primary' 
-              : 'border-gray-200 hover:border-gray-300'
+          className={`flex-1 pb-3 text-sm font-medium transition-colors ${
+            mode === 'signin'
+              ? 'border-b-2 border-primary text-primary'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
           disabled={isLoading || isSigningIn}
         >
-          <Store className="h-6 w-6 mx-auto mb-2" />
-          <div className="font-medium">Merchant</div>
-          <div className="text-sm text-muted-foreground">Sell your food</div>
+          Sign In
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMode('signup')
+            setError(null)
+          }}
+          className={`flex-1 pb-3 text-sm font-medium transition-colors ${
+            mode === 'signup'
+              ? 'border-b-2 border-primary text-primary'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+          disabled={isLoading || isSigningIn}
+        >
+          Create Account
         </button>
       </div>
 
@@ -220,238 +164,149 @@ export default function AuthPageContent() {
         </div>
       )}
 
-      {/* Customer Auth Form */}
-      {accountType === 'customer' && (
-        <form onSubmit={handleCustomerAuth} className="space-y-4">
-          {!showOtp ? (
-            <>
-              <div>
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  placeholder="+65 9123 4567"
-                  required
-                  disabled={isLoading}
-                />
-              </div>
-              <div>
-                <Label htmlFor="name">Name (optional)</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  type="text"
-                  placeholder="Your name"
-                  disabled={isLoading || isSigningIn}
-                />
-              </div>
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={isLoading || isSigningIn}
-              >
-                {isSigningIn ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Sending OTP...
-                  </>
-                ) : (
-                  'Send OTP'
-                )}
-              </Button>
-            </>
-          ) : (
-            <>
-              <div className="text-center mb-4">
-                <p className="text-sm text-muted-foreground">
-                  We've sent a 6-digit code to
-                </p>
-                <p className="font-medium">{customerPhone}</p>
-              </div>
-              <div>
-                <Label htmlFor="otp">Enter OTP</Label>
-                <Input
-                  id="otp"
-                  name="otp"
-                  type="text"
-                  placeholder="123456"
-                  maxLength={6}
-                  required
-                  disabled={isLoading || isSigningIn}
-                  autoComplete="one-time-code"
-                />
-              </div>
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={isLoading || isSigningIn}
-              >
-                {isSigningIn ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Verifying...
-                  </>
-                ) : (
-                  'Verify & Sign In'
-                )}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full"
-                onClick={() => {
-                  setShowOtp(false)
-                  setError(null)
-                }}
-                disabled={isLoading || isSigningIn}
-              >
-                Use a different number
-              </Button>
-            </>
-          )}
+      {/* Sign In Form */}
+      {mode === 'signin' && (
+        <form onSubmit={handleSignIn} className="space-y-4">
+          <div>
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="your@email.com"
+              required
+              disabled={isLoading || isSigningIn}
+              autoFocus
+            />
+          </div>
+          <div>
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="••••••••"
+              required
+              disabled={isLoading || isSigningIn}
+            />
+          </div>
+          <Button 
+            type="submit" 
+            className="w-full" 
+            disabled={isLoading || isSigningIn}
+          >
+            {isSigningIn ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Signing in...
+              </>
+            ) : (
+              'Sign In'
+            )}
+          </Button>
+          
+          <div className="text-center">
+            <Link 
+              href="/forgot-password" 
+              className="text-sm text-muted-foreground hover:text-primary"
+            >
+              Forgot your password?
+            </Link>
+          </div>
         </form>
       )}
 
-      {/* Merchant Auth Forms */}
-      {accountType === 'merchant' && (
-        <>
-          {/* Tab Selector */}
-          <div className="flex border-b mb-6">
-            <button
-              type="button"
-              onClick={() => setMerchantTab('signin')}
-              className={`flex-1 pb-3 text-sm font-medium transition-colors ${
-                merchantTab === 'signin'
-                  ? 'border-b-2 border-primary text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
+      {/* Sign Up Form */}
+      {mode === 'signup' && (
+        <form onSubmit={handleSignUp} className="space-y-4">
+          <div>
+            <Label htmlFor="businessName">Business Name</Label>
+            <Input
+              id="businessName"
+              name="businessName"
+              type="text"
+              placeholder="Ah Ma's Kitchen"
+              required
               disabled={isLoading || isSigningIn}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => setMerchantTab('signup')}
-              className={`flex-1 pb-3 text-sm font-medium transition-colors ${
-                merchantTab === 'signup'
-                  ? 'border-b-2 border-primary text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-              disabled={isLoading || isSigningIn}
-            >
-              Sign Up
-            </button>
+              autoFocus
+            />
           </div>
-
-          {/* Sign In Form */}
-          {merchantTab === 'signin' && (
-            <form onSubmit={handleMerchantSignIn} className="space-y-4">
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="your@email.com"
-                  required
-                  disabled={isLoading || isSigningIn}
-                />
-              </div>
-              <div>
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  disabled={isLoading || isSigningIn}
-                />
-              </div>
-              <Button 
-                type="submit" 
-                className="w-full" 
+          <div>
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="your@email.com"
+              required
+              disabled={isLoading || isSigningIn}
+            />
+          </div>
+          <div>
+            <Label htmlFor="phone">Business Phone</Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
+                +65
+              </span>
+              <Input
+                id="phone"
+                name="phone"
+                type="tel"
+                placeholder="9123 4567"
+                className="pl-12"
+                required
                 disabled={isLoading || isSigningIn}
-              >
-                {isSigningIn ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  'Sign In'
-                )}
-              </Button>
-            </form>
-          )}
-
-          {/* Sign Up Form */}
-          {merchantTab === 'signup' && (
-            <form onSubmit={handleMerchantSignUp} className="space-y-4">
-              <div>
-                <Label htmlFor="businessName">Business Name</Label>
-                <Input
-                  id="businessName"
-                  name="businessName"
-                  type="text"
-                  placeholder="Ah Ma's Kitchen"
-                  required
-                  disabled={isLoading || isSigningIn}
-                />
-              </div>
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="your@email.com"
-                  required
-                  disabled={isLoading || isSigningIn}
-                />
-              </div>
-              <div>
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  placeholder="+65 9123 4567"
-                  required
-                  disabled={isLoading || isSigningIn}
-                />
-              </div>
-              <div>
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  required
-                  disabled={isLoading || isSigningIn}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  At least 8 characters with uppercase, lowercase, and numbers
-                </p>
-              </div>
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={isLoading || isSigningIn}
-              >
-                {isSigningIn ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating account...
-                  </>
-                ) : (
-                  'Create Account'
-                )}
-              </Button>
-            </form>
-          )}
-        </>
+              />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="At least 8 characters"
+              required
+              disabled={isLoading || isSigningIn}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              At least 8 characters with uppercase, lowercase, and numbers
+            </p>
+          </div>
+          <Button 
+            type="submit" 
+            className="w-full" 
+            disabled={isLoading || isSigningIn}
+          >
+            {isSigningIn ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating account...
+              </>
+            ) : (
+              'Create Merchant Account'
+            )}
+          </Button>
+          
+          <p className="text-xs text-center text-muted-foreground">
+            By creating an account, you agree to our{' '}
+            <Link href="/terms" className="underline">Terms of Service</Link>
+            {' '}and{' '}
+            <Link href="/privacy" className="underline">Privacy Policy</Link>
+          </p>
+        </form>
       )}
+
+      {/* Back to Home */}
+      <div className="mt-8 text-center">
+        <Link 
+          href="/" 
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-primary"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Home
+        </Link>
+      </div>
     </div>
   )
 }

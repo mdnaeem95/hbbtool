@@ -1,5 +1,4 @@
 import { Metadata } from "next"
-import { AuthGuard } from "../../../components/auth/auth-guard"
 import { Card } from "@kitchencloud/ui"
 import { Package } from "lucide-react"
 
@@ -10,7 +9,6 @@ export const metadata: Metadata = {
 
 export default function OrdersPage() {
   return (
-    <AuthGuard>
       <div className="min-h-screen">
         <div className="container py-8">
           <h1 className="text-2xl font-bold">My Orders</h1>
@@ -27,6 +25,5 @@ export default function OrdersPage() {
           </div>
         </div>
       </div>
-    </AuthGuard>
   )
 }

@@ -1,33 +1,15 @@
-import type { Merchant, Customer } from '@kitchencloud/database'
+import type { Merchant } from '@kitchencloud/database'
 
-// Unified user types
-export type UserType = 'merchant' | 'customer'
-
-export interface BaseUser {
+// Auth user type - merchants only
+export interface AuthUser {
   id: string
-  email?: string | null
-  phone?: string | null
-  userType: UserType
-}
-
-export interface MerchantUser extends BaseUser {
-  userType: 'merchant'
   email: string
   merchant?: Merchant
 }
 
-export interface CustomerUser extends BaseUser {
-  userType: 'customer'
-  phone: string
-  customer?: Customer
-}
-
-export type AuthUser = MerchantUser | CustomerUser
-
 // Session types
 export interface AuthSession {
   user: AuthUser
-  token?: string // For customer sessions
   expiresAt?: Date
 }
 
@@ -38,43 +20,31 @@ export interface AuthState {
   isLoading: boolean
   isAuthenticated: boolean
   isMerchant: boolean
-  isCustomer: boolean
   error: Error | null
 }
 
 // Auth context value
 export interface AuthContextValue extends AuthState {
-  signIn: (params: SignInParams) => Promise<void>
+  signIn: (email: string, password: string) => Promise<void>
   signUp: (params: SignUpParams) => Promise<void>
   signOut: () => Promise<void>
-  verifyOtp: (otp: string) => Promise<void>
   refresh: () => Promise<void>
 }
 
 // Auth method params
-export type SignInParams = 
-  | { type: 'merchant'; email: string; password: string }
-  | { type: 'customer'; phone: string; name?: string }
-
 export type SignUpParams = {
-  type: 'merchant'
   email: string
   password: string
   businessName: string
   phone: string
 }
 
-// Storage keys
+// Storage keys - if you need any for merchant sessions
 export const AUTH_STORAGE_KEYS = {
-  CUSTOMER_TOKEN: 'kc_customer_token',
-  PENDING_OTP: 'kc_pending_otp',
+  // Add any merchant-specific storage keys if needed
 } as const
 
-// Helpers
-export function isMerchantUser(user: AuthUser | null): user is MerchantUser {
-  return user?.userType === 'merchant'
-}
-
-export function isCustomerUser(user: AuthUser | null): user is CustomerUser {
-  return user?.userType === 'customer'
+// Helper - simplified since we only have merchants
+export function isMerchantUser(user: AuthUser | null): user is AuthUser {
+  return !!user
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button, Card, useToast } from '@kitchencloud/ui'
-import { ArrowLeft, ArrowRight, Shield } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Shield, Info } from 'lucide-react'
 import { useCart, useCartTotal } from '../../../stores/cart-store'
 import { CheckoutSteps, DeliverySection, ContactForm, PaymentSection, OrderSummary } from "../../../components/checkout/index"
 import { useCheckoutStore } from '../../../stores/checkout-store'
@@ -24,12 +24,27 @@ export default function CheckoutPage() {
     deliveryAddress,
     contactInfo,
     setSessionId,
+    setContactInfo,
     reset: resetCheckout,
   } = useCheckoutStore()
   
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('delivery')
   const [isCreatingSession, setIsCreatingSession] = useState(false)
   const [sessionData, setSessionData] = useState<any>(null)
+  const [rememberInfo, setRememberInfo] = useState(true)
+
+  // Load saved contact info from localStorage (for convenience)
+  useEffect(() => {
+    const savedInfo = localStorage.getItem('checkout_contact_info')
+    if (savedInfo && !contactInfo?.name) {
+      try {
+        const parsed = JSON.parse(savedInfo)
+        setContactInfo(parsed)
+      } catch (e) {
+        console.error('Failed to parse saved contact info')
+      }
+    }
+  }, [])
 
   // Create checkout session on mount
   useEffect(() => {
@@ -46,7 +61,6 @@ export default function CheckoutPage() {
   const createCheckoutSession = async () => {
     if (!merchantId) return
     
-    // Clear any existing session first
     if (sessionId) {
       resetCheckout()
     }
@@ -62,6 +76,7 @@ export default function CheckoutPage() {
           variant: item.variant ? JSON.stringify(item.variant): undefined,
           notes: item.notes,
         })),
+        // No authentication needed!
       })
       
       setSessionId(session.sessionId)
@@ -78,7 +93,6 @@ export default function CheckoutPage() {
     }
   }
 
-  // Get session details
   const { data: session, isLoading: isLoadingSession } = api.checkout.getSession.useQuery(
     { sessionId: sessionId || '' },
     { 
@@ -105,13 +119,20 @@ export default function CheckoutPage() {
       }
       setCurrentStep('contact')
     } else if (currentStep === 'contact') {
-      if (!contactInfo?.name || !contactInfo?.email || !contactInfo?.phone) {
+      if (!contactInfo?.name || !contactInfo?.phone) {
         toast({
-          title: "Please fill in all contact information",
+          title: "Please fill in your name and phone number",
+          description: "We need this to contact you about your order",
           variant: "destructive",
         })
         return
       }
+      
+      // Save contact info if user wants
+      if (rememberInfo) {
+        localStorage.setItem('checkout_contact_info', JSON.stringify(contactInfo))
+      }
+      
       setCurrentStep('payment')
     }
   }
@@ -131,7 +152,7 @@ export default function CheckoutPage() {
   const total = subtotal + deliveryFee
 
   if (items.length === 0) {
-    return null // Will redirect in useEffect
+    return null
   }
 
   if (isCreatingSession || isLoadingSession) {
@@ -140,19 +161,6 @@ export default function CheckoutPage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Setting up checkout...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!session && !sessionData) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground mb-4">Session expired</p>
-          <Button onClick={() => router.push('/cart')}>
-            Return to Cart
-          </Button>
         </div>
       </div>
     )
@@ -184,17 +192,25 @@ export default function CheckoutPage() {
         </div>
       </header>
 
+      {/* No Account Notice */}
+      <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-3">
+          <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+          <div className="text-sm text-blue-900">
+            <p className="font-medium">No account needed!</p>
+            <p className="text-blue-700">Just enter your contact details and we'll send order updates to your phone.</p>
+          </div>
+        </div>
+      </div>
+
       <div className="container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Your existing CheckoutSteps component with new design */}
         <CheckoutSteps currentStep={currentStep} />
 
-        {/* Main Content Grid */}
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Form Section */}
           <div className="lg:col-span-2">
             <Card className="rounded-2xl shadow-sm border-slate-100 overflow-hidden">
               <div className="p-6 sm:p-8">
-                {/* Your existing step content */}
                 {currentStep === 'delivery' && (
                   <DeliverySection 
                     merchantId={merchantId!}
@@ -202,7 +218,25 @@ export default function CheckoutPage() {
                   />
                 )}
 
-                {currentStep === 'contact' && <ContactForm />}
+                {currentStep === 'contact' && (
+                  <div className="space-y-6">
+                    <ContactForm />
+                    
+                    {/* Remember info checkbox */}
+                    <div className="flex items-center space-x-2 pt-4 border-t">
+                      <input
+                        type="checkbox"
+                        id="remember"
+                        checked={rememberInfo}
+                        onChange={(e) => setRememberInfo(e.target.checked)}
+                        className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                      />
+                      <label htmlFor="remember" className="text-sm text-gray-700">
+                        Save my details for faster checkout next time (stored locally on this device)
+                      </label>
+                    </div>
+                  </div>
+                )}
 
                 {currentStep === 'payment' && (
                   <PaymentSection
@@ -218,19 +252,31 @@ export default function CheckoutPage() {
                     deliveryAddress={deliveryAddress}
                     deliveryMethod={deliveryMethod!}
                     onSuccess={(orderId: string, orderNumber: string) => {
-                      // 🔧 Store customer phone for order confirmation page
+                      // Store phone for order tracking (no auth needed!)
                       if (contactInfo?.phone) {
-                        localStorage.setItem('checkout_customer_phone', contactInfo.phone)
+                        localStorage.setItem('last_order_phone', contactInfo.phone)
+                        
+                        // Store recent order for quick tracking
+                        const recentOrders = JSON.parse(localStorage.getItem('recent_orders') || '[]')
+                        recentOrders.unshift({
+                          orderId,
+                          orderNumber,
+                          merchantName: currentSessionData.merchant.businessName,
+                          date: new Date().toISOString(),
+                          total,
+                        })
+                        // Keep only last 10 orders
+                        localStorage.setItem('recent_orders', JSON.stringify(recentOrders.slice(0, 10)))
                       }
                       
                       clearCart()
                       resetCheckout()
-                      router.push(`/checkout/confirmation?orderId=${orderId}&orderNumber=${orderNumber}`)
+                      router.push(`/order/${orderNumber}/track`)
                     }}
                   />
                 )}
 
-                {/* Navigation buttons with new styling */}
+                {/* Navigation buttons */}
                 {currentStep !== 'payment' && (
                   <div className="mt-8 flex justify-between">
                     {currentStep !== 'delivery' && (
@@ -255,6 +301,22 @@ export default function CheckoutPage() {
                 )}
               </div>
             </Card>
+
+            {/* Track Order Link */}
+            {currentStep === 'contact' && (
+              <div className="mt-4 text-center">
+                <p className="text-sm text-gray-600">
+                  Already placed an order?{' '}
+                  <Button
+                    variant="link"
+                    className="p-0 h-auto text-orange-600"
+                    onClick={() => router.push('/track')}
+                  >
+                    Track it with your phone number
+                  </Button>
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Order Summary Sidebar */}
