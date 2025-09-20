@@ -136,10 +136,10 @@ export function MerchantMap({
                 transformOrigin: 'center center',
                 transform: selectedMerchantId === merchant.id ? 'scale(1.25)' : 'scale(1)',
               }}
-              onMouseEnter={(e) => {
+              onMouseEnter={(e: any) => {
                 e.currentTarget.style.transform = selectedMerchantId === merchant.id ? 'scale(1.35)' : 'scale(1.1)'
               }}
-              onMouseLeave={(e) => {
+              onMouseLeave={(e: any) => {
                 e.currentTarget.style.transform = selectedMerchantId === merchant.id ? 'scale(1.25)' : 'scale(1)'
               }}
             >

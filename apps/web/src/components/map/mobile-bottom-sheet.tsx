@@ -218,7 +218,7 @@ function MerchantCard({
   return (
     <Link
       href={`/merchant/${merchant.slug}`}
-      onClick={(e) => {
+      onClick={(e: any) => {
         if (onSelect) {
           e.preventDefault()
           onSelect()

@@ -86,9 +86,9 @@ export function MobileSearchHeader({
                 type="search"
                 placeholder="Search food or merchants..."
                 value={localSearchQuery}
-                onChange={(e) => setLocalSearchQuery(e.target.value)}
+                onChange={(e: any) => setLocalSearchQuery(e.target.value)}
                 onBlur={() => setSearchQuery(localSearchQuery)}
-                onKeyDown={(e) => {
+                onKeyDown={(e: any) => {
                   if (e.key === 'Enter') {
                     setSearchQuery(localSearchQuery)
                     e.currentTarget.blur()
