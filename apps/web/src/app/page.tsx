@@ -11,6 +11,7 @@ import { Store, MapPin } from 'lucide-react'
 import { api } from '../lib/trpc/client'
 import { LngLatBounds } from 'react-map-gl/mapbox'
 import { useMediaQuery } from '../hooks/use-media-query'
+import { useUserLocation } from '../hooks/use-user-location'
 
 export interface FilterState {
   cuisineType?: string[]
@@ -32,9 +33,19 @@ export default function HomePage() {
     return `${window.innerHeight}px`
   }
   return '100vh'
-})
+  })
 
-  // Fetch merchants with filters
+  // Location hook
+  const {
+    latitude,
+    longitude,
+    loading: locationLoading,
+    permission,
+    getUserLocation,
+    hasLocation,
+  } = useUserLocation()
+
+  // Fetch merchants with location-based sorting
   const { data, isLoading } = api.merchant.searchNearby.useQuery({
     query: searchQuery,
     filters: {
@@ -48,12 +59,39 @@ export default function HomePage() {
         south: mapBounds.getSouth(),
         east: mapBounds.getEast(),
         west: mapBounds.getWest()
-      } : undefined
+      } : undefined,
+      // User location goes here inside filters
+      userLocation: hasLocation ? {
+        lat: latitude!,
+        lng: longitude!
+      } : !hasLocation && !mapBounds ? {
+        // Default to central Singapore if no location permission
+        lat: 1.3521,  // Central Singapore coordinates
+        lng: 103.8198
+      } : undefined,
+      radius: 10, // You can adjust this or make it dynamic
     },
   }, {
     enabled: true,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: false,
   })
+
+  // Handle location request
+  const handleLocationRequest = useCallback(() => {
+    getUserLocation()
+  }, [getUserLocation])
+
+  // Show location permission prompt on first load
+  useEffect(() => {
+    if (permission === 'prompt' && !locationLoading) {
+      // Auto-request location after a short delay
+      const timer = setTimeout(() => {
+        getUserLocation()
+      }, 1000)
+      return () => clearTimeout(timer)
+    }
+    return undefined
+  }, [permission, getUserLocation, locationLoading])
 
   // Extract merchants array with default
   const merchants = data?.merchants ?? []
@@ -91,6 +129,15 @@ export default function HomePage() {
   if (isMobile) {
     return (
       <div className="relative min-h-screen bg-background">
+        {/* Location Permission Banner */}
+        {permission === 'denied' && (
+          <div className="bg-yellow-50 border-b border-yellow-200 p-3">
+            <p className="text-xs text-yellow-800 text-center">
+              Enable location to see merchants sorted by distance
+            </p>
+          </div>
+        )}
+
         {/* Merchant Banner - Only show when no merchants */}
         {totalResults === 0 && !isLoading && (
           <div className="merchant-banner bg-gradient-to-r from-orange-50 to-purple-50 border-b">
@@ -123,6 +170,9 @@ export default function HomePage() {
             isLoading={isLoading}
             onToggleView={() => setIsListView(!isListView)}
             isListView={isListView}
+            onRequestLocation={handleLocationRequest}
+            locationLoading={locationLoading}
+            hasLocation={hasLocation}
           />
         </div>
 
@@ -138,6 +188,7 @@ export default function HomePage() {
               onMerchantSelect={setSelectedMerchantId}
               onBoundsChange={handleBoundsChange}
               showPopup={!isMobile}
+              userLocation={hasLocation ? { lat: latitude!, lng: longitude! } : undefined}
             />
             
             {/* Map overlay for loading/empty states */}

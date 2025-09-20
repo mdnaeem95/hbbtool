@@ -7,6 +7,17 @@ import { Badge, Button, Skeleton } from '@kitchencloud/ui'
 import Image from 'next/image'
 import { motion, useAnimation, PanInfo } from 'framer-motion'
 
+// Add distance formatting helper
+function formatDistance(meters?: number | null): string {
+  if (!meters && meters !== 0) return ''
+  
+  if (meters < 1000) {
+    return `${Math.round(meters)}m`
+  } else {
+    return `${(meters / 1000).toFixed(1)}km`
+  }
+}
+
 interface Merchant {
   id: string
   slug: string
@@ -355,6 +366,14 @@ function MerchantCard({
 
             {/* Meta Info */}
             <div className="flex items-center gap-3 text-[10px] text-gray-500">
+              {/* Distance - Show first if available */}
+              {merchant.distance !== null && merchant.distance !== undefined && (
+                <div className="flex items-center gap-1 font-medium text-gray-700">
+                  <MapPin className="h-3 w-3" />
+                  <span>{formatDistance(merchant.distance)}</span>
+                </div>
+              )}
+              
               {merchant.estimatedDeliveryTime && (
                 <div className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />

@@ -16,6 +16,7 @@ interface MerchantMapProps {
   selectedMerchantId?: string | null
   onMerchantSelect?: (merchantId: string | null) => void
   showPopup?: boolean
+  userLocation?: { lat: number; lng: number }
 }
 
 export function MerchantMap({
@@ -23,7 +24,8 @@ export function MerchantMap({
   onBoundsChange,
   selectedMerchantId,
   onMerchantSelect,
-  showPopup = true 
+  showPopup = true,
+  userLocation 
 }: MerchantMapProps) {
   const [viewState, setViewState] = useState({
     longitude: SINGAPORE_CENTER.lng,
@@ -64,6 +66,17 @@ export function MerchantMap({
     }
   }, [selectedMerchantId, merchants])
 
+  useEffect(() => {
+    if (userLocation && mapRef.current) {
+      // Only fly to user location once when it's first obtained
+      mapRef.current.flyTo({
+        center: [userLocation.lng, userLocation.lat],
+        zoom: 13,
+        duration: 1500
+      })
+    }
+  }, [userLocation?.lat, userLocation?.lng])
+
   const handleMarkerClick = (merchant: MerchantMapMarker) => {
     setPopupMerchant(merchant)
     onMerchantSelect?.(merchant.id)
@@ -90,6 +103,20 @@ export function MerchantMap({
         trackUserLocation
         showUserHeading
       />
+
+      {/* User location marker */}
+      {userLocation && (
+        <Marker
+          latitude={userLocation.lat}
+          longitude={userLocation.lng}
+          anchor="bottom"
+        >
+          <div className="relative">
+            <div className="absolute inset-0 bg-blue-400 rounded-full animate-ping opacity-75" />
+            <div className="relative w-4 h-4 bg-blue-500 border-2 border-white rounded-full shadow-lg" />
+          </div>
+        </Marker>
+      )}
 
       {/* Merchant Markers */}
       {merchants.map((merchant) => (

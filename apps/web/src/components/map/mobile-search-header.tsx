@@ -1,6 +1,6 @@
 'use client'
 
-import { Search, Filter, MapPin, List, Map } from 'lucide-react'
+import { Search, Filter, MapPin, List, Map, Loader2 } from 'lucide-react'
 import { Input, Button, Badge, Sheet, SheetContent, SheetHeader, SheetTitle } from '@kitchencloud/ui'
 import { useState } from 'react'
 import { FilterState } from '../../app/page'
@@ -14,6 +14,9 @@ interface MobileSearchHeaderProps {
   isLoading: boolean
   onToggleView?: () => void
   isListView?: boolean
+  onRequestLocation?: () => void
+  locationLoading?: boolean
+  hasLocation?: boolean
 }
 
 const CUISINE_OPTIONS = [
@@ -42,6 +45,9 @@ export function MobileSearchHeader({
   isLoading,
   onToggleView,
   isListView = false,
+  onRequestLocation,
+  locationLoading = false,
+  hasLocation = false,
 }: MobileSearchHeaderProps) {
   const [showFilters, setShowFilters] = useState(false)
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery)
@@ -80,6 +86,29 @@ export function MobileSearchHeader({
         {/* Search Bar Row */}
         <div className="p-3 space-y-2">
           <div className="flex gap-2">
+            
+            {/* Location Button */}
+            {onRequestLocation && (
+              <Button
+                variant={hasLocation ? "default" : "outline"}
+                size="icon"
+                onClick={onRequestLocation}
+                disabled={locationLoading}
+                className={`h-10 w-10 ${
+                  hasLocation 
+                    ? 'bg-green-500 hover:bg-green-600 text-white' 
+                    : 'border-gray-200'
+                }`}
+                title={hasLocation ? "Location enabled" : "Enable location"}
+              >
+                {locationLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <MapPin className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
