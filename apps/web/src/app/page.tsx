@@ -175,6 +175,7 @@ export default function HomePage() {
           onMerchantSelect={setSelectedMerchantId}
           isLoading={isLoading}
           isListView={isListView}
+          isFullScreen={isListView} 
         />
       </div>
     )
