@@ -155,18 +155,7 @@ export default function HomePage() {
               </div>
             )}
           </div>
-        ): (
-          /* List View Container */
-          <div 
-            className="bg-white" 
-            style={{ 
-              minHeight: `calc(100vh - 60px)`, // Subtract header height
-              paddingBottom: '20px'
-            }}
-          >
-            {/* Empty container - MobileBottomSheet will overlay the list content */}
-          </div>         
-        )}
+        ) : null}
 
         {/* Mobile Bottom Sheet */}
         <MobileBottomSheet

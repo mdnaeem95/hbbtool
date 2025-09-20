@@ -91,11 +91,11 @@ export function MobileBottomSheet({
         className="bg-white"
         style={{
           marginTop: '8px',
-          minHeight: 'calc(100vh - 120px)',
+          minHeight: 'auto',
         }}
       >
         {/* Content without drag handle */}
-        <div className="px-4 pb-4 pt-2">
+        <div className="px-4 pb-20">
           {/* List Header */}
           <div className="mb-4">
             <h2 className="font-semibold">All Merchants</h2>
