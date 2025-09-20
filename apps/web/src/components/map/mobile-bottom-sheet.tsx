@@ -34,6 +34,7 @@ interface MobileBottomSheetProps {
   onMerchantSelect: (id: string | null) => void
   isLoading: boolean
   isListView?: boolean
+  isFullScreen?: boolean
 }
 
 export function MobileBottomSheet({
@@ -42,6 +43,7 @@ export function MobileBottomSheet({
   onMerchantSelect,
   isLoading,
   isListView = false,
+  isFullScreen = false,
 }: MobileBottomSheetProps) {
   const [sheetHeight, setSheetHeight] = useState(120) // Start with peek height
   const [isDragging, setIsDragging] = useState(false)
@@ -81,6 +83,68 @@ export function MobileBottomSheet({
   }, [selectedMerchantId, sheetHeight])
 
   const selectedMerchant = merchants.find(m => m.id === selectedMerchantId)
+
+  // Full-screen list view mode (no dragging)
+  if (isFullScreen) {
+    return (
+      <div 
+        className="bg-white"
+        style={{
+          marginTop: '8px',
+          minHeight: 'calc(100vh - 120px)',
+        }}
+      >
+        {/* Content without drag handle */}
+        <div className="px-4 pb-4 pt-2">
+          {/* List Header */}
+          <div className="mb-4">
+            <h2 className="font-semibold">All Merchants</h2>
+            <p className="text-sm text-gray-500">
+              {isLoading ? 'Loading...' : `${merchants.length} available`}
+            </p>
+          </div>
+
+          {/* Loading State */}
+          {isLoading && (
+            <div className="space-y-4">
+              {[...Array(5)].map((_, i) => (
+                <MerchantCardSkeleton key={i} />
+              ))}
+            </div>
+          )}
+
+          {/* Merchant List */}
+          {!isLoading && merchants.length > 0 && (
+            <div className="space-y-3">
+              {merchants.map(merchant => (
+                <Link
+                  key={merchant.id}
+                  href={`/merchant/${merchant.slug}`}
+                  className="block"
+                >
+                  <MerchantCard
+                    merchant={merchant}
+                    isSelected={merchant.id === selectedMerchantId}
+                  />
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!isLoading && merchants.length === 0 && (
+            <div className="text-center py-12">
+              <MapPin className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+              <p className="text-gray-600 font-medium text-lg">No merchants found</p>
+              <p className="text-sm text-gray-500 mt-2">
+                Try adjusting your search or filters
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>

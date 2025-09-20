@@ -112,8 +112,8 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Mobile Search Header */}
-        <div className="mobile-header">
+        {/* Mobile Search Header - Always visible */}
+        <div className="mobile-header sticky top-0 z-30 bg-white">
           <MobileSearchHeader
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
@@ -126,8 +126,8 @@ export default function HomePage() {
           />
         </div>
 
-        {/* Map Container - Optimized height */}
-        {!isListView && (
+        {/* Map Container - Hidden in list view */}
+        {!isListView ? (
           <div 
             className="relative bg-gray-100" 
             style={{ height: mapHeight }}
@@ -155,6 +155,17 @@ export default function HomePage() {
               </div>
             )}
           </div>
+        ): (
+          /* List View Container */
+          <div 
+            className="bg-white" 
+            style={{ 
+              minHeight: `calc(100vh - 60px)`, // Subtract header height
+              paddingBottom: '20px'
+            }}
+          >
+            {/* Empty container - MobileBottomSheet will overlay the list content */}
+          </div>         
         )}
 
         {/* Mobile Bottom Sheet */}
