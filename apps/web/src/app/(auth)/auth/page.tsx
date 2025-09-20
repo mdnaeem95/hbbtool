@@ -1,37 +1,56 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { api } from '../../../lib/trpc/client'
 
 type AuthMode = 'signin' | 'signup'
 
 export default function AuthPage() {
-  const router = useRouter()
   const [mode, setMode] = useState<AuthMode>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [businessName, setBusinessName] = useState('')
   const [phone, setPhone] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [signupSuccess, setSignupSuccess] = useState(false)
+  const [submittedEmail, setSubmittedEmail] = useState('')
+
+  const signUpMutation = api.auth.merchantSignUp.useMutation({
+    onSuccess: () => {
+      setSubmittedEmail(email)
+      setSignupSuccess(true)
+    },
+    onError: (error: any) => {
+      if (error.message?.includes('already registered')) {
+        setError('This email is already registered. Please sign in.')
+      } else if (error.message?.includes('Too many signup')) {
+        setError('Too many signup attempts. Please try again later.')
+      } else {
+        setError(error.message || 'Failed to create account')
+      }
+    }
+  })
+
+  const signInMutation = api.auth.merchantSignIn.useMutation({
+    onSuccess: () => {
+      window.location.href = '/dashboard'
+    },
+    onError: (error: any) => {
+      if (error.message?.includes('pending approval')) {
+        setError('Your account is still pending approval. Check your email for updates.')
+      } else if (error.message?.includes('suspended')) {
+        setError('Your account has been suspended. Please contact support.')
+      } else {
+        setError('Invalid email or password')
+      }
+    }
+  })
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    
-    if (!email || !password) {
-      setError('Please enter your email and password')
-      return
-    }
-
-    setIsLoading(true)
-    
-    // TODO: Implement actual merchant sign in
-    setTimeout(() => {
-      setIsLoading(false)
-      router.push('/dashboard')
-    }, 1000)
+    signInMutation.mutate({ email, password })
   }
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -48,14 +67,59 @@ export default function AuthPage() {
       return
     }
 
-    setIsLoading(true)
-    
-    // TODO: Implement actual merchant sign up
-    setTimeout(() => {
-      setIsLoading(false)
-      router.push('/dashboard')
-    }, 1000)
+    const formattedPhone = phone.startsWith('+65') ? phone : `+65${phone}`
+
+    signUpMutation.mutate({ 
+      email, 
+      password, 
+      businessName,
+      phone: formattedPhone
+    })
   }
+
+  // Show success message after signup
+  if (signupSuccess) {
+    return (
+      <div className="w-full max-w-md mx-auto text-center space-y-6">
+        <div className="p-8 bg-green-50 rounded-lg border border-green-200">
+          <svg className="w-16 h-16 text-green-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Application Submitted!
+          </h2>
+          
+          <p className="text-gray-600 mb-4">
+            Thank you for applying to join KitchenCloud.
+          </p>
+          
+          <div className="bg-white p-4 rounded-lg text-left space-y-2">
+            <h3 className="font-semibold text-gray-900">What happens next?</h3>
+            <ul className="text-sm text-gray-600 space-y-1">
+              <li>• Our team will review your application within 24-48 hours</li>
+              <li>• We'll verify your business details</li>
+              <li>• You'll receive an email at <span className="font-medium">{submittedEmail}</span></li>
+              <li>• Once approved, you can start accepting orders!</li>
+            </ul>
+          </div>
+        </div>
+        
+        <p className="text-sm text-gray-500">
+          Have questions? Contact us at{' '}
+          <a href="mailto:support@kitchencloud.sg" className="text-orange-600 hover:underline">
+            support@kitchencloud.sg
+          </a>
+        </p>
+        
+        <Link href="/" className="inline-block text-sm text-gray-600 hover:text-gray-900">
+          ← Back to home
+        </Link>
+      </div>
+    )
+  }
+
+  const isLoading = signUpMutation.isPending || signInMutation.isPending
 
   return (
     <div className="w-full space-y-6">

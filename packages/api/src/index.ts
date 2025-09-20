@@ -10,11 +10,11 @@ import { publicRouter } from './trpc/routers/public'
 import { analyticsRouter } from './trpc/routers/analytics'
 import { settingsRouter } from './trpc/routers/settings'
 import { notificationRouter } from './trpc/routers/notification'
+import { adminRouter } from './trpc/routers/admin'
 
 export { createTRPCContext } from './trpc/context'
 export type { TRPCContext } from './trpc/context'
 
-// (optional) tiny health route for smoke tests
 export const appRouter = router({
   health: publicProcedure.query(({ ctx }) => ({
     ok: true,
@@ -30,7 +30,8 @@ export const appRouter = router({
   public: publicRouter,
   analytics: analyticsRouter,
   settings: settingsRouter,
-  notification: notificationRouter
+  notification: notificationRouter,
+  admin: adminRouter
 })
 
 export type AppRouter = typeof appRouter

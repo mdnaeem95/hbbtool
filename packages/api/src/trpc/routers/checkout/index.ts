@@ -6,7 +6,7 @@ import { nanoid } from 'nanoid'
 import { DeliveryMethod, PaymentMethod, OrderStatus, PaymentStatus } from '@kitchencloud/database'
 
 // ---------- types ----------
-enum DeliveryPricingModel {
+export enum DeliveryPricingModel {
   FLAT = 'FLAT',
   DISTANCE = 'DISTANCE',
   ZONE = 'ZONE',
