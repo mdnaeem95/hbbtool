@@ -84,14 +84,20 @@ const isAdmin = t.middleware(async ({ ctx, next }) => {
     })
   }
 
-  // Check if user is an admin
-  const ADMIN_EMAILS: string[] = process.env.ADMIN_EMAILS 
+  // Check if user is an admin - use consistent admin list
+  const hardcodedAdmins = ['muhdnaeem95@gmail.com']
+  const envAdmins = process.env.ADMIN_EMAILS 
     ? process.env.ADMIN_EMAILS.split(',').map(email => email.trim().toLowerCase())
-    : ['muhdnaeem95@gmail.com']
+    : []
+  const adminEmails = [...new Set([...hardcodedAdmins, ...envAdmins])]
   
   const userEmail = session.user.email?.toLowerCase()
   
-  if (!userEmail || !ADMIN_EMAILS.includes(userEmail)) {
+  console.log('[Admin Middleware] Email:', userEmail)
+  console.log('[Admin Middleware] Admin list:', adminEmails)
+  console.log('[Admin Middleware] Is admin?:', userEmail && adminEmails.includes(userEmail))
+  
+  if (!userEmail || !adminEmails.includes(userEmail)) {
     throw new TRPCError({
       code: 'FORBIDDEN',
       message: 'Admin access required',
