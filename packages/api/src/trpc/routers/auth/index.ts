@@ -187,6 +187,9 @@ export const authRouter = router({
         })
       }
 
+      const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim())
+      const isAdmin = ADMIN_EMAILS.includes(input.email)
+
       return {
         user: {
           id: data.user.id,
@@ -194,6 +197,8 @@ export const authRouter = router({
           userType: 'merchant' as const,
         },
         merchant,
+        isAdmin,
+        redirectTo: isAdmin ? '/admin/dashboard' : '/dashboard'
       }
     }),
 

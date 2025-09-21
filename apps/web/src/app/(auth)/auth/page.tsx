@@ -33,17 +33,19 @@ export default function AuthPage() {
   })
 
   const signInMutation = api.auth.merchantSignIn.useMutation({
-    onSuccess: () => {
-      window.location.href = '/dashboard'
-    },
-    onError: (error: any) => {
-      if (error.message?.includes('pending approval')) {
-        setError('Your account is still pending approval. Check your email for updates.')
-      } else if (error.message?.includes('suspended')) {
-        setError('Your account has been suspended. Please contact support.')
+    onSuccess: (data) => {
+      console.log('✅ Login successful')
+      // Check if admin and redirect accordingly
+      if (data.isAdmin) {
+        console.log('👨‍💼 Admin user detected, redirecting to admin dashboard')
+        window.location.href = '/admin/dashboard'
       } else {
-        setError('Invalid email or password')
+        console.log('🏪 Merchant user, redirecting to merchant dashboard')
+        window.location.href = '/dashboard'
       }
+    },
+    onError: (error) => {
+      setError(error.message)
     }
   })
 
