@@ -2,7 +2,6 @@ import { initTRPC, TRPCError } from '@trpc/server'
 import superjson from 'superjson'
 import { ZodError } from 'zod'
 import type { Context } from './context'
-import type { AuthSession } from '@kitchencloud/auth'
 
 export const t = initTRPC.context<Context>().create({
   transformer: superjson,
@@ -31,15 +30,111 @@ const loggerMiddleware = t.middleware(async ({ path, type, next }) => {
   return result
 })
 
-const isAuthed = t.middleware(({ ctx, next }) => {
-  if (!ctx.session) {
-    throw new TRPCError({ code: 'UNAUTHORIZED' })
+const isAuthed = t.middleware(async ({ ctx, next }) => {
+  // Get session from Supabase
+  const { data: { session } } = await ctx.supabase.auth.getSession()
+  
+  if (!session?.user) {
+    throw new TRPCError({ 
+      code: 'UNAUTHORIZED',
+      message: 'You must be logged in' 
+    })
+  }
+  
+  // Get merchant data
+  const merchant = await ctx.db.merchant.findFirst({
+    where: { 
+      email: {
+        equals: session.user.email!,
+        mode: 'insensitive'
+      }
+    }
+  })
+
+  if (!merchant) {
+    throw new TRPCError({ 
+      code: 'UNAUTHORIZED',
+      message: 'Merchant account not found' 
+    })
   }
   
   return next({
     ctx: {
       ...ctx,
-      session: ctx.session as AuthSession,
+      session: {
+        user: {
+          id: merchant.id,
+          email: merchant.email,
+          userType: 'merchant' as const,
+        }
+      },
+      merchant,
+    },
+  })
+})
+
+const isAdmin = t.middleware(async ({ ctx, next }) => {
+  // Get session from Supabase
+  const { data: { session } } = await ctx.supabase.auth.getSession()
+  
+  if (!session?.user) {
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: 'You must be logged in',
+    })
+  }
+
+  // Check if user is an admin
+  const ADMIN_EMAILS: string[] = process.env.ADMIN_EMAILS 
+    ? process.env.ADMIN_EMAILS.split(',').map(email => email.trim().toLowerCase())
+    : ['muhdnaeem95@gmail.com']
+  
+  const userEmail = session.user.email?.toLowerCase()
+  
+  if (!userEmail || !ADMIN_EMAILS.includes(userEmail)) {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Admin access required',
+    })
+  }
+
+  // Get merchant data for context
+  const merchant = await ctx.db.merchant.findFirst({
+    where: { 
+      email: {
+        equals: session.user.email!,
+        mode: 'insensitive'
+      }
+    }
+  })
+
+  if (!merchant) {
+    throw new TRPCError({ 
+      code: 'NOT_FOUND',
+      message: 'Merchant account not found' 
+    })
+  }
+
+  // Check merchant status
+  if (merchant.status !== 'ACTIVE' || !merchant.verified) {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Account is not active',
+    })
+  }
+
+  return next({
+    ctx: {
+      ...ctx,
+      session: {
+        user: {
+          id: merchant.id,
+          email: merchant.email,
+          userType: 'merchant' as const,
+        }
+      },
+      merchant,
+      isAdmin: true,
     },
   })
 })
@@ -56,36 +151,9 @@ export const protectedProcedure = t.procedure
   .use(loggerMiddleware)
   .use(isAuthed)
 
-// In packages/api/src/trpc/core.ts
+export const adminProcedure = t.procedure
+  .use(loggerMiddleware)
+  .use(isAdmin)
 
-// Add this after your existing publicProcedure and protectedProcedure
-
-export const adminProcedure = t.procedure.use(async ({ ctx, next }) => {
-  // Check if user is authenticated
-  if (!ctx.session?.user) {
-    throw new TRPCError({
-      code: 'UNAUTHORIZED',
-      message: 'You must be logged in',
-    })
-  }
-
-  // Check if user is an admin
-  const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim())
-  
-  if (!ADMIN_EMAILS.includes(ctx.session.user.email)) {
-    throw new TRPCError({
-      code: 'FORBIDDEN',
-      message: 'Admin access required',
-    })
-  }
-
-  return next({
-    ctx: {
-      ...ctx,
-      isAdmin: true,
-    },
-  })
-})
-
-// merchantProcedure is the same as protectedProcedure now
+// merchantProcedure is the same as protectedProcedure
 export const merchantProcedure = protectedProcedure

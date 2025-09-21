@@ -9,14 +9,41 @@ const phoneSchema = z.string().regex(/^(\+65)?[689]\d{7}$/, 'Invalid Singapore p
 const emailSchema = z.email()
 const passwordSchema = z.string().min(8).max(100)
 
+// Admin configuration - explicitly handle the default case
+const ADMIN_EMAILS: string[] = process.env.ADMIN_EMAILS 
+  ? process.env.ADMIN_EMAILS.split(',').map(email => email.trim().toLowerCase())
+  : ['muhdnaeem95@gmail.com'] // Direct array when no env var
+
 export const authRouter = router({
   // Get current session
   getSession: publicProcedure.query(async ({ ctx }) => {
-    if (!ctx.session) return null
+    // Get session from Supabase
+    const { data: { session } } = await ctx.supabase.auth.getSession()
+    
+    if (!session?.user) return null
+    
+    // Get merchant by email
+    const merchant = await ctx.db.merchant.findFirst({
+      where: { 
+        email: {
+          equals: session.user.email!,
+          mode: 'insensitive'
+        }
+      }
+    })
+
+    if (!merchant) return null
+
+    const isAdmin = ADMIN_EMAILS.includes(merchant.email.toLowerCase())
     
     return {
-      user: ctx.session.user,
+      user: {
+        id: merchant.id,
+        email: merchant.email!,
+        userType: 'merchant' as const,
+      },
       isMerchant: true,
+      isAdmin,
     }
   }),
 
@@ -32,12 +59,14 @@ export const authRouter = router({
       website: z.string().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
-      // Check if email already exists
-      const existingUser = await ctx.db.merchant.findUnique({
-        where: { email: input.email },
+      const normalizedEmail = input.email.toLowerCase().trim()
+      
+      // Check if email already exists in database
+      const existingMerchant = await ctx.db.merchant.findUnique({
+        where: { email: normalizedEmail },
       })
       
-      if (existingUser) {
+      if (existingMerchant) {
         throw new TRPCError({
           code: 'CONFLICT',
           message: 'Email already registered',
@@ -74,12 +103,13 @@ export const authRouter = router({
         counter++
       }
 
+      // Hash password for database storage
       const hashedPassword = await bcrypt.hash(input.password, 10)
-
-      // Create merchant with PENDING_VERIFICATION status
+      
+      // Create merchant in database first
       const merchant = await ctx.db.merchant.create({
         data: {
-          email: input.email,
+          email: normalizedEmail,
           phone: input.phone,
           businessName: input.businessName,
           slug,
@@ -88,31 +118,49 @@ export const authRouter = router({
           description: input.description,
           websiteUrl: input.website,
           
-          // Use existing fields
-          status: 'PENDING_VERIFICATION',  // Already in your schema!
-          verified: false,                  // Already in your schema!
+          // Set status based on admin list
+          status: ADMIN_EMAILS.includes(normalizedEmail) ? 'ACTIVE' : 'PENDING_VERIFICATION',
+          verified: ADMIN_EMAILS.includes(normalizedEmail),
           
-          // Store signup metadata in settings field
+          // Store signup metadata
           settings: {
-            signupIp: ctx.ip,
-            signupUserAgent: ctx.req.headers.get('user-agent'),
+            signupIp: ctx.ip || 'unknown',
+            signupUserAgent: ctx.req?.headers.get('user-agent') || 'unknown',
             signupDate: new Date().toISOString(),
-            pendingApproval: true,
+            pendingApproval: !ADMIN_EMAILS.includes(normalizedEmail),
           }
         },
       })
 
-      // Send notification emails (implement based on your email service)
-      console.log(`📧 New signup: ${merchant.businessName} (${merchant.email})`)
-      console.log(`⏳ Status: PENDING_VERIFICATION`)
-      
-      // In production, send actual emails here
-      // await sendAdminNotification(merchant)
-      // await sendMerchantConfirmation(merchant)
+      // Now create Supabase user
+      const { data: authData, error: authError } = await ctx.supabase.auth.admin.createUser({
+        email: normalizedEmail,
+        password: input.password,
+        email_confirm: ADMIN_EMAILS.includes(normalizedEmail), // Auto-confirm admins only
+        user_metadata: {
+          businessName: input.businessName,
+          userType: 'merchant',
+          merchantId: merchant.id,
+        }
+      })
+
+      if (authError || !authData.user) {
+        console.error('Supabase user creation failed:', authError)
+        // Clean up merchant record if Supabase fails
+        await ctx.db.merchant.delete({ where: { id: merchant.id } })
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to create account. Please try again.',
+        })
+      }
+
+      console.log(`New merchant signup: ${merchant.businessName} (${merchant.email}) - Status: ${merchant.status}`)
 
       return {
         success: true,
-        message: 'Application submitted successfully'
+        message: merchant.status === 'ACTIVE' 
+          ? 'Account created successfully!'
+          : 'Application submitted successfully. You will receive an email once approved.',
       }
     }),
 
@@ -123,15 +171,19 @@ export const authRouter = router({
       password: passwordSchema,
     }))
     .mutation(async ({ input, ctx }) => {
-      // FIRST: Check merchant status in database
-      console.log('🔍 Login attempt for:', input.email)
-      const merchant = await ctx.db.merchant.findUnique({
-        where: { email: input.email },
+      const normalizedEmail = input.email.toLowerCase().trim()
+      
+      console.log('Login attempt for:', normalizedEmail)
+      
+      // First check if merchant exists in our database
+      const merchant = await ctx.db.merchant.findFirst({
+        where: { 
+          email: {
+            equals: normalizedEmail,
+            mode: 'insensitive'
+          }
+        }
       })
-
-      console.log('📦 Merchant found:', merchant ? 'YES' : 'NO')
-      console.log('📦 Merchant status:', merchant?.status)
-      console.log('📦 Merchant verified:', merchant?.verified)
 
       if (!merchant) {
         throw new TRPCError({
@@ -140,7 +192,9 @@ export const authRouter = router({
         })
       }
 
-      // CHECK STATUS BEFORE TRYING SUPABASE
+      console.log(`Merchant found: ${merchant.businessName} - Status: ${merchant.status}`)
+
+      // Check merchant status BEFORE attempting authentication
       if (merchant.status === 'PENDING_VERIFICATION') {
         throw new TRPCError({
           code: 'FORBIDDEN',
@@ -151,64 +205,67 @@ export const authRouter = router({
       if (merchant.status === 'SUSPENDED') {
         throw new TRPCError({
           code: 'FORBIDDEN',
-          message: merchant.suspensionReason || 'Your account has been suspended.',
+          message: merchant.suspensionReason || 'Your account has been suspended. Please contact support.',
         })
       }
 
-      if (merchant.status !== 'ACTIVE' || !merchant.verified) {
+      if (merchant.status !== 'ACTIVE') {
         throw new TRPCError({
           code: 'FORBIDDEN',
-          message: 'Your account is not active.',
+          message: 'Your account is not active. Please contact support.',
         })
       }
 
-      // NOW TRY SUPABASE (only for active merchants)
-      console.log('🔐 Attempting Supabase auth...')
-      const { data, error } = await ctx.supabase.auth.signInWithPassword({
+      if (!merchant.verified) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'Please verify your email address to continue.',
+        })
+      }
+
+      // Now authenticate with Supabase
+      const { data: authData, error: authError } = await ctx.supabase.auth.signInWithPassword({
         email: input.email,
         password: input.password,
       })
 
-      console.log('🔐 Supabase result:', error ? `ERROR: ${error.message}` : 'SUCCESS')
-
-      if (error || !data.user) {
+      if (authError || !authData.user) {
+        console.log('Authentication failed:', authError?.message)
         throw new TRPCError({
           code: 'UNAUTHORIZED',
           message: 'Invalid email or password',
         })
       }
 
-      // Verify it's a merchant account
-      if (data.user.user_metadata?.userType !== 'merchant') {
-        await ctx.supabase.auth.signOut()
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'Not a merchant account',
-        })
-      }
-
-      const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim())
-      const isAdmin = ADMIN_EMAILS.includes(input.email)
+      // Check if user is admin - ensure boolean type
+      console.log('🔍 Admin check debug:')
+      console.log('  - Input email:', input.email)
+      console.log('  - Normalized email:', normalizedEmail)
+      console.log('  - ADMIN_EMAILS array:', ADMIN_EMAILS)
+      console.log('  - Is in array?:', ADMIN_EMAILS.includes(normalizedEmail))
+      
+      const isAdmin: boolean = ADMIN_EMAILS.includes(normalizedEmail)
+      
+      console.log(`Login successful: ${merchant.businessName} (Admin: ${isAdmin})`)
 
       return {
         user: {
-          id: data.user.id,
-          email: data.user.email!,
+          id: merchant.id,
+          email: merchant.email!,
           userType: 'merchant' as const,
         },
         merchant,
         isAdmin,
-        redirectTo: isAdmin ? '/admin/dashboard' : '/dashboard'
       }
     }),
 
   // Sign out
   signOut: protectedProcedure.mutation(async ({ ctx }) => {
-    try {
-      // Sign out from Supabase
-      await ctx.supabase.auth.signOut()
-    } catch (error) {
-      console.error('Supabase signout error:', error)
+    const { error } = await ctx.supabase.auth.signOut()
+    
+    if (error) {
+      console.error('Sign out error:', error)
+      // Don't throw, just log - user wants to sign out regardless
     }
 
     return { success: true }
@@ -216,16 +273,24 @@ export const authRouter = router({
 
   // Refresh session
   refreshSession: protectedProcedure.mutation(async ({ ctx }) => {
-    // Refresh Supabase session
-    const { error } = await ctx.supabase.auth.refreshSession()
+    const { data, error } = await ctx.supabase.auth.refreshSession()
     
     if (error) {
       throw new TRPCError({
         code: 'UNAUTHORIZED',
-        message: 'Failed to refresh session',
+        message: 'Session expired. Please sign in again.',
       })
     }
 
-    return { success: true }
+    if (!data.session) {
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: 'No active session found.',
+      })
+    }
+
+    return { 
+      success: true,
+    }
   }),
 })

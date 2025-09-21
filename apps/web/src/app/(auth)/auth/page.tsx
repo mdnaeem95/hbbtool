@@ -34,17 +34,32 @@ export default function AuthPage() {
 
   const signInMutation = api.auth.merchantSignIn.useMutation({
     onSuccess: (data) => {
+      console.log('====== CLIENT AUTH DEBUG ======')
       console.log('✅ Login successful')
+      console.log('📦 Full response data:', data)
+      console.log('👤 User data:', data.user)
+      console.log('🏪 Merchant data:', data.merchant)
+      console.log('🔑 isAdmin value:', data.isAdmin)
+      console.log('🔍 Type of isAdmin:', typeof data.isAdmin)
+      console.log('===============================')
+      
       // Check if admin and redirect accordingly
-      if (data.isAdmin) {
+      if (data.isAdmin === true) {  // Be explicit with the check
         console.log('👨‍💼 Admin user detected, redirecting to admin dashboard')
-        window.location.href = '/admin/dashboard'
+        // Add a small delay to see the console logs
+        setTimeout(() => {
+          window.location.href = '/admin/dashboard'
+        }, 1000)
       } else {
         console.log('🏪 Merchant user, redirecting to merchant dashboard')
-        window.location.href = '/dashboard'
+        console.log('❓ Why not admin? isAdmin =', data.isAdmin)
+        setTimeout(() => {
+          window.location.href = '/dashboard'
+        }, 1000)
       }
     },
     onError: (error) => {
+      console.error('❌ Login error:', error)
       setError(error.message)
     }
   })
