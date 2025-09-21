@@ -1,6 +1,23 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { adminProcedure, router } from '../../core'
+import { createClient } from '@supabase/supabase-js'
+import { sendMerchantApprovalEmail, sendMerchantRejectionEmail } from '../../../services/email'
+
+// Create Supabase Admin client for user management
+// This requires the service role key
+const supabaseAdmin = process.env.SUPABASE_SERVICE_ROLE_KEY
+  ? createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
+  : null
 
 export const adminRouter = router({
   // Get pending merchants
@@ -22,14 +39,14 @@ export const adminRouter = router({
           description: true,
           websiteUrl: true,
           createdAt: true,
-          settings: true, // Contains signup metadata
+          settings: true,
         },
       })
 
       return { merchants }
     }),
 
-  // Approve merchant - using existing fields!
+  // Approve merchant
   approveMerchant: adminProcedure
     .input(z.object({
       merchantId: z.string(),
@@ -54,31 +71,82 @@ export const adminRouter = router({
         })
       }
 
-      // Update using YOUR EXISTING FIELDS
+      // Update merchant status in database
       const updatedMerchant = await ctx.db.merchant.update({
         where: { id: input.merchantId },
         data: {
-          status: 'ACTIVE',           // Your field
-          verified: true,             // Your field
-          verifiedAt: new Date(),     // Your field
-          verifiedBy: ctx.session?.user.id || 'admin',  // Your field
+          status: 'ACTIVE',
+          verified: true,
+          verifiedAt: new Date(),
+          verifiedBy: ctx.merchant?.id || 'admin',
           settings: {
             ...(merchant.settings as any || {}),
             approvalNotes: input.notes,
             approvedAt: new Date().toISOString(),
+            approvedBy: ctx.merchant?.email,
           },
         },
       })
 
-      // Send welcome email
-      console.log(`✅ Approved: ${merchant.businessName}`)
-      console.log(`📧 Would send welcome email to: ${merchant.email}`)
-      // In production: await sendWelcomeEmail(merchant)
+      // Confirm the Supabase user
+      if (supabaseAdmin) {
+        try {
+          // First, get the user by email
+          const { data: users, error: searchError } = await supabaseAdmin.auth.admin.listUsers({
+            page: 1,
+            perPage: 50,
+          })
 
-      return updatedMerchant
+          if (!searchError && users) {
+            const supabaseUser = users.users.find(
+              u => u.email?.toLowerCase() === merchant.email.toLowerCase()
+            )
+
+            if (supabaseUser) {
+              // Update user to confirmed
+              const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+                supabaseUser.id,
+                {
+                  email_confirm: true,
+                  user_metadata: {
+                    ...supabaseUser.user_metadata,
+                    merchantApproved: true,
+                    approvedAt: new Date().toISOString(),
+                  }
+                }
+              )
+
+              if (updateError) {
+                console.error('Failed to confirm Supabase user:', updateError)
+                // Don't throw - merchant is approved in our system
+              } else {
+                console.log(`✅ Supabase user confirmed for: ${merchant.email}`)
+              }
+            } else {
+              console.warn(`⚠️ Supabase user not found for: ${merchant.email}`)
+            }
+          }
+        } catch (error) {
+          console.error('Supabase confirmation error:', error)
+          // Don't throw - merchant is approved in our system
+        }
+      } else {
+        console.warn('⚠️ No service role key - cannot confirm Supabase user automatically')
+        console.log('💡 Add SUPABASE_SERVICE_ROLE_KEY to .env to enable auto-confirmation')
+      }
+
+      console.log(`✅ Approved merchant: ${merchant.businessName} (${merchant.email})`)
+      
+      // Send welcome email
+      await sendMerchantApprovalEmail(merchant.email, merchant.businessName)
+
+      return {
+        success: true,
+        merchant: updatedMerchant,
+      }
     }),
 
-  // Reject merchant - using existing fields!
+  // Reject merchant
   rejectMerchant: adminProcedure
     .input(z.object({
       merchantId: z.string(),
@@ -96,26 +164,97 @@ export const adminRouter = router({
         })
       }
 
-      // Update using YOUR EXISTING FIELDS
+      if (merchant.status !== 'PENDING_VERIFICATION') {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Merchant is not pending approval',
+        })
+      }
+
+      // Update merchant status
       const updatedMerchant = await ctx.db.merchant.update({
         where: { id: input.merchantId },
         data: {
-          status: 'SUSPENDED',              // Your field
-          suspensionReason: input.reason,   // Your field!
-          verified: false,
+          status: 'SUSPENDED',
+          suspensionReason: input.reason,
           settings: {
             ...(merchant.settings as any || {}),
+            rejectionReason: input.reason,
             rejectedAt: new Date().toISOString(),
-            rejectedBy: ctx.session?.user.id || 'admin',
+            rejectedBy: ctx.merchant?.email,
           },
         },
       })
 
-      // Send rejection email
-      console.log(`❌ Rejected: ${merchant.businessName}`)
-      console.log(`📧 Would send rejection email to: ${merchant.email}`)
-      // In production: await sendRejectionEmail(merchant, input.reason)
+      // Delete or deactivate the Supabase user
+      if (supabaseAdmin) {
+        try {
+          const { data: users } = await supabaseAdmin.auth.admin.listUsers({
+            page: 1,
+            perPage: 50,
+          })
 
-      return updatedMerchant
+          const supabaseUser = users?.users.find(
+            u => u.email?.toLowerCase() === merchant.email.toLowerCase()
+          )
+
+          if (supabaseUser) {
+            await supabaseAdmin.auth.admin.deleteUser(supabaseUser.id)
+            console.log(`🗑️ Deleted Supabase user for rejected merchant: ${merchant.email}`)
+          }
+        } catch (error) {
+          console.error('Failed to delete Supabase user:', error)
+        }
+      }
+
+      console.log(`❌ Rejected merchant: ${merchant.businessName} (${merchant.email})`)
+      
+      // Send rejection email
+      await sendMerchantRejectionEmail(merchant.email, merchant.businessName, input.reason)
+
+      return {
+        success: true,
+        merchant: updatedMerchant,
+      }
+    }),
+
+  // Get all merchants with filters
+  getAllMerchants: adminProcedure
+    .input(z.object({
+      status: z.enum(['ACTIVE', 'PENDING_VERIFICATION', 'SUSPENDED']).optional(),
+      search: z.string().optional(),
+      page: z.number().default(1),
+      limit: z.number().default(20),
+    }))
+    .query(async ({ ctx, input }) => {
+      const where: any = { deletedAt: null }
+      
+      if (input.status) {
+        where.status = input.status
+      }
+      
+      if (input.search) {
+        where.OR = [
+          { businessName: { contains: input.search, mode: 'insensitive' } },
+          { email: { contains: input.search, mode: 'insensitive' } },
+        ]
+      }
+
+      const [merchants, total] = await Promise.all([
+        ctx.db.merchant.findMany({
+          where,
+          skip: (input.page - 1) * input.limit,
+          take: input.limit,
+          orderBy: { createdAt: 'desc' },
+        }),
+        ctx.db.merchant.count({ where }),
+      ])
+
+      return {
+        merchants,
+        total,
+        page: input.page,
+        totalPages: Math.ceil(total / input.limit),
+      }
     }),
 })

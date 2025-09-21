@@ -49,120 +49,125 @@ export const authRouter = router({
 
   // Merchant sign up
   merchantSignUp: publicProcedure
-    .input(z.object({
-      email: z.string().email(),
-      password: z.string().min(8),
-      businessName: z.string().min(2).max(100),
-      phone: phoneSchema,
-      businessType: z.string().optional(),
-      description: z.string().max(500).optional(),
-      website: z.string().optional(),
-    }))
-    .mutation(async ({ input, ctx }) => {
-      const normalizedEmail = input.email.toLowerCase().trim()
-      
-      // Check if email already exists in database
-      const existingMerchant = await ctx.db.merchant.findUnique({
-        where: { email: normalizedEmail },
-      })
-      
-      if (existingMerchant) {
-        throw new TRPCError({
-          code: 'CONFLICT',
-          message: 'Email already registered',
-        })
-      }
-
-      // Anti-spam: Check recent signups from same IP
-      if (ctx.ip) {
-        const recentSignups = await ctx.db.merchant.count({
-          where: {
-            createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
-            settings: {
-              path: ['signupIp'],
-              equals: ctx.ip
-            }
-          }
+      .input(z.object({
+        email: z.string().email(),
+        password: z.string().min(8),
+        businessName: z.string().min(2).max(100),
+        phone: phoneSchema,
+        businessType: z.string().optional(),
+        description: z.string().max(500).optional(),
+        website: z.string().optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const normalizedEmail = input.email.toLowerCase().trim()
+        
+        // Check if email already exists in database
+        const existingMerchant = await ctx.db.merchant.findUnique({
+          where: { email: normalizedEmail },
         })
         
-        if (recentSignups >= 3) {
+        if (existingMerchant) {
           throw new TRPCError({
-            code: 'TOO_MANY_REQUESTS',
-            message: 'Too many signup attempts. Please try again later.',
+            code: 'CONFLICT',
+            message: 'Email already registered',
           })
         }
-      }
 
-      // Create unique slug
-      const baseSlug = slugify(input.businessName)
-      let slug = baseSlug
-      let counter = 1
-      
-      while (await ctx.db.merchant.findFirst({ where: { slug } })) {
-        slug = `${baseSlug}-${counter}`
-        counter++
-      }
-
-      // Hash password for database storage
-      const hashedPassword = await bcrypt.hash(input.password, 10)
-      
-      // Create merchant in database first
-      const merchant = await ctx.db.merchant.create({
-        data: {
-          email: normalizedEmail,
-          phone: input.phone,
-          businessName: input.businessName,
-          slug,
-          password: hashedPassword,
-          businessType: input.businessType,
-          description: input.description,
-          websiteUrl: input.website,
+        // Anti-spam: Check recent signups from same IP
+        if (ctx.ip) {
+          const recentSignups = await ctx.db.merchant.count({
+            where: {
+              createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+              settings: {
+                path: ['signupIp'],
+                equals: ctx.ip
+              }
+            }
+          })
           
-          // Set status based on admin list
-          status: ADMIN_EMAILS.includes(normalizedEmail) ? 'ACTIVE' : 'PENDING_VERIFICATION',
-          verified: ADMIN_EMAILS.includes(normalizedEmail),
-          
-          // Store signup metadata
-          settings: {
-            signupIp: ctx.ip || 'unknown',
-            signupUserAgent: ctx.req?.headers.get('user-agent') || 'unknown',
-            signupDate: new Date().toISOString(),
-            pendingApproval: !ADMIN_EMAILS.includes(normalizedEmail),
+          if (recentSignups >= 3) {
+            throw new TRPCError({
+              code: 'TOO_MANY_REQUESTS',
+              message: 'Too many signup attempts. Please try again later.',
+            })
           }
-        },
-      })
-
-      // Now create Supabase user
-      const { data: authData, error: authError } = await ctx.supabase.auth.admin.createUser({
-        email: normalizedEmail,
-        password: input.password,
-        email_confirm: ADMIN_EMAILS.includes(normalizedEmail), // Auto-confirm admins only
-        user_metadata: {
-          businessName: input.businessName,
-          userType: 'merchant',
-          merchantId: merchant.id,
         }
-      })
 
-      if (authError || !authData.user) {
-        console.error('Supabase user creation failed:', authError)
-        // Clean up merchant record if Supabase fails
-        await ctx.db.merchant.delete({ where: { id: merchant.id } })
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to create account. Please try again.',
+        // Create unique slug
+        const baseSlug = slugify(input.businessName)
+        let slug = baseSlug
+        let counter = 1
+        
+        while (await ctx.db.merchant.findFirst({ where: { slug } })) {
+          slug = `${baseSlug}-${counter}`
+          counter++
+        }
+
+        // Hash password for database storage
+        const hashedPassword = await bcrypt.hash(input.password, 10)
+        
+        // Create merchant in database first
+        const merchant = await ctx.db.merchant.create({
+          data: {
+            email: normalizedEmail,
+            phone: input.phone,
+            businessName: input.businessName,
+            slug,
+            password: hashedPassword,
+            businessType: input.businessType,
+            description: input.description,
+            websiteUrl: input.website,
+            
+            // Set status based on admin list
+            status: ADMIN_EMAILS.includes(normalizedEmail) ? 'ACTIVE' : 'PENDING_VERIFICATION',
+            verified: ADMIN_EMAILS.includes(normalizedEmail),
+            
+            // Store signup metadata
+            settings: {
+              signupIp: ctx.ip || 'unknown',
+              signupUserAgent: ctx.req?.headers.get('user-agent') || 'unknown',
+              signupDate: new Date().toISOString(),
+              pendingApproval: !ADMIN_EMAILS.includes(normalizedEmail),
+            }
+          },
         })
-      }
 
-      console.log(`New merchant signup: ${merchant.businessName} (${merchant.email}) - Status: ${merchant.status}`)
+        // Use regular Supabase signup (not admin API)
+        const { data: authData, error: authError } = await ctx.supabase.auth.signUp({
+          email: normalizedEmail,
+          password: input.password,
+          options: {
+            data: {
+              businessName: input.businessName,
+              userType: 'merchant',
+              merchantId: merchant.id,
+            },
+            // Don't send confirmation email - we'll handle approval manually
+            emailRedirectTo: undefined,
+          }
+        })
 
-      return {
-        success: true,
-        message: merchant.status === 'ACTIVE' 
-          ? 'Account created successfully!'
-          : 'Application submitted successfully. You will receive an email once approved.',
-      }
-    }),
+        console.log(authData)
+
+        if (authError) {
+          console.error('Supabase signup failed:', authError)
+          // Clean up merchant record if Supabase fails
+          await ctx.db.merchant.delete({ where: { id: merchant.id } })
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: authError.message || 'Failed to create account. Please try again.',
+          })
+        }
+
+        console.log(`New merchant signup: ${merchant.businessName} (${merchant.email}) - Status: ${merchant.status}`)
+
+        return {
+          success: true,
+          message: merchant.status === 'ACTIVE' 
+            ? 'Account created successfully!'
+            : 'Application submitted successfully. You will receive an email once approved.',
+        }
+      }),
 
   // Merchant sign in
   merchantSignIn: publicProcedure
