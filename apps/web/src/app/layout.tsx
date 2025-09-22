@@ -7,6 +7,7 @@ import { TRPCProvider } from "../lib/trpc/client"
 import { AuthProvider } from "@homejiak/auth/provider"
 import { NotificationToast } from "../components/notifications/notification-toast"
 import { MerchantProvider } from "../contexts/merchant-context"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -63,6 +64,7 @@ export default function RootLayout({
             </MerchantProvider>
             <NotificationToast />
             <Toaster />
+            <SpeedInsights />
           </TRPCProvider>
         </AuthProvider>
       </body>
