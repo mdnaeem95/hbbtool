@@ -1,11 +1,29 @@
-// @ts-ignore
-import { Twilio } from 'twilio'
 import { db } from '@homejiak/database'
 
-const twilio = new Twilio(
-  process.env.TWILIO_ACCOUNT_SID!,
-  process.env.TWILIO_AUTH_TOKEN!
-)
+// Use require for Twilio to avoid ESM issues
+let Twilio: any
+try {
+  // Dynamic import for CommonJS compatibility
+  Twilio = require('twilio')
+} catch (error) {
+  console.error('Failed to load Twilio:', error)
+}
+
+// Initialize Twilio client with error handling
+const getTwilioClient = () => {
+  if (!Twilio) {
+    throw new Error('Twilio module not loaded')
+  }
+  
+  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+    throw new Error('Twilio credentials not configured')
+  }
+  
+  return new Twilio(
+    process.env.TWILIO_ACCOUNT_SID,
+    process.env.TWILIO_AUTH_TOKEN
+  )
+}
 
 interface SMSProviderOptions {
   userId: string
@@ -32,6 +50,12 @@ export const smsProvider = {
         return { success: false, error: 'No phone number on file' }
       }
 
+      // Check if SMS notifications are enabled
+      if (user.smsNotifications === false) {
+        console.log('[sms.provider] SMS notifications disabled for user:', userId)
+        return { success: false, error: 'SMS notifications disabled' }
+      }
+
       // Format Singapore phone number (+65)
       const formattedPhone = this.formatSingaporePhone(user.phone)
       if (!formattedPhone) {
@@ -44,12 +68,17 @@ export const smsProvider = {
         ? formattedMessage.substring(0, 157) + '...'
         : formattedMessage
 
+      // Get Twilio client
+      const twilio = getTwilioClient()
+
       // Send SMS via Twilio
       const smsResult = await twilio.messages.create({
         body: truncatedMessage,
         from: process.env.TWILIO_PHONE_NUMBER,
         to: formattedPhone,
-        statusCallback: `${process.env.APP_URL}/api/webhooks/twilio/status`, // For delivery tracking
+        statusCallback: process.env.APP_URL 
+          ? `${process.env.APP_URL}/api/webhooks/twilio/status`
+          : undefined,
       })
 
       console.log('[sms.provider] SMS sent successfully:', {
@@ -127,12 +156,12 @@ export const smsProvider = {
     const digits = phone.replace(/\D/g, '')
 
     // Handle different formats:
-    // - 8-digit local: 12345678 -> +6512345678
-    // - 9-digit with leading 0: 012345678 -> +6512345678  
-    // - 10-digit with 65: 6512345678 -> +6512345678
-    // - Already formatted: +6512345678 -> +6512345678
+    // - 8-digit local: 91234567 -> +6591234567
+    // - 9-digit with leading 0: 091234567 -> +6591234567  
+    // - 10-digit with 65: 6591234567 -> +6591234567
+    // - Already formatted: +6591234567 -> +6591234567
 
-    if (digits.length === 8) {
+    if (digits.length === 8 && (digits.startsWith('8') || digits.startsWith('9'))) {
       return `+65${digits}`
     } else if (digits.length === 9 && digits.startsWith('0')) {
       return `+65${digits.substring(1)}`
@@ -157,7 +186,7 @@ export const smsProvider = {
     // Replace common variables
     const replacements: Record<string, string> = {
       '{{customerName}}': user.name || 'Valued Customer',
-      '{{businessName}}': user.name || ' Merchant',
+      '{{businessName}}': user.name || 'Merchant',
       ...Object.fromEntries(
         Object.entries(data).map(([key, value]) => [
           `{{${key}}}`,
@@ -174,7 +203,7 @@ export const smsProvider = {
   },
 }
 
-// Rate limiting helper (optional)
+// Rate limiting helper
 export const smsRateLimit = {
   // Track SMS sends per user to prevent spam
   private: new Map<string, { count: number; resetTime: number }>(),
@@ -199,4 +228,9 @@ export const smsRateLimit = {
     userLimits.count++
     return true
   },
+
+  // Clear rate limits (useful for testing)
+  clear() {
+    this.private.clear()
+  }
 }
