@@ -413,18 +413,27 @@ export const merchantRouter = router({
       }),
       
       // Top products this month
-      ctx.db.orderItem.groupBy({
-        by: ['productId', 'productName'],
-        where: { 
-          order: { 
-            merchantId, 
-            createdAt: { gte: startOfCurrentMonth, lte: endOfCurrentMonth }
-          } 
-        },
-        _sum: { quantity: true, total: true },
-        orderBy: { _sum: { total: 'desc' } },
-        take: 5,
-      })
+      ctx.db.$queryRaw<Array<{
+        productId: string
+        productName: string
+        quantity: bigint
+        revenue: number
+      }>>`
+        SELECT 
+          oi."productId",
+          oi."productName",
+          SUM(oi."quantity")::bigint as quantity,
+          SUM(oi."total")::decimal as revenue
+        FROM "OrderItem" oi
+        INNER JOIN "Order" o ON oi."orderId" = o."id"
+        WHERE 
+          o."merchantId" = ${merchantId}
+          AND o."createdAt" >= ${startOfCurrentMonth}
+          AND o."createdAt" <= ${endOfCurrentMonth}
+        GROUP BY oi."productId", oi."productName"
+        ORDER BY revenue DESC
+        LIMIT 5
+      `,
     ])
 
     if (!merchant) {
@@ -508,8 +517,8 @@ export const merchantRouter = router({
       topProducts: topProducts.map(p => ({
         id: p.productId,
         name: p.productName,
-        quantitySold: p._sum.quantity || 0,
-        revenue: toNumber(p._sum.total),
+        quantitySold: Number(p.quantity) || 0,
+        revenue: toNumber(p.revenue),
       })),
     }
   }),
