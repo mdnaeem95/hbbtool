@@ -154,6 +154,12 @@ const checkoutSessions = new Map<
       deliveryFee: number
       minimumOrder: number
       operatingHours: unknown
+      address?: {
+        line1: string
+        line2?: string
+        postalCode?: string
+        buildingName?: string
+      }
     }
     items: Array<{
       productId: string
@@ -294,6 +300,10 @@ export const checkoutRouter = router({
             deliveryFee: true,
             minimumOrder: true,
             operatingHours: true,
+            address: true,
+            postalCode: true,
+            unitNumber: true,
+            buildingName: true,
           },
         })
 
@@ -403,6 +413,12 @@ export const checkoutRouter = router({
             deliveryFee: asNumber(merchant.deliveryFee ?? 0),
             minimumOrder: asNumber(merchant.minimumOrder ?? 0),
             operatingHours: merchant.operatingHours,
+            address: merchant.address ? {
+              line1: merchant.address,
+              line2: merchant.unitNumber ? `#${merchant.unitNumber}` : undefined,
+              postalCode: merchant.postalCode || undefined,
+              buildingName: merchant.buildingName || undefined,
+            } : undefined,
           },
           items: sessionItems,
           subtotal,

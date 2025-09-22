@@ -213,8 +213,8 @@ export default function CheckoutPage() {
               <div className="p-6 sm:p-8">
                 {currentStep === 'delivery' && (
                   <DeliverySection 
-                    merchantId={merchantId!}
-                    merchantAddress={currentSessionData.merchant?.address}
+                    merchantId={currentSessionData.merchant?.id || merchantId!}
+                    merchantAddress={currentSessionData.merchant?.address || undefined}
                   />
                 )}
 
