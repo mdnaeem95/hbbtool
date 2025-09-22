@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle,
   Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
   Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Button,
-  Alert, AlertDescription, Switch, Separator, useToast, Badge } from '@kitchencloud/ui'
+  Alert, AlertDescription, Switch, Separator, useToast, Badge } from '@homejiak/ui'
 import { Truck, MapPin, DollarSign, Info, Clock, Zap, Map, Package } from 'lucide-react'
 import { api } from '../../lib/trpc/client'
 

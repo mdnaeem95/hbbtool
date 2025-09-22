@@ -1,6 +1,6 @@
 'use client'
 
-import { Card } from '@kitchencloud/ui'
+import { Card } from '@homejiak/ui'
 import { Clock, MapPin, DollarSign, Star } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'

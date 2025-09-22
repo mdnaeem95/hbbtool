@@ -1,5 +1,5 @@
-import { db } from '@kitchencloud/database'
-import { Prisma } from '@kitchencloud/database'
+import { db } from '@homejiak/database'
+import { Prisma } from '@homejiak/database'
 
 export class AnalyticsService {
   static async trackEvent(params: {

@@ -11,10 +11,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   useToast,
   Tabs, TabsContent, TabsList, TabsTrigger,
-} from "@kitchencloud/ui"
+} from "@homejiak/ui"
 import { Loader2, Save, Mail, MessageSquare, Phone, Globe, Clock } from "lucide-react"
 import { api } from "../../lib/trpc/client"
-import { notificationSettingsSchema } from "@kitchencloud/api/utils"
+import { notificationSettingsSchema } from "@homejiak/api/utils"
 
 type NotificationSettingsData = z.input<typeof notificationSettingsSchema>
 

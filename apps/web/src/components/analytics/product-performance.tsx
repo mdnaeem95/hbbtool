@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle, Skeleton, Badge } from "@kitchencloud/ui"
+import { Card, CardContent, CardHeader, CardTitle, Skeleton, Badge } from "@homejiak/ui"
 import { formatCurrency } from "../../lib/utils"
 import { Eye, ShoppingBag, TrendingUp, AlertCircle } from "lucide-react"
 

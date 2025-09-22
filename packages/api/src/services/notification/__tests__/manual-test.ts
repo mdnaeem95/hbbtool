@@ -37,7 +37,7 @@ async function testSMSProvider() {
     console.log('Test 1: Sending basic SMS...')
     const smsResult = await smsProvider.send({
       userId: TEST_CONFIG.merchantId,
-      message: 'Test SMS from KitchenCloud notification system. Time: {{timestamp}}',
+      message: 'Test SMS from HomeJiak notification system. Time: {{timestamp}}',
       data: { 
         timestamp: new Date().toISOString(),
         orderNumber: 'TEST-001'
@@ -103,7 +103,7 @@ async function testWhatsAppProvider() {
     const textResult = await whatsappProvider.send({
       userId: TEST_CONFIG.merchantId,
       title: 'Custom Message',
-      message: 'Hello {{businessName}}! This is a test message from KitchenCloud at {{timestamp}}',
+      message: 'Hello {{businessName}}! This is a test message from HomeJiak at {{timestamp}}',
       data: {
         type: 'CUSTOM',
         timestamp: new Date().toLocaleString('en-SG'),
@@ -150,7 +150,7 @@ async function testEmailProvider() {
   try {
     const emailResult = await emailProvider.send({
       userId: TEST_CONFIG.merchantId,
-      subject: 'Test Email from KitchenCloud Notifications',
+      subject: 'Test Email from HomeJiak Notifications',
       body: 'This is a test email sent at {{timestamp}} from the notification system.',
       data: {
         timestamp: new Date().toLocaleString('en-SG'),
@@ -205,7 +205,7 @@ async function testNotificationService() {
 }
 
 async function runAllTests() {
-  console.log('🚀 Starting KitchenCloud Notification Provider Tests')
+  console.log('🚀 Starting HomeJiak Notification Provider Tests')
   console.log('=' .repeat(60))
   
   // Check environment variables

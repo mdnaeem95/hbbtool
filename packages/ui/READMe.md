@@ -1,6 +1,6 @@
-# @kitchencloud/ui
+# @homejiak/ui
 
-Shared UI component library for KitchenCloud applications.
+Shared UI component library for HomeJiak applications.
 
 ## Components
 
@@ -24,7 +24,7 @@ This package provides a set of accessible, customizable UI components built with
 
 ## Installation
 
-This package is part of the KitchenCloud monorepo and is automatically available to other packages.
+This package is part of the HomeJiak monorepo and is automatically available to other packages.
 
 ```bash
 # From the root of the monorepo
@@ -36,7 +36,7 @@ pnpm install
 ### Importing Components
 
 ```tsx
-import { Button, Card, Input, useToast } from "@kitchencloud/ui"
+import { Button, Card, Input, useToast } from "@homejiak/ui"
 ```
 
 ### Importing Styles
@@ -44,13 +44,13 @@ import { Button, Card, Input, useToast } from "@kitchencloud/ui"
 In your app's main CSS file or layout:
 
 ```css
-@import "@kitchencloud/ui/globals.css";
+@import "@homejiak/ui/globals.css";
 ```
 
 ### Example Usage
 
 ```tsx
-import { Button, Card, CardHeader, CardTitle, CardContent } from "@kitchencloud/ui"
+import { Button, Card, CardHeader, CardTitle, CardContent } from "@homejiak/ui"
 
 export function ProductCard() {
   return (
@@ -70,7 +70,7 @@ export function ProductCard() {
 ### Using Toast Notifications
 
 ```tsx
-import { Button, useToast } from "@kitchencloud/ui"
+import { Button, useToast } from "@homejiak/ui"
 
 export function OrderButton() {
   const { toast } = useToast()
@@ -93,7 +93,7 @@ export function OrderButton() {
 Don't forget to add the `<Toaster />` component to your app layout:
 
 ```tsx
-import { Toaster } from "@kitchencloud/ui"
+import { Toaster } from "@homejiak/ui"
 
 export function RootLayout({ children }) {
   return (
@@ -157,7 +157,7 @@ pnpm lint
 
 ## Design Tokens
 
-The UI package follows KitchenCloud's design system:
+The UI package follows HomeJiak's design system:
 
 - **Colors**: Warm orange primary (#FF6B35), Deep purple secondary (#5D3FD3)
 - **Typography**: Inter for UI, Playfair Display for headings

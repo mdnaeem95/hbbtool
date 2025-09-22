@@ -8,7 +8,7 @@ export const redis = new Redis({
 })
 
 /** ---------- Namespacing / keys ---------- */
-const PREFIX = process.env.REDIS_PREFIX ?? "kc" // e.g. "kitchencloud"
+const PREFIX = process.env.REDIS_PREFIX ?? "kc" // e.g. "homejiak"
 const k = (...parts: string[]) => [PREFIX, ...parts].join(":")
 const tagKey = (tag: string) => k("tag", tag)
 

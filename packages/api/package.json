@@ -1,5 +1,5 @@
 {
-  "name": "@kitchencloud/api",
+  "name": "@homejiak/api",
   "version": "0.0.0",
   "private": true,
   "exports": {
@@ -16,8 +16,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@kitchencloud/auth": "workspace:*",
-    "@kitchencloud/database": "workspace:*",
+    "@homejiak/auth": "workspace:*",
+    "@homejiak/database": "workspace:*",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.55.0",
     "@trpc/client": "^11.0.0",
@@ -27,16 +27,17 @@
     "@types/json2csv": "^5.0.7",
     "@types/node": "^24.2.1",
     "@types/qrcode": "^1.5.5",
+    "@types/twilio": "^3.19.3",
     "bcryptjs": "^3.0.2",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.1",
+    "json2csv": "6.0.0-alpha.2",
     "nanoid": "^5.0.7",
     "otplib": "^12.0.1",
     "qrcode": "^1.5.4",
     "resend": "^6.0.1",
-    "json2csv": "6.0.0-alpha.2",
     "superjson": "^2.2.1",
-    "twilio": "^5.8.0",
+    "twilio": "^5.10.0",
     "zod": "^4.0.17"
   },
   "devDependencies": {

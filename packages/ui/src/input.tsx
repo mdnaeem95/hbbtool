@@ -1,5 +1,5 @@
 import * as React from "react"
-import { cn } from "@kitchencloud/ui"
+import { cn } from "@homejiak/ui"
 
 const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
   ({ className, type, ...props }, ref) => {

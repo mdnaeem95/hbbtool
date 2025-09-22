@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { paymentRouter } from '../payment'
-import { db } from '@kitchencloud/database'
-import type { AuthSession } from '@kitchencloud/auth'
+import { db } from '@homejiak/database'
+import type { AuthSession } from '@homejiak/auth'
 
 const mockDecimal = (value: number) => ({
   toNumber: () => value,
@@ -11,7 +11,7 @@ const mockDecimal = (value: number) => ({
 })
 
 // Mock dependencies
-vi.mock('@kitchencloud/database', () => ({
+vi.mock('@homejiak/database', () => ({
   db: {
     order: {
       findUnique: vi.fn(),

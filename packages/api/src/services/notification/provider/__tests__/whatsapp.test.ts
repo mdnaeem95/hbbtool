@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
 global.fetch = mocks.mockFetch
 
 // Mock database
-vi.mock('@kitchencloud/database', () => ({
+vi.mock('@homejiak/database', () => ({
   db: {
     merchant: {
       findUnique: mocks.mockMerchantFindUnique,

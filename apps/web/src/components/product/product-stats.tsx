@@ -1,9 +1,9 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@kitchencloud/ui"
+import { Card, CardContent, CardHeader, CardTitle } from "@homejiak/ui"
 import { Package, PackageCheck, PackageX, TrendingUp } from "lucide-react"
 import { api } from "../../lib/trpc/client"
-import { ProductStatus } from "@kitchencloud/database/types"
+import { ProductStatus } from "@homejiak/database/types"
 
 export function ProductStats() {
   // For now, we'll use the list API to calculate stats

@@ -1,7 +1,7 @@
 import { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch'
-import { db } from '@kitchencloud/database'
-import { getAuthSession, createServerSupabaseClient } from '@kitchencloud/auth/server'
-import type { AuthSession } from '@kitchencloud/auth'
+import { db } from '@homejiak/database'
+import { getAuthSession, createServerSupabaseClient } from '@homejiak/auth/server'
+import type { AuthSession } from '@homejiak/auth'
 
 export interface Context {
   db: typeof db

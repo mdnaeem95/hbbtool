@@ -70,7 +70,7 @@ export function MerchantSidebar({ dashboardData, className }: MerchantSidebarPro
       <div className="flex h-16 items-center justify-between border-b px-4">
         <Link href="/dashboard" className="flex items-center gap-2">
           <Store className="h-8 w-8 text-orange-500" />
-          <span className="text-xl font-bold">KitchenCloud</span>
+          <span className="text-xl font-bold">HomeJiak</span>
         </Link>
       </div>
 

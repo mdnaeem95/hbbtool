@@ -1,5 +1,5 @@
 import { Loader2 } from "lucide-react"
-import { cn } from "@kitchencloud/ui"
+import { cn } from "@homejiak/ui"
 
 interface SpinnerProps {
   className?: string

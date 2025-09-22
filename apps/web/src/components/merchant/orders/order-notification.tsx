@@ -1,7 +1,7 @@
 "use client"
 
 import { useOrderStream } from '../../../providers/order-stream-provider'
-import { Alert, AlertDescription, Badge } from '@kitchencloud/ui'
+import { Alert, AlertDescription, Badge } from '@homejiak/ui'
 import { Wifi, WifiOff, Bell, RefreshCw, ChevronDown, Activity } from 'lucide-react'
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'

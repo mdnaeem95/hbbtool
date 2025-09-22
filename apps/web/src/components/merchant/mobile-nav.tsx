@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { cn } from "../../lib/utils"
 import { Menu, LayoutDashboard, ShoppingBag, Package, BarChart3, Settings, HelpCircle, Store } from "lucide-react"
-import { Sheet, SheetContent, SheetTrigger, Button } from "@kitchencloud/ui"
+import { Sheet, SheetContent, SheetTrigger, Button } from "@homejiak/ui"
 import { RouterOutputs } from "../../lib/trpc/types"
 
 type MerchantDashboardData = RouterOutputs["merchant"]["getDashboard"]
@@ -69,7 +69,7 @@ export function MerchantMobileNav({ dashboardData }: MerchantMobileNavProps) {
                 onClick={() => setOpen(false)}
               >
                 <Store className="h-8 w-8 text-orange-500" />
-                <span className="text-xl font-bold">KitchenCloud</span>
+                <span className="text-xl font-bold">HomeJiak</span>
               </Link>
             </div>
 

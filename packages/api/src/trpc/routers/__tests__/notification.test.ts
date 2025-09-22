@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { notificationRouter } from '../notification'
-import { db } from '@kitchencloud/database'
-import { NotificationType, NotificationPriority } from '@kitchencloud/database'
-import type { AuthSession } from '@kitchencloud/auth'
+import { db } from '@homejiak/database'
+import { NotificationType, NotificationPriority } from '@homejiak/database'
+import type { AuthSession } from '@homejiak/auth'
 
 // Mock dependencies
-vi.mock('@kitchencloud/database', () => ({
+vi.mock('@homejiak/database', () => ({
   db: {
     notification: {
       findUnique: vi.fn(),
@@ -68,7 +68,6 @@ const mockMerchantSession: AuthSession = {
   user: {
     id: 'merchant-123',
     email: 'merchant@test.com',
-    userType: 'merchant',
     merchant: {
       id: 'merchant-123',
       email: 'merchant@test.com',
@@ -83,13 +82,6 @@ const mockCustomerSession: AuthSession = {
   user: {
     id: 'customer-456',
     email: 'customer@test.com',
-    userType: 'customer',
-    phone: '98765432',
-    customer: {
-      id: 'customer-456',
-      email: 'customer@test.com',
-      name: 'John Doe',
-    } as any,
   },
 }
 

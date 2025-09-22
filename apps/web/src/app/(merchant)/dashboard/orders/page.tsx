@@ -6,7 +6,7 @@ import { OrdersContent } from "../../../../components/merchant/orders/orders-con
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: "Orders - KitchenCloud",
+  title: "Orders - HomeJiak",
   description: "Manage your orders",
 }
 

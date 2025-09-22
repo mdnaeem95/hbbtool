@@ -162,7 +162,7 @@ export default function OrderPrintPage() {
 
       {/* Print content - ONLY this will be visible when printing */}
       <div className="print-only">
-        {orders.map((order, index) => (
+        {orders.map((order: any, index: any) => (
           <div key={order.id} className={`min-h-screen p-8 ${index < orders.length - 1 ? 'page-break' : ''}`}>
             
             {/* Business Header */}
@@ -221,7 +221,7 @@ export default function OrderPrintPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {order.items.map((item) => (
+                  {order.items.map((item: any) => (
                     <tr key={item.id}>
                       <td>
                         <div className="font-medium">{item.productName}</div>
@@ -270,7 +270,7 @@ export default function OrderPrintPage() {
             {/* Footer */}
             <div className="mt-12 pt-4 border-t border-gray-200 text-center text-xs text-gray-500">
               <div>Thank you for your order!</div>
-              <div className="mt-1">Powered by KitchenCloud</div>
+              <div className="mt-1">Powered by HomeJiak</div>
             </div>
           </div>
         ))}

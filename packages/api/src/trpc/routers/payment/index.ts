@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { router, publicProcedure, merchantProcedure, protectedProcedure } from '../../core'
 import { TRPCError } from '@trpc/server'
-import { PaymentMethod } from '@kitchencloud/database'
+import { PaymentMethod } from '@homejiak/database'
 import { generatePayNowQR } from '../../../utils/paynow'
 
 export const paymentRouter = router({

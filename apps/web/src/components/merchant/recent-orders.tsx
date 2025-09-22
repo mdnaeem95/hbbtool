@@ -1,7 +1,7 @@
 'use client'
 
 import Link from "next/link"
-import { Card, CardContent, CardHeader, CardTitle, Button } from "@kitchencloud/ui"
+import { Card, CardContent, CardHeader, CardTitle, Button } from "@homejiak/ui"
 import { formatDistanceToNow } from "date-fns"
 import { ArrowUpRight, Clock } from "lucide-react"
 import { OrderStatusBadge } from "./orders/order-status-badge"
@@ -63,7 +63,7 @@ export function RecentOrders({ orders }: RecentOrdersProps) {
       </CardHeader>
       <CardContent className="pb-4">
         <div className="space-y-3">
-          {orders.slice(0, 5).map((order) => {
+          {orders.slice(0, 5).map((order: any) => {
             const total = toNumber(order.total)
             const createdAt = typeof order.createdAt === 'string' 
               ? new Date(order.createdAt) 

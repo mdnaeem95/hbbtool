@@ -5,7 +5,7 @@ import superjson from 'superjson'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createTRPCReact } from '@trpc/react-query'
 import { httpBatchLink, loggerLink } from '@trpc/client'
-import type { AppRouter } from '@kitchencloud/api'
+import type { AppRouter } from '@homejiak/api'
 
 export const api = createTRPCReact<AppRouter>()
 

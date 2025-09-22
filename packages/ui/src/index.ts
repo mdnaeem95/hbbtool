@@ -29,7 +29,7 @@ export * from "./toaster"
 export * from "./toggle-group"
 export * from "./toggle"
 
-// Custom KitchenCloud components
+// Custom HomeJiak components
 export * from "./price"
 export * from "./product-image"
 export * from "./product-card"

@@ -1,7 +1,7 @@
 import { vi } from 'vitest'
 import type { TRPCContext } from '../trpc/context'
-import type { AuthSession, MerchantUser, CustomerUser } from '@kitchencloud/auth'
-import { db } from '@kitchencloud/database'
+import type { AuthSession } from '@homejiak/auth'
+import { db } from '@homejiak/database'
 
 /**
  * Creates a mock tRPC context for testing
@@ -41,35 +41,42 @@ export function createMockContext(options?: {
 /**
  * Creates a mock merchant session for testing
  */
-export function createMerchantSession(overrides?: Partial<Omit<MerchantUser, 'userType'>>): AuthSession {
-  const merchantUser: MerchantUser = {
-    id: overrides?.id ?? 'merchant-test-123',
-    email: overrides?.email ?? 'test@merchant.com',
-    userType: 'merchant' as const,
-    merchant: overrides?.merchant,
-  }
-
+export function createMerchantSession(overrides?: {
+  id?: string
+  email?: string
+  merchant?: any
+}): AuthSession {
   return {
-    user: merchantUser,
-    token: 'test-merchant-token',
+    user: {
+      id: overrides?.id ?? 'merchant-test-123',
+      email: overrides?.email ?? 'test@merchant.com',
+      merchant: overrides?.merchant ?? {
+        id: overrides?.id ?? 'merchant-test-123',
+        email: overrides?.email ?? 'test@merchant.com',
+        businessName: 'Test Restaurant',
+        phone: '91234567',
+        status: 'ACTIVE',
+      },
+    },
   }
 }
 
 /**
  * Creates a mock customer session for testing
+ * Note: Since customer auth is removed, this might be used for 
+ * temporary/guest sessions or notification context only
  */
-export function createCustomerSession(overrides?: Partial<Omit<CustomerUser, 'userType'>>): AuthSession {
-  const customerUser: CustomerUser = {
-    id: overrides?.id ?? 'customer-test-456',
-    phone: overrides?.phone ?? '91234567',
-    email: overrides?.email ?? null,
-    userType: 'customer' as const,
-    customer: overrides?.customer,
-  }
-
+export function createCustomerSession(overrides?: {
+  id?: string
+  phone?: string
+  email?: string | null
+  customer?: any
+}): AuthSession {
   return {
-    user: customerUser,
-    token: 'test-customer-token',
+    user: {
+      id: overrides?.id ?? 'customer-test-456',
+      email: overrides?.email ?? '',
+    },
   }
 }
 
@@ -83,7 +90,8 @@ export function createMerchantContext(merchantId?: string): TRPCContext {
 }
 
 /**
- * Creates a mock context with customer authentication
+ * Creates a mock context with customer session (for notifications/orders)
+ * Note: This may be a temporary session created during order placement
  */
 export function createCustomerContext(customerId?: string): TRPCContext {
   return createMockContext({

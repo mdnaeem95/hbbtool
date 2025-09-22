@@ -6,10 +6,10 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle,
   Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
-  Input, Textarea, Button, Avatar, AvatarImage, AvatarFallback, useToast } from "@kitchencloud/ui"
+  Input, Textarea, Button, Avatar, AvatarImage, AvatarFallback, useToast } from "@homejiak/ui"
 import { Upload, Loader2, Save, Globe, Instagram, Facebook } from "lucide-react"
 import { api } from "../../lib/trpc/client"
-import { businessProfileSchema } from "@kitchencloud/api/utils"
+import { businessProfileSchema } from "@homejiak/api/utils"
 import { OperatingHoursInput } from "./operating-hours-input"
 import { useUploadThing } from "../../hooks/use-uploadthing"
 

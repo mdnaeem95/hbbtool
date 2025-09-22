@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Button } from "@kitchencloud/ui"
+import { Button } from "@homejiak/ui"
 import { ShoppingCart, User, Menu } from "lucide-react"
 import { useState } from "react"
 import type { User as SupabaseUser } from '@supabase/supabase-js'
@@ -26,7 +26,7 @@ export function Header({ user }: HeaderProps) {
       <nav className="container flex h-16 items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center space-x-2">
-          <span className="text-xl font-bold text-primary">KitchenCloud</span>
+          <span className="text-xl font-bold text-primary">HomeJiak</span>
         </Link>
 
         {/* Desktop Navigation */}

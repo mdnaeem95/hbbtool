@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { formatDistanceToNow } from "date-fns"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Checkbox, Button, Card, cn } from "@kitchencloud/ui"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Checkbox, Button, Card, cn } from "@homejiak/ui"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { RouterOutputs } from "../../../lib/trpc/types"
 import { OrderStatusBadge } from "./order-status-badge"

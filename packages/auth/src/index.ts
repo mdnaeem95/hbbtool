@@ -9,13 +9,11 @@ export {
   getAuthSession,
   requireAuth,
   requireMerchant,
-  requireCustomer,
   getMerchantById,
-  getCustomerById,
 } from './server'
 
 // Types can be exported here as they're safe for both
 export * from './types'
 
-// Note: Client utilities should be imported from '@kitchencloud/auth/client'
+// Note: Client utilities should be imported from '@homejiak/auth/client'
 // to avoid server/client mixing issues

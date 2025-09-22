@@ -1,7 +1,7 @@
 'use client'
 
 import { formatCurrency } from "../../lib/utils"
-import { Card, CardContent } from "@kitchencloud/ui"
+import { Card, CardContent } from "@homejiak/ui"
 import { DollarSign, ShoppingBag, TrendingUp, TrendingDown, Users, Package } from "lucide-react"
 
 interface StatsOverviewProps {

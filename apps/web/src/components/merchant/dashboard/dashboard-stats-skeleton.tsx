@@ -1,4 +1,4 @@
-import { Card, CardContent, Skeleton } from "@kitchencloud/ui";
+import { Card, CardContent, Skeleton } from "@homejiak/ui";
 
 export function DashboardStatsSkeleton() {
   return (

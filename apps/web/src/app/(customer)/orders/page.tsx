@@ -1,5 +1,5 @@
 import { Metadata } from "next"
-import { Card } from "@kitchencloud/ui"
+import { Card } from "@homejiak/ui"
 import { Package } from "lucide-react"
 
 export const metadata: Metadata = {

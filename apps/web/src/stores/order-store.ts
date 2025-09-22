@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { OrderStatus } from '@kitchencloud/database'
+import { OrderStatus } from '@homejiak/database'
 
 interface OrderFilters {
   status: OrderStatus | null

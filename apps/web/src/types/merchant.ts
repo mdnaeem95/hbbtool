@@ -1,5 +1,5 @@
 import type { inferRouterOutputs, inferRouterInputs } from '@trpc/server'
-import type { AppRouter } from '@kitchencloud/api'
+import type { AppRouter } from '@homejiak/api'
 
 // OUTPUT (what the API returns)
 export type MerchantSearchNearbyOutput =

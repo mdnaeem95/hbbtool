@@ -1,4 +1,4 @@
-import type { Merchant } from '@kitchencloud/database'
+import type { Merchant } from '@homejiak/database'
 
 // Auth user type - merchants only
 export interface AuthUser {

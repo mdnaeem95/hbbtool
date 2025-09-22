@@ -1,12 +1,12 @@
 'use client'
 
 import { useState } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@kitchencloud/ui"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@homejiak/ui"
 import { User, Store, CreditCard, Bell, Shield, Loader2 } from "lucide-react"
 import { api } from "../../../../lib/trpc/client"
 import { BusinessProfileForm, StoreSettingsForm, PaymentSettingsForm, NotificationSettingsForm, SecuritySettingsForm } from "../../../../components/settings"
-import { Alert, AlertDescription } from "@kitchencloud/ui"
-import { cn } from "@kitchencloud/ui"
+import { Alert, AlertDescription } from "@homejiak/ui"
+import { cn } from "@homejiak/ui"
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("business")

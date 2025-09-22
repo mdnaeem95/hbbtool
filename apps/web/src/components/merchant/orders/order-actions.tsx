@@ -2,12 +2,12 @@
 
 import { useState } from "react"
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Label, Textarea, cn } from "@kitchencloud/ui"
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Label, Textarea, cn } from "@homejiak/ui"
 import { MoreHorizontal, Eye, CheckCircle, XCircle, ChefHat, Package, Truck, Printer, MessageSquare, Copy } from "lucide-react"
-import { useToast } from "@kitchencloud/ui"
+import { useToast } from "@homejiak/ui"
 import { api } from "../../../lib/trpc/client"
 import { RouterOutputs } from "../../../lib/trpc/types"
-import { OrderStatus } from "@kitchencloud/database/types"
+import { OrderStatus } from "@homejiak/database/types"
 import Link from "next/link"
 
 type Order = RouterOutputs["order"]["list"]["items"][0]

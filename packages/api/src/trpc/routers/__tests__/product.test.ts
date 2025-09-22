@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { productRouter } from '../product'
-import { db } from '@kitchencloud/database'
-import { ProductStatus } from '@kitchencloud/database'
-import type { AuthSession } from '@kitchencloud/auth'
+import { db } from '@homejiak/database'
+import { ProductStatus } from '@homejiak/database'
+import type { AuthSession } from '@homejiak/auth'
 
 // Mock dependencies
-vi.mock('@kitchencloud/database', () => ({
+vi.mock('@homejiak/database', () => ({
   db: {
     product: {
       findUnique: vi.fn(),

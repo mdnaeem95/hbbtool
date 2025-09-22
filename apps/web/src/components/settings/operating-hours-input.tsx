@@ -1,6 +1,6 @@
 'use client'
 
-import { Switch, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@kitchencloud/ui"
+import { Switch, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@homejiak/ui"
 
 interface DaySchedule {
   isOpen: boolean

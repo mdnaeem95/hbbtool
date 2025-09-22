@@ -1,4 +1,4 @@
-import { cn } from "@kitchencloud/ui"
+import { cn } from "@homejiak/ui"
 
 interface PriceProps {
   amount: number

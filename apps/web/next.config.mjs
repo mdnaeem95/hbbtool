@@ -4,7 +4,7 @@ import { PrismaPlugin } from '@prisma/nextjs-monorepo-workaround-plugin'
 const nextConfig = {
   reactStrictMode: true,
   
-  transpilePackages: ['@kitchencloud/ui', '@kitchencloud/api', '@kitchencloud/database', '@kitchencloud/auth'],
+  transpilePackages: ['@homejiak/ui', '@homejiak/api', '@homejiak/database', '@homejiak/auth'],
   
   images: {
     remotePatterns: [

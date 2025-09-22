@@ -1,6 +1,6 @@
 'use client'
 
-import { Card, Separator } from "@kitchencloud/ui"
+import { Card, Separator } from "@homejiak/ui"
 
 interface CartSummaryProps {
   subtotal: number

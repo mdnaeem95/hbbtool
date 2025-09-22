@@ -1,4 +1,4 @@
-import { db } from '@kitchencloud/database'
+import { db } from '@homejiak/database'
 
 interface WhatsAppProviderOptions {
   userId: string
@@ -308,7 +308,7 @@ export const whatsappProvider = {
     // Replace common variables
     const replacements: Record<string, string> = {
       '{{customerName}}': user.name || 'Valued Customer',
-      '{{businessName}}': user.name || 'KitchenCloud Merchant',
+      '{{businessName}}': user.name || 'HomeJiak Merchant',
       ...Object.fromEntries(
         Object.entries(data).map(([key, value]) => [
           `{{${key}}}`,

@@ -1,14 +1,8 @@
 import * as React from "react"
-import { Button, Label, Slider, Badge, Checkbox, Separator, cn } from "@kitchencloud/ui"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@kitchencloud/ui"
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@kitchencloud/ui"
-import { RadioGroup, RadioGroupItem } from "@kitchencloud/ui"
+import { Button, Label, Slider, Badge, Checkbox, Separator, cn } from "@homejiak/ui"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@homejiak/ui"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@homejiak/ui"
+import { RadioGroup, RadioGroupItem } from "@homejiak/ui"
 import { X, Filter, XCircle } from "lucide-react"
 
 export interface FilterOption {

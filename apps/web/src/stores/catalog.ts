@@ -1,7 +1,7 @@
 import { create } from "zustand"
 import { persist, createJSONStorage } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
-import type { Product } from "@kitchencloud/database"
+import type { Product } from "@homejiak/database"
 
 interface ProductWithMerchant extends Product {
   merchant: {

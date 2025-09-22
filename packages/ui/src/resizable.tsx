@@ -6,7 +6,7 @@ import {
   Panel as ResizablePanel,
   PanelResizeHandle as ResizableHandle,
 } from 'react-resizable-panels'
-import { cn } from "@kitchencloud/ui"
+import { cn } from "@homejiak/ui"
 
 // Optional wrappers to apply consistent styles
 function KCResizablePanelGroup({

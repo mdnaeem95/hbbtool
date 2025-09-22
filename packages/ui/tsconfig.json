@@ -4,8 +4,8 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@kitchencloud/ui": ["./src"],
-      "@kitchencloud/ui/*": ["./src/*"]
+      "@homejiak/ui": ["./src"],
+      "@homejiak/ui/*": ["./src/*"]
     }
   },
   "include": ["src/**/*"],

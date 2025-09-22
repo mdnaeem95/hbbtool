@@ -1,4 +1,4 @@
-import { cn } from "@kitchencloud/ui"
+import { cn } from "@homejiak/ui"
 import { Check, Truck, User, CreditCard } from "lucide-react"
 
 interface CheckoutStepsProps {

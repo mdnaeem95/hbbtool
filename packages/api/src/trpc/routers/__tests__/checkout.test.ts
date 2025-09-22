@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { checkoutRouter } from '../checkout'
-import { db } from '@kitchencloud/database'
-import { DeliveryMethod, OrderStatus, PaymentMethod, PaymentStatus } from '@kitchencloud/database'
+import { db } from '@homejiak/database'
+import { DeliveryMethod, OrderStatus, PaymentMethod, PaymentStatus } from '@homejiak/database'
 
 // Mock dependencies
-vi.mock('@kitchencloud/database', () => ({
+vi.mock('@homejiak/database', () => ({
   db: {
     merchant: {
       findFirst: vi.fn(),

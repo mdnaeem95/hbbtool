@@ -1,4 +1,4 @@
-import { db } from '@kitchencloud/database'
+import { db } from '@homejiak/database'
 import { TRPCError } from '@trpc/server'
 
 type ReserveItem = {
@@ -188,7 +188,7 @@ export class InventoryService {
               title: 'Low Stock Alert',
               message: `${product.name} is running low (${updated.inventory} left)`,
               data: { productId: product.id, currentQuantity: updated.inventory },
-              priority: 'high',
+              priority: 'HIGH',
             },
           })
         }

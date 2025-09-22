@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure, merchantProcedure } from '../../core'
 import { NotificationService } from '../../../services/notification'
-import { NotificationType, NotificationPriority } from '@kitchencloud/database'
+import { NotificationType, NotificationPriority } from '@homejiak/database'
 
 export const notificationRouter = router({
   // Get notifications for current user

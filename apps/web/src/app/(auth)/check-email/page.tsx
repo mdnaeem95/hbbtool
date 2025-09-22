@@ -1,5 +1,5 @@
 import { Metadata } from "next"
-import { Card } from "@kitchencloud/ui"
+import { Card } from "@homejiak/ui"
 import { Mail, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 

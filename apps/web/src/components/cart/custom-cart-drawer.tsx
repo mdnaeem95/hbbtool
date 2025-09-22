@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Button, Separator, cn } from "@kitchencloud/ui"
+import { Button, Separator, cn } from "@homejiak/ui"
 import { X, ShoppingCart, Trash2, Plus, Minus, AlertCircle, ArrowRight } from "lucide-react"
 import { useCart } from "../../stores/cart-store"
 import { motion, AnimatePresence } from "framer-motion"
-import { useToast } from "@kitchencloud/ui"
+import { useToast } from "@homejiak/ui"
 import { useMerchant } from "../../contexts/merchant-context"
 
 interface CustomCartDrawerProps {

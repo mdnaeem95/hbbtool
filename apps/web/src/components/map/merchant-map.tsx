@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef, useCallback } from 'react'
-import { Card } from '@kitchencloud/ui'
+import { Card } from '@homejiak/ui'
 import { MapPin, Clock, DollarSign, Star } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'

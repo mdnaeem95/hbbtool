@@ -3,15 +3,11 @@ import { TRPCError } from '@trpc/server'
 import { router, merchantProcedure } from '../../core'
 import { paginationSchema } from '../../../utils/validation'
 import { paginatedResponse } from '../../../utils/pagination'
-import {
-  OrderStatus,
-  orderIncludes,
-  Prisma,
-} from '@kitchencloud/database'
+import { OrderStatus, orderIncludes, Prisma } from '@homejiak/database'
 import { Parser } from 'json2csv'
 import { canUpdateOrderStatus } from '../../../lib/helpers/order'
 import { NotificationService } from '../../../services/notification'
-import { NotificationPriority } from '@kitchencloud/database'
+import { NotificationPriority } from '@homejiak/database'
 
 /* =========================
    Zod

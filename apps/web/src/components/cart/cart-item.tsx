@@ -1,6 +1,6 @@
 'use client'
 
-import { Button, Card } from "@kitchencloud/ui"
+import { Button, Card } from "@homejiak/ui"
 import { Minus, Plus, Trash2 } from "lucide-react"
 import Image from "next/image"
 import { CartItem as CartItemType } from "../../stores/cart-store"

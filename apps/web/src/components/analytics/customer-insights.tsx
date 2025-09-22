@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle, Skeleton, Progress } from "@kitchencloud/ui"
+import { Card, CardContent, CardHeader, CardTitle, Skeleton, Progress } from "@homejiak/ui"
 import { formatCurrency } from "../../lib/utils"
 import { Users, UserPlus, RefreshCw, DollarSign, Heart, TrendingUp } from "lucide-react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts"

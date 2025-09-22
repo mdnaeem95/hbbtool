@@ -38,7 +38,7 @@ async function main() {
   console.log('👨‍🍳 Creating test merchants...')
 
   const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-    email: 'payment-test@kitchencloud.sg',
+    email: 'payment-test@homejiak.sg',
     password: 'password123',
     email_confirm: true, // Auto-confirm email
     user_metadata: {
@@ -58,7 +58,7 @@ async function main() {
   const merchant = await prisma.merchant.create({
     data: {
       // Required fields
-      email: 'payment-test@kitchencloud.sg',
+      email: 'payment-test@homejiak.sg',
       phone: '91234567',
       businessName: 'Ah Huat Kitchen',
       slug: 'ah-huat-kitchen',
@@ -567,7 +567,7 @@ async function main() {
   console.log('\n📋 Test Accounts:')
   console.log('------------------------')
   console.log('Merchant Login:')
-  console.log('  Email: payment-test@kitchencloud.sg')
+  console.log('  Email: payment-test@homejiak.sg')
   console.log('  Password: password123')
   console.log('  PayNow: 91234567')
   console.log('')

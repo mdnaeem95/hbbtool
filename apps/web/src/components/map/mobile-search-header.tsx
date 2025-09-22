@@ -1,7 +1,7 @@
 'use client'
 
 import { Search, Filter, MapPin, List, Map, Loader2 } from 'lucide-react'
-import { Input, Button, Badge, Sheet, SheetContent, SheetHeader, SheetTitle } from '@kitchencloud/ui'
+import { Input, Button, Badge, Sheet, SheetContent, SheetHeader, SheetTitle } from '@homejiak/ui'
 import { useState } from 'react'
 import { FilterState } from '../../app/page'
 

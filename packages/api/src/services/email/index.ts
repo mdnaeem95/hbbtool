@@ -8,7 +8,7 @@ const resend = process.env.RESEND_API_KEY
 // Email templates
 const emailTemplates = {
   merchantApproved: (merchantName: string, loginUrl: string) => ({
-    subject: 'Your KitchenCloud Account Has Been Approved! 🎉',
+    subject: 'Your HomeJiak Account Has Been Approved! 🎉',
     html: `
       <!DOCTYPE html>
       <html>
@@ -19,14 +19,14 @@ const emailTemplates = {
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #FF6B35 0%, #F7931E 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to KitchenCloud!</h1>
+            <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to HomeJiak!</h1>
           </div>
           
           <div style="background: white; padding: 30px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
             <h2 style="color: #FF6B35; margin-top: 0;">Hi ${merchantName},</h2>
             
             <p style="font-size: 16px; color: #555;">
-              Great news! Your merchant account has been approved and you're now ready to start accepting orders on KitchenCloud.
+              Great news! Your merchant account has been approved and you're now ready to start accepting orders on HomeJiak.
             </p>
             
             <div style="background: #f8f9fa; border-left: 4px solid #FF6B35; padding: 15px; margin: 20px 0;">
@@ -60,17 +60,17 @@ const emailTemplates = {
             
             <p style="color: #888; font-size: 14px;">
               If you have any questions, our support team is here to help at 
-              <a href="mailto:support@kitchencloud.sg" style="color: #FF6B35;">support@kitchencloud.sg</a>
+              <a href="mailto:support@homejiak.sg" style="color: #FF6B35;">support@homejiak.sg</a>
             </p>
             
             <p style="color: #888; font-size: 14px;">
               Best regards,<br>
-              The KitchenCloud Team
+              The HomeJiak Team
             </p>
           </div>
           
           <div style="text-align: center; padding: 20px; color: #888; font-size: 12px;">
-            © ${new Date().getFullYear()} KitchenCloud. Singapore's home-based F&B platform.
+            © ${new Date().getFullYear()} HomeJiak. Singapore's home-based F&B platform.
           </div>
         </body>
       </html>
@@ -78,7 +78,7 @@ const emailTemplates = {
     text: `
 Hi ${merchantName},
 
-Great news! Your merchant account has been approved and you're now ready to start accepting orders on KitchenCloud.
+Great news! Your merchant account has been approved and you're now ready to start accepting orders on HomeJiak.
 
 What's Next?
 - Log in to your dashboard
@@ -95,15 +95,15 @@ Pro Tips to Get Started:
 - Enable WhatsApp notifications
 - Complete your profile 100%
 
-If you have any questions, contact us at support@kitchencloud.sg
+If you have any questions, contact us at support@homejiak.sg
 
 Best regards,
-The KitchenCloud Team
+The HomeJiak Team
     `
   }),
 
   merchantRejected: (merchantName: string, reason: string) => ({
-    subject: 'Update on Your KitchenCloud Application',
+    subject: 'Update on Your HomeJiak Application',
     html: `
       <!DOCTYPE html>
       <html>
@@ -120,7 +120,7 @@ The KitchenCloud Team
             <h2 style="color: #333; margin-top: 0;">Hi ${merchantName},</h2>
             
             <p style="font-size: 16px; color: #555;">
-              Thank you for your interest in joining KitchenCloud. After reviewing your application, we're unable to approve your account at this time.
+              Thank you for your interest in joining HomeJiak. After reviewing your application, we're unable to approve your account at this time.
             </p>
             
             <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;">
@@ -130,14 +130,14 @@ The KitchenCloud Team
             
             <p style="color: #555;">
               If you believe this decision was made in error or if you can address the concerns mentioned above, 
-              please feel free to contact us at <a href="mailto:support@kitchencloud.sg" style="color: #FF6B35;">support@kitchencloud.sg</a>
+              please feel free to contact us at <a href="mailto:support@homejiak.sg" style="color: #FF6B35;">support@homejiak.sg</a>
             </p>
             
             <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
             
             <p style="color: #888; font-size: 14px;">
               Best regards,<br>
-              The KitchenCloud Team
+              The HomeJiak Team
             </p>
           </div>
         </body>
@@ -146,14 +146,14 @@ The KitchenCloud Team
     text: `
 Hi ${merchantName},
 
-Thank you for your interest in joining KitchenCloud. After reviewing your application, we're unable to approve your account at this time.
+Thank you for your interest in joining HomeJiak. After reviewing your application, we're unable to approve your account at this time.
 
 Reason: ${reason}
 
-If you believe this decision was made in error or if you can address the concerns mentioned above, please contact us at support@kitchencloud.sg
+If you believe this decision was made in error or if you can address the concerns mentioned above, please contact us at support@homejiak.sg
 
 Best regards,
-The KitchenCloud Team
+The HomeJiak Team
     `
   })
 }
@@ -165,7 +165,7 @@ export async function sendMerchantApprovalEmail(
 ): Promise<boolean> {
   if (!resend) {
     console.log('📧 [EMAIL MOCK] Would send approval email to:', email)
-    console.log('   Subject: Your KitchenCloud Account Has Been Approved! 🎉')
+    console.log('   Subject: Your HomeJiak Account Has Been Approved! 🎉')
     console.log('   Merchant:', merchantName)
     return true
   }
@@ -175,7 +175,7 @@ export async function sendMerchantApprovalEmail(
     const template = emailTemplates.merchantApproved(merchantName, loginUrl)
     
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'KitchenCloud <noreply@kitchencloud.sg>',
+      from: process.env.RESEND_FROM_EMAIL || 'HomeJiak <noreply@homejiak.sg>',
       to: email,
       subject: template.subject,
       html: template.html,
@@ -203,7 +203,7 @@ export async function sendMerchantRejectionEmail(
 ): Promise<boolean> {
   if (!resend) {
     console.log('📧 [EMAIL MOCK] Would send rejection email to:', email)
-    console.log('   Subject: Update on Your KitchenCloud Application')
+    console.log('   Subject: Update on Your HomeJiak Application')
     console.log('   Reason:', reason)
     return true
   }
@@ -212,7 +212,7 @@ export async function sendMerchantRejectionEmail(
     const template = emailTemplates.merchantRejected(merchantName, reason)
     
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'KitchenCloud <noreply@kitchencloud.sg>',
+      from: process.env.RESEND_FROM_EMAIL || 'HomeJiak <noreply@homejiak.sg>',
       to: email,
       subject: template.subject,
       html: template.html,
@@ -249,7 +249,7 @@ export async function sendEmail(
 
   try {
     const { error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'KitchenCloud <noreply@kitchencloud.sg>',
+      from: process.env.RESEND_FROM_EMAIL || 'HomeJiak <noreply@homejiak.sg>',
       to,
       subject,
       html,

@@ -1,5 +1,5 @@
 import { Metadata } from "next"
-import { Card } from "@kitchencloud/ui"
+import { Card } from "@homejiak/ui"
 import Link from "next/link"
 import { Clock, MapPin, Star } from "lucide-react"
 

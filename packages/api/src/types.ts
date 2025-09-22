@@ -14,7 +14,7 @@ export interface Session {
 }
 
 // Use the actual db value type without importing it as a value here.
-type DBClient = typeof import('@kitchencloud/database').db
+type DBClient = typeof import('@homejiak/database').db
 
 export type Context<S = unknown, SC = unknown> = {
   db: DBClient

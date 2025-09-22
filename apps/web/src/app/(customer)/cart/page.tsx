@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from "next/navigation"
-import { Button } from "@kitchencloud/ui"
+import { Button } from "@homejiak/ui"
 import { ArrowLeft, ArrowRight } from "lucide-react"
 import { useCart, useCartTotal } from "../../../stores/cart-store"
 import { EmptyCart } from "../../../components/cart/empty-cart"
@@ -68,7 +68,7 @@ export default function CartPage() {
           {/* Cart Items */}
           <div className="lg:col-span-2">
             <div className="space-y-4">
-              {items.map((item) => (
+              {items.map((item: any) => (
                 <CartItem
                   key={item.id}
                   item={item}
@@ -101,7 +101,7 @@ export default function CartPage() {
               </Button>
 
               <p className="text-center text-sm text-muted-foreground">
-                Secure checkout powered by KitchenCloud
+                Secure checkout powered by HomeJiak
               </p>
             </div>
           </div>

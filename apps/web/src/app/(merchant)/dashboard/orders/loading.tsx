@@ -1,4 +1,4 @@
-import { Skeleton } from "@kitchencloud/ui"
+import { Skeleton } from "@homejiak/ui"
 
 export default function OrdersLoading() {
   return (

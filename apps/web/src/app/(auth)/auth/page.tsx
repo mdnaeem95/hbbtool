@@ -33,7 +33,7 @@ export default function AuthPage() {
   })
 
   const signInMutation = api.auth.merchantSignIn.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       console.log('====== CLIENT AUTH DEBUG ======')
       console.log('✅ Login successful')
       console.log('📦 Full response data:', data)
@@ -58,7 +58,7 @@ export default function AuthPage() {
         }, 1000)
       }
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('❌ Login error:', error)
       setError(error.message)
     }
@@ -108,7 +108,7 @@ export default function AuthPage() {
           </h2>
           
           <p className="text-gray-600 mb-4">
-            Thank you for applying to join KitchenCloud.
+            Thank you for applying to join HomeJiak.
           </p>
           
           <div className="bg-white p-4 rounded-lg text-left space-y-2">
@@ -124,8 +124,8 @@ export default function AuthPage() {
         
         <p className="text-sm text-gray-500">
           Have questions? Contact us at{' '}
-          <a href="mailto:support@kitchencloud.sg" className="text-orange-600 hover:underline">
-            support@kitchencloud.sg
+          <a href="mailto:support@homejiak.sg" className="text-orange-600 hover:underline">
+            support@homejiak.sg
           </a>
         </p>
         

@@ -1,4 +1,4 @@
-import { Card } from '@kitchencloud/ui'
+import { Card } from '@homejiak/ui'
 import Image from 'next/image'
 import { QrCode } from 'lucide-react'
 

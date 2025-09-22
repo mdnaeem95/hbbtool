@@ -1,6 +1,6 @@
 "use client"
 
-import { useToast } from "@kitchencloud/ui"
+import { useToast } from "@homejiak/ui"
 import {
   Toast,
   ToastClose,

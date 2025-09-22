@@ -1,8 +1,8 @@
 import { useEffect, useMemo } from 'react'
-import { Label, Input } from '@kitchencloud/ui'
+import { Label, Input } from '@homejiak/ui'
 import { User, Mail, Phone, Info } from 'lucide-react'
 import { useCheckoutStore } from '../../stores/checkout-store'
-import { useAuth } from '@kitchencloud/auth/client'
+import { useAuth } from '@homejiak/auth/client'
 
 export function ContactForm() {
   const { user, isMerchant } = useAuth()

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Input, Button, Badge, Popover, PopoverContent, PopoverTrigger, Separator } from '@kitchencloud/ui'
+import { Input, Button, Badge, Popover, PopoverContent, PopoverTrigger, Separator } from '@homejiak/ui'
 import { Search, Filter, MapPin, X } from 'lucide-react'
 import { useDebounce } from '../../hooks/use-debounce'
 

@@ -2,24 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { 
-  Button, 
-  Card, 
-  Alert,
-  AlertDescription,
-  Separator,
-} from '@kitchencloud/ui'
-import { 
-  CheckCircle, 
-  Phone,
-  Mail,
-  Copy,
-  Home,
-  ShoppingBag,
-  Info,
-  Truck,
-  Package
-} from 'lucide-react'
+import { Button, Card, Alert, AlertDescription, Separator } from '@homejiak/ui'
+import { CheckCircle, Phone, Mail, Copy, Home, ShoppingBag, Info, Truck, Package } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { api } from '../../../../lib/trpc/client' // 🔧 Fixed import path
 
@@ -233,7 +217,7 @@ export default function OrderConfirmationPage() {
         <Card className="mb-6 p-6">
           <h3 className="font-semibold mb-4">Order Items</h3>
           <div className="space-y-3">
-            {order.items.map((item, index) => (
+            {order.items.map((item: any, index: any) => (
               <div key={index} className="flex justify-between items-center">
                 <div className="flex-1">
                   <p className="font-medium">{item.productName}</p>

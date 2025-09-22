@@ -1,5 +1,5 @@
 {
-  "name": "@kitchencloud/auth",
+  "name": "@homejiak/auth",
   "version": "0.0.0",
   "private": true,
   "exports": {
@@ -18,7 +18,7 @@
     "format": "biome format --write ./src"
   },
   "dependencies": {
-    "@kitchencloud/database": "workspace:*",
+    "@homejiak/database": "workspace:*",
     "@supabase/ssr": "^0.6.1",
     "@types/node": "^24.2.1",
     "@types/react": "19.1.10",

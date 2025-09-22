@@ -25,7 +25,7 @@ export async function generateMetadata({
   // The metadata will be generated on the client side or through the API
   
   return {
-    title: `${slug.replace(/-/g, ' ')} - Menu | KitchenCloud`,
+    title: `${slug.replace(/-/g, ' ')} - Menu | HomeJiak`,
     description: `Order delicious food from ${slug.replace(/-/g, ' ')}`,
     openGraph: {
       title: `${slug.replace(/-/g, ' ')} - Menu`,

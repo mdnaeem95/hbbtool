@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Button, Input, Label } from '@kitchencloud/ui'
+import { Button, Input, Label } from '@homejiak/ui'
 import { Loader2, Store, ArrowLeft } from 'lucide-react'
-import { useAuth } from '@kitchencloud/auth/client'
+import { useAuth } from '@homejiak/auth/client'
 import { validatePassword, validatePhoneNumber } from '../../../lib/utils/validation'
 import Link from 'next/link'
 

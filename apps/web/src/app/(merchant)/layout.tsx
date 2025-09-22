@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { MerchantSidebar, MerchantHeader, MerchantMobileNav } from "../../components/merchant"
-import { useAuth } from "@kitchencloud/auth/client"
+import { useAuth } from "@homejiak/auth/client"
 import { api } from "../../lib/trpc/client"
 import { Loader2 } from "lucide-react"
 import { OrderStreamProvider } from "../../providers/order-stream-provider"

@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@kitchencloud/ui"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@homejiak/ui"
 
 interface PaymentInstructionsDialogProps {
   open: boolean

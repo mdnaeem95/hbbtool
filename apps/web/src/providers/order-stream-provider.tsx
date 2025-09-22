@@ -1,9 +1,9 @@
 "use client"
 
 import { createContext, useContext, useEffect, useRef, useState } from "react"
-import { useAuth } from "@kitchencloud/auth/client"
+import { useAuth } from "@homejiak/auth/client"
 import { api } from "../lib/trpc/client"
-import { useToast } from "@kitchencloud/ui"
+import { useToast } from "@homejiak/ui"
 import { useOrderStore } from "../stores/order-store"
 
 interface OrderStreamContextValue {
@@ -104,7 +104,7 @@ export function OrderStreamProvider({ children }: OrderStreamProviderProps) {
               
               // Optional: Browser notification if page is not visible
               if (document.visibilityState === 'hidden' && 'Notification' in window && Notification.permission === 'granted') {
-                new Notification('New Order - KitchenCloud', {
+                new Notification('New Order - HomeJiak', {
                   body: `Order #${data.order.orderNumber} received`,
                   icon: '/favicon.ico',
                 })

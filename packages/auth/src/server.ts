@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { db } from '@kitchencloud/database'
+import { db } from '@homejiak/database'
 import type { AuthUser, AuthSession } from './types'
 
 /**

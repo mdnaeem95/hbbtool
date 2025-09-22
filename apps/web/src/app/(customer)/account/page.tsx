@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '../../../lib/supabase/server'
 import { AccountContent } from "./account-content"
-import { db } from '@kitchencloud/database'
+import { db } from '@homejiak/database'
 
 export default async function AccountPage() {
   const supabase = await createClient()

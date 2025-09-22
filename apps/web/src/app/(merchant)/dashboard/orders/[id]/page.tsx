@@ -4,7 +4,7 @@ import { use } from "react"
 import { notFound } from "next/navigation"
 import { format } from "date-fns"
 import Link from "next/link"
-import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Separator, Alert, AlertDescription } from "@kitchencloud/ui"
+import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Separator, Alert, AlertDescription } from "@homejiak/ui"
 import { ArrowLeft, Clock, Phone, User, DollarSign, Package, MessageSquare, CheckCircle, AlertCircle, Truck, ChefHat,
   Printer, Edit, Mail, MapPin, Calendar, Receipt } from "lucide-react"
 import { api } from "../../../../../lib/trpc/client"

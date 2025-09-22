@@ -1,6 +1,6 @@
 'use client'
 
-import { Card, CardContent } from "@kitchencloud/ui"
+import { Card, CardContent } from "@homejiak/ui"
 import { TrendingUp, TrendingDown, ShoppingBag, DollarSign, Clock, Star } from "lucide-react"
 
 interface DashboardStatsProps {

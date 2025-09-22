@@ -4,9 +4,9 @@ import { useState } from 'react'
 import { Bell } from 'lucide-react'
 import { Button, Badge, ScrollArea, 
     DropdownMenu, DropdownMenuContent, DropdownMenuHeader, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger 
-} from '@kitchencloud/ui'
+} from '@homejiak/ui'
 import { api } from "../../lib/trpc/client"
-import { useAuth } from "@kitchencloud/auth/client"
+import { useAuth } from "@homejiak/auth/client"
 import { formatRelativeTime } from '../../lib/utils'
 
 export function NotificationBell() {
@@ -107,7 +107,7 @@ export function NotificationBell() {
               <p>No notifications yet</p>
             </div>
           ) : (
-            notifications.map((notification) => (
+            notifications.map((notification: any) => (
               <DropdownMenuItem
                 key={notification.id}
                 className="flex flex-col items-start gap-1 p-3 cursor-pointer"

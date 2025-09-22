@@ -1,10 +1,10 @@
-# KitchenCloud 🍳☁️
+# HomeJiak 🍳☁️
 
 > Empowering Singapore's home-based food businesses with modern digital tools
 
 ## Overview
 
-KitchenCloud is a comprehensive platform designed to help home-based F&B businesses in Singapore transition from WhatsApp-based ordering to a professional, streamlined digital storefront.
+HomeJiak is a comprehensive platform designed to help home-based F&B businesses in Singapore transition from WhatsApp-based ordering to a professional, streamlined digital storefront.
 
 ## 🏗️ Architecture
 

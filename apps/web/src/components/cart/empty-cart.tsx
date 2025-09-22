@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Button } from "@kitchencloud/ui"
+import { Button } from "@homejiak/ui"
 import { ShoppingBag } from "lucide-react"
 
 export function EmptyCart() {

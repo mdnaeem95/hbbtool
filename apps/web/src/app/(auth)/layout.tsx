@@ -2,7 +2,7 @@ import { Metadata } from "next"
 import Link from "next/link"
 
 export const metadata: Metadata = {
-  title: "KitchenCloud - Sign In",
+  title: "HomeJiak - Sign In",
   description: "Order delicious home-cooked meals from local home-based businesses",
 }
 
@@ -19,7 +19,7 @@ export default function AuthLayout({
           {/* Logo - visible on all screens */}
           <div className="text-center lg:text-left">
             <Link href="/" className="inline-block">
-              <h1 className="text-3xl font-bold text-orange-600">KitchenCloud</h1>
+              <h1 className="text-3xl font-bold text-orange-600">HomeJiak</h1>
             </Link>
             <p className="mt-2 text-sm text-gray-600">
               Singapore's home-based F&B platform
@@ -44,7 +44,7 @@ export default function AuthLayout({
               Start selling your homemade food today
             </h2>
             <p className="text-lg text-orange-50 mb-8">
-              Join hundreds of home-based businesses already thriving on KitchenCloud
+              Join hundreds of home-based businesses already thriving on HomeJiak
             </p>
             
             {/* Features */}

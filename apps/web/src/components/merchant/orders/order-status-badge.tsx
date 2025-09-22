@@ -1,4 +1,4 @@
-import { Badge, BadgeProps } from "@kitchencloud/ui"
+import { Badge, BadgeProps } from "@homejiak/ui"
 
 interface OrderStatusBadgeProps {
   status: string // Accept any string to be compatible with both enum types

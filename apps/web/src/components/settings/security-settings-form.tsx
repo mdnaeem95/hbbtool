@@ -5,53 +5,15 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { format } from "date-fns"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  Input,
-  Button,
-  Switch,
-  useToast,
-  Alert,
-  AlertDescription,
-  Badge,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@kitchencloud/ui"
-import { 
-  Loader2, 
-  Save, 
-  Shield,
-  Smartphone,
-  Monitor,
-  LogOut,
-  CheckCircle,
-  XCircle,
-} from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle,
+  Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
+  Input, Button, Switch, useToast, Alert, AlertDescription, Badge,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle } from "@homejiak/ui"
+import { Loader2, Save, Shield, Smartphone, Monitor, LogOut, CheckCircle, XCircle } from "lucide-react"
 import { api } from "../../lib/trpc/client"
-import { securitySettingsSchema } from "@kitchencloud/api/utils"
+import { securitySettingsSchema } from "@homejiak/api/utils"
 import { QRCodeSVG } from "qrcode.react"
 
 type SecuritySettingsData = z.infer<typeof securitySettingsSchema>
@@ -345,7 +307,7 @@ export function SecuritySettingsForm({ data, onSuccess }: SecuritySettingsFormPr
             <CardContent>
               {sessions && sessions.length > 0 ? (
                 <div className="space-y-3">
-                  {sessions.map((session) => {
+                  {sessions.map((session: any) => {
                     const DeviceIcon = getDeviceIcon(session.userAgent)
                     return (
                       <div

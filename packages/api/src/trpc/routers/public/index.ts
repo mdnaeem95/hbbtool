@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { router, publicProcedure } from '../../core'
 import { paginationSchema, phoneSchema } from '../../../utils/validation'
-import { DeliveryMethod, Prisma } from '@kitchencloud/database'
+import { DeliveryMethod, Prisma } from '@homejiak/database'
 import { nanoid } from 'nanoid'
 
 /* ---------------- helpers ---------------- */

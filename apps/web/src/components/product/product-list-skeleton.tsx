@@ -1,4 +1,4 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@kitchencloud/ui"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@homejiak/ui"
 
 export function ProductListSkeleton() {
   return (

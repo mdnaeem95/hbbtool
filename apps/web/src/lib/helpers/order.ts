@@ -1,4 +1,4 @@
-import { OrderStatus } from "@kitchencloud/database/types"// or whatever your color/variant union is
+import { OrderStatus } from "@homejiak/database/types"// or whatever your color/variant union is
 
 // --- Status UI config
 export const ORDER_STATUS_CONFIG = {

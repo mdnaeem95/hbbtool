@@ -1,4 +1,4 @@
-import { db, type NotificationType, NotificationPriority } from '@kitchencloud/database'
+import { db, type NotificationType, NotificationPriority } from '@homejiak/database'
 import { emailProvider } from './provider/email'
 import { smsProvider } from './provider/sms'
 import { whatsappProvider } from './provider/whatsapp'

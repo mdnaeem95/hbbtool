@@ -4,7 +4,7 @@ import { router, merchantProcedure } from '../../core'
 import { paginationSchema, priceSchema, quantitySchema } from '../../../utils/validation'
 import { paginatedResponse } from '../../../utils/pagination'
 import { handleDatabaseError } from '../../../utils/errors'
-import { Prisma, ProductStatus } from '@kitchencloud/database'
+import { Prisma, ProductStatus } from '@homejiak/database'
 
 /** ---------------------------
  *  Helpers

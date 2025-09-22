@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { router, merchantProcedure } from '../../core'
-import { db } from '@kitchencloud/database'
+import { db } from '@homejiak/database'
 import { subDays, startOfDay, endOfDay, startOfWeek } from 'date-fns'
 
 // Helper to convert Prisma Decimal to number
@@ -248,13 +248,13 @@ export const analyticsRouter = router({
       ])
       
       // Format data
-      const statusData = ordersByStatus.map(item => ({
+      const statusData = ordersByStatus.map((item: any) => ({
         status: item.status,
         count: item._count,
       }))
       
       const hourlyData = Array.from({ length: 24 }, (_, hour) => {
-        const found = hourlyDistribution.find(h => Number(h.hour) === hour)
+        const found = hourlyDistribution.find((h: any) => Number(h.hour) === hour)
         return {
           hour,
           orders: found ? Number(found.count) : 0,

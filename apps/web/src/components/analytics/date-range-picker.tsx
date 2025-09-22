@@ -5,7 +5,7 @@ import { format } from "date-fns"
 import { Calendar as CalendarIcon } from "lucide-react"
 import { DateRange } from "react-day-picker"
 import { cn } from "../../lib/utils"
-import { Button, Calendar, Popover, PopoverContent, PopoverTrigger } from "@kitchencloud/ui"
+import { Button, Calendar, Popover, PopoverContent, PopoverTrigger } from "@homejiak/ui"
 
 interface DateRangePickerProps {
   from: Date

@@ -1,5 +1,5 @@
 import { Resend } from 'resend'
-import { db } from '@kitchencloud/database'
+import { db } from '@homejiak/database'
 
 interface EmailData {
   userId: string
@@ -52,7 +52,7 @@ class EmailProvider {
       console.log('[email.provider] Sending email via Resend...')
       
       const response = await resend.emails.send({
-        from: 'KitchenCloud <noreply@kitchencloud.sg>',
+        from: 'HomeJiak <noreply@homejiak.sg>',
         to: user.email,
         subject,
         html: htmlContent,
@@ -168,7 +168,7 @@ class EmailProvider {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KitchenCloud Notification</title>
+  <title>HomeJiak Notification</title>
   <style>
     body {
       font-family: 'Inter', Arial, sans-serif;
@@ -237,7 +237,7 @@ class EmailProvider {
 <body>
   <div class="container">
     <div class="header">
-      <div class="logo">🍳 KitchenCloud</div>
+      <div class="logo">🍳 HomeJiak</div>
     </div>
     
     <div class="greeting">
@@ -259,9 +259,9 @@ class EmailProvider {
     
     <div class="footer">
       <p>
-        This email was sent from KitchenCloud, Singapore's home-based F&B platform.
+        This email was sent from HomeJiak, Singapore's home-based F&B platform.
         <br>
-        <a href="https://kitchencloud.sg" style="color: #ff6b35;">Visit KitchenCloud</a>
+        <a href="https://homejiak.sg" style="color: #ff6b35;">Visit HomeJiak</a>
       </p>
     </div>
   </div>

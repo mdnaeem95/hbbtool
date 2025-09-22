@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server'
-import { Prisma } from '@kitchencloud/database'
+import { Prisma } from '@homejiak/database'
 
 export function handleDatabaseError(error: unknown): never {
   if (error instanceof Prisma.PrismaClientKnownRequestError) {

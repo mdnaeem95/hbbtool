@@ -1,7 +1,7 @@
 'use client'
 
 import Link from "next/link"
-import { Button } from "@kitchencloud/ui"
+import { Button } from "@homejiak/ui"
 import { ShoppingCart } from "lucide-react"
 import { useCartCount } from "../../stores/cart-store"
 import { cn } from "../../lib/utils"

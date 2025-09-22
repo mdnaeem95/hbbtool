@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { api } from '../lib/trpc/client'
-import { useToast } from '@kitchencloud/ui'
+import { useToast } from '@homejiak/ui'
 import { useOrderStore } from '../stores/order-store'
 
 interface OrderStreamOptions {

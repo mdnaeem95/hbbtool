@@ -1,5 +1,5 @@
 import { cookies } from "next/headers"
-import { db } from "@kitchencloud/database"
+import { db } from "@homejiak/database"
 
 export interface Session {
   user: {

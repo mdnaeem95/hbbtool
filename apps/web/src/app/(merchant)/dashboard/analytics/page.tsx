@@ -4,28 +4,10 @@ import * as React from "react"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { api } from "../../../../lib/trpc/client"
-import { useAuth } from "@kitchencloud/auth/client"
-import { 
-  Tabs, 
-  TabsContent, 
-  TabsList, 
-  TabsTrigger,
-  Spinner,
-  Button,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@kitchencloud/ui"
-import { 
-  Download, 
-  Calendar,
-  TrendingUp,
-  ShoppingBag,
-  Package,
-  Users,
-} from "lucide-react"
+import { useAuth } from "@homejiak/auth/client"
+import { Tabs, TabsContent, TabsList, TabsTrigger, Spinner, Button, Select,
+  SelectContent, SelectItem, SelectTrigger, SelectValue } from "@homejiak/ui"
+import { Download, Calendar, TrendingUp, ShoppingBag, Package, Users } from "lucide-react"
 import { StatsOverview } from "../../../../components/analytics/stats-overview"
 import { RevenueChart } from "../../../../components/analytics/revenue-chart"
 import { OrderAnalytics } from "../../../../components/analytics/order-analytics"

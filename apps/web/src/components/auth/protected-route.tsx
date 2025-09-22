@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@kitchencloud/auth/client'
+import { useAuth } from '@homejiak/auth/client'
 import { Loader2 } from 'lucide-react'
 
 interface ProtectedRouteProps {

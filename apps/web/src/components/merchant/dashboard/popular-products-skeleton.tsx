@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, Skeleton } from "@kitchencloud/ui";
+import { Card, CardContent, CardHeader, Skeleton } from "@homejiak/ui";
 
 export function PopularProductsSkeleton() {
   return (

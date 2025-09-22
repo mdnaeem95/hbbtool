@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from "react"
-import { Button, cn } from "@kitchencloud/ui"
+import { Button, cn } from "@homejiak/ui"
 import { ShoppingCart } from "lucide-react"
 import { useCartCount, useCartTotal } from "../../stores/cart-store"
 import { motion, AnimatePresence } from "framer-motion"

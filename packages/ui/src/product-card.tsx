@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { Card, CardContent } from "./card"
 import { Badge } from "./badge"
 import { Button } from "./button"
-import { cn } from "@kitchencloud/ui"
+import { cn } from "@homejiak/ui"
 import { ShoppingCart, Eye, Heart, Clock } from "lucide-react"
 
 const productCardVariants = cva(

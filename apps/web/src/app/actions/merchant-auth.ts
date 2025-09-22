@@ -2,7 +2,7 @@
 
 import { createClient } from '../../lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { db } from '@kitchencloud/database'
+import { db } from '@homejiak/database'
 
 export async function verifyMerchantAccess() {
   const supabase = await createClient() // 🔧 Add await here

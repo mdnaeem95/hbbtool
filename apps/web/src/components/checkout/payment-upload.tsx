@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { Button, Card } from '@kitchencloud/ui'
+import { Button, Card } from '@homejiak/ui'
 import { Upload, Camera, X, CheckCircle, Loader2 } from 'lucide-react'
 import Image from 'next/image'
 

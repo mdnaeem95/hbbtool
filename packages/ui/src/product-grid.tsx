@@ -1,5 +1,5 @@
 import * as React from "react"
-import { cn } from "@kitchencloud/ui"
+import { cn } from "@homejiak/ui"
 import { ProductCard, ProductCardSkeleton, type ProductCardProps } from "./product-card"
 import { Button } from "./button"
 import { Loader2 } from "lucide-react"

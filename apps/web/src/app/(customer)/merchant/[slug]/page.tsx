@@ -1,10 +1,10 @@
 import { notFound } from 'next/navigation'
-import { appRouter } from '@kitchencloud/api'
-import { Card } from "@kitchencloud/ui"
+import { appRouter } from '@homejiak/api'
+import { Card } from "@homejiak/ui"
 import { Clock, ShoppingCart, MapPin } from "lucide-react"
-import { db } from '@kitchencloud/database'
-import { getAuthSession, createServerSupabaseClient } from '@kitchencloud/auth/server'
-import type { TRPCContext } from '@kitchencloud/api'
+import { db } from '@homejiak/database'
+import { getAuthSession, createServerSupabaseClient } from '@homejiak/auth/server'
+import type { TRPCContext } from '@homejiak/api'
 
 interface MerchantPageProps {
   params: Promise<{ slug: string }>

@@ -1,4 +1,4 @@
-import { Card } from '@kitchencloud/ui'
+import { Card } from '@homejiak/ui'
 import { Shield, Check, Clock } from 'lucide-react'
 
 interface OrderSummaryProps {

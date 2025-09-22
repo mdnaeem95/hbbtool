@@ -10,10 +10,10 @@ import {
   Input, Button, Switch,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Slider,
   useToast,
-} from "@kitchencloud/ui"
+} from "@homejiak/ui"
 import { Loader2, Save, Truck, ShoppingBag, Clock } from "lucide-react"
 import { api } from "../../lib/trpc/client"
-import { storeSettingsSchema } from "@kitchencloud/api/utils"
+import { storeSettingsSchema } from "@homejiak/api/utils"
 
 type StoreSettingsData = z.input<typeof storeSettingsSchema>
 

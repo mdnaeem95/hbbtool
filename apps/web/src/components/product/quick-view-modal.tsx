@@ -5,7 +5,7 @@ import { X, ShoppingCart, Clock, Minus, Plus, ChevronLeft, ChevronRight } from "
 import Image from "next/image"
 import { api } from "../../lib/trpc/client"
 import { toNumber } from "../../lib/utils"
-import { cn } from "@kitchencloud/ui"
+import { cn } from "@homejiak/ui"
 
 interface QuickViewModalProps {
   productId: string
@@ -180,7 +180,7 @@ export function QuickViewModal({
                     {/* Thumbnail Gallery */}
                     {product.images && product.images.length > 1 && (
                       <div className="flex gap-2 overflow-x-auto pb-2">
-                        {product.images.map((image, index) => (
+                        {product.images.map((image: any, index: any) => (
                           <button
                             key={index}
                             onClick={() => setSelectedImage(index)}

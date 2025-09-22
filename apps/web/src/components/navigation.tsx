@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '../lib/supabase/client'
 import Link from 'next/link'
-import { Button } from '@kitchencloud/ui'
+import { Button } from '@homejiak/ui'
 import type { User } from '@supabase/supabase-js'
 
 export function Navigation() {
@@ -29,7 +29,7 @@ export function Navigation() {
   return (
     <nav className="flex items-center justify-between p-4">
       <Link href="/" className="text-xl font-bold">
-        KitchenCloud
+        HomeJiak
       </Link>
 
       <div className="flex items-center gap-4">

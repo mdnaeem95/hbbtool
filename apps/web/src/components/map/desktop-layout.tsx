@@ -1,6 +1,6 @@
 'use client'
 
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@kitchencloud/ui'
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@homejiak/ui'
 import { MerchantMap } from './merchant-map'
 import { MapSearchHeader } from './map-search-header'
 import { MerchantListSidebar } from './merchant-list-sidebar'
@@ -47,7 +47,7 @@ export function DesktopLayout({
               <div className="flex items-center gap-3">
                 <Store className="h-5 w-5 text-orange-500" />
                 <p className="text-sm font-medium">
-                  Are you a home-based food business? Join KitchenCloud today!
+                  Are you a home-based food business? Join HomeJiak today!
                 </p>
               </div>
               <Link

@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { analyticsRouter } from '../analytics'
-import { db } from '@kitchencloud/database'
-import type { AuthSession } from '@kitchencloud/auth'
+import { db } from '@homejiak/database'
+import type { AuthSession } from '@homejiak/auth'
 import type { Context } from '../../context'
-import { createServerSupabaseClient } from '@kitchencloud/auth/server'
+import { createServerSupabaseClient } from '@homejiak/auth/server'
 
 // Mock database
-vi.mock('@kitchencloud/database', () => ({
+vi.mock('@homejiak/database', () => ({
   db: {
     order: {
       count: vi.fn(),
@@ -26,7 +26,7 @@ vi.mock('@kitchencloud/database', () => ({
 }))
 
 // Mock Supabase client
-vi.mock('@kitchencloud/auth/server', () => ({
+vi.mock('@homejiak/auth/server', () => ({
   createServerSupabaseClient: vi.fn(() => Promise.resolve({
     auth: {
       getUser: vi.fn(),
@@ -40,7 +40,6 @@ const mockSession: AuthSession = {
   user: {
     id: 'test-merchant-123',
     email: 'test@merchant.com',
-    userType: 'merchant',
     merchant: {
       id: 'test-merchant-123',
       email: 'test@merchant.com',

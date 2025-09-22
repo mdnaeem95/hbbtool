@@ -27,8 +27,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@kitchencloud/ui': path.resolve(__dirname, '../../packages/ui/src'),
-      '@kitchencloud/database/types': path.resolve(__dirname, '../../packages/database/src/types-only.ts'),
+      '@homejiak/ui': path.resolve(__dirname, '../../packages/ui/src'),
+      '@homejiak/database/types': path.resolve(__dirname, '../../packages/database/src/types-only.ts'),
     },
   },
 })

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server"
 import { getMerchantSession } from "../../../../app/actions/merchant-auth"
-import { db } from "@kitchencloud/database"
+import { db } from "@homejiak/database"
 
 export const dynamic = 'force-dynamic'
 

@@ -10,7 +10,7 @@ export function Footer() {
           <div>
             <Link href="/" className="flex items-center gap-2 font-bold">
               <ChefHat className="h-5 w-5 text-primary" />
-              KitchenCloud
+              HomeJiak
             </Link>
             <p className="mt-4 text-sm text-muted-foreground">
               Singapore&apos;s platform for home-based food businesses
@@ -88,7 +88,7 @@ export function Footer() {
         </div>
 
         <div className="mt-8 border-t pt-8 text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} KitchenCloud. All rights reserved.
+          © {new Date().getFullYear()} HomeJiak. All rights reserved.
         </div>
       </div>
     </footer>

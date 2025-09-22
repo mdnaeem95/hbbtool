@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from "react"
-import { Button, useToast } from "@kitchencloud/ui"
+import { Button, useToast } from "@homejiak/ui"
 import { ShoppingCart, Plus, Minus, Check } from "lucide-react"
 import { useCart, useCartItemQuantity } from "../../stores/cart-store"
 import { cn } from "../../lib/utils"

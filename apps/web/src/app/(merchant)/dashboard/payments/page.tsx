@@ -1,6 +1,6 @@
 'use client'
 
-import { Button, Card, Badge, useToast } from '@kitchencloud/ui'
+import { Button, Card, Badge, useToast } from '@homejiak/ui'
 import { api } from '../../../../lib/trpc/client'
 import { CheckCircle, XCircle, Eye, Loader2 } from 'lucide-react'
 
@@ -51,7 +51,7 @@ export default function PaymentsPage() {
       
       {/* Map directly on orders, not orders.items */}
       {orders && orders.length > 0 ? (
-        orders.map((order) => (
+        orders.map((order: any) => (
           <Card key={order.id} className="p-6">
             <div className="flex justify-between items-start">
               <div className="space-y-2">
@@ -84,7 +84,7 @@ export default function PaymentsPage() {
                 {/* Show order items */}
                 {order.items && order.items.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {order.items.slice(0, 3).map((item, idx) => (
+                    {order.items.slice(0, 3).map((item: any, idx: any) => (
                       <Badge key={idx} variant="outline" className="text-xs">
                         {item.quantity}x {item.product?.name || 'Item'}
                       </Badge>

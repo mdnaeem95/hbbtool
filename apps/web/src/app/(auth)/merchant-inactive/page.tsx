@@ -1,5 +1,5 @@
 import { Metadata } from "next"
-import { Card, Button } from "@kitchencloud/ui"
+import { Card, Button } from "@homejiak/ui"
 import { AlertCircle, Mail } from "lucide-react"
 import Link from "next/link"
 
@@ -30,7 +30,7 @@ export default function MerchantInactivePage() {
         
         <div className="mt-8 space-y-3">
           <Button asChild className="w-full">
-            <a href="mailto:merchant-support@kitchencloud.sg">
+            <a href="mailto:merchant-support@homejiak.sg">
               <Mail className="mr-2 h-4 w-4" />
               Contact Support
             </a>

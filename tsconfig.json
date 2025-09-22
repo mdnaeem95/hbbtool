@@ -23,11 +23,11 @@
     "noUncheckedIndexedAccess": true,
     "allowJs": true,
     "paths": {
-      "@kitchencloud/ui": ["./packages/ui/src"],
-      "@kitchencloud/auth": ["./packages/auth/src"],
-      "@kitchencloud/database": ["./packages/database/src"],
-      "@kitchencloud/api": ["./packages/api/src"],
-      "@kitchencloud/core": ["./packages/core/src"]
+      "@homejiak/ui": ["./packages/ui/src"],
+      "@homejiak/auth": ["./packages/auth/src"],
+      "@homejiak/database": ["./packages/database/src"],
+      "@homejiak/api": ["./packages/api/src"],
+      "@homejiak/core": ["./packages/core/src"]
     }
   },
   "exclude": ["node_modules", "dist", ".next", ".turbo"]

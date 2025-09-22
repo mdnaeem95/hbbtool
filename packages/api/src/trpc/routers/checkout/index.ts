@@ -3,7 +3,7 @@ import { TRPCError } from '@trpc/server'
 import { router, publicProcedure } from '../../core'
 import { phoneSchema, postalCodeSchema } from '../../../utils/validation'
 import { nanoid } from 'nanoid'
-import { DeliveryMethod, PaymentMethod, OrderStatus, PaymentStatus } from '@kitchencloud/database'
+import { DeliveryMethod, PaymentMethod, OrderStatus, PaymentStatus } from '@homejiak/database'
 
 // ---------- types ----------
 export enum DeliveryPricingModel {

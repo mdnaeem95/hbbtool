@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button, Card, useToast } from '@kitchencloud/ui'
+import { Button, Card, useToast } from '@homejiak/ui'
 import { ArrowLeft, ArrowRight, Shield, Info } from 'lucide-react'
 import { useCart, useCartTotal } from '../../../stores/cart-store'
 import { CheckoutSteps, DeliverySection, ContactForm, PaymentSection, OrderSummary } from "../../../components/checkout/index"
@@ -70,7 +70,7 @@ export default function CheckoutPage() {
     try {
       const session = await createSession.mutateAsync({
         merchantId,
-        items: items.map(item => ({
+        items: items.map((item: any) => ({
           productId: item.productId,
           quantity: item.quantity,
           variant: item.variant ? JSON.stringify(item.variant): undefined,

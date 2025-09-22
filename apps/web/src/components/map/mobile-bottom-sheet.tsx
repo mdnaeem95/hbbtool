@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { ChevronUp, Clock, MapPin, Star, Bike, ShoppingBag } from 'lucide-react'
-import { Badge, Button, Skeleton } from '@kitchencloud/ui'
+import { Badge, Button, Skeleton } from '@homejiak/ui'
 import Image from 'next/image'
 import { motion, useAnimation, PanInfo } from 'framer-motion'
 

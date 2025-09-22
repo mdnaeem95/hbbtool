@@ -4,10 +4,10 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { DashboardStats, RecentOrders, PopularProducts, QuickStats } from "../../../components/merchant"
 import { AlertCircle, ArrowUpRight, Loader2 } from "lucide-react"
-import { Alert, AlertDescription, Button } from "@kitchencloud/ui"
+import { Alert, AlertDescription, Button } from "@homejiak/ui"
 import Link from "next/link"
 import { api } from "../../../lib/trpc/client"
-import { useAuth } from "@kitchencloud/auth/client"
+import { useAuth } from "@homejiak/auth/client"
 import { DashboardStatsSkeleton, RecentOrdersSkeleton, PopularProductsSkeleton, QuickStatsSkeleton } from "../../../components/merchant/dashboard"
 
 export const dynamic = 'force-dynamic'

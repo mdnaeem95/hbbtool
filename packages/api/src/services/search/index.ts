@@ -1,4 +1,4 @@
-import { db, Prisma } from '@kitchencloud/database'
+import { db, Prisma } from '@homejiak/database'
 
 export class SearchService {
   static async searchProducts(params: {

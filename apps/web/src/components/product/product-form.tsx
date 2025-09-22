@@ -10,9 +10,9 @@ import { api } from "../../lib/trpc/client"
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle,
   Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
   Input, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-  Switch, Tabs, TabsContent, TabsList, TabsTrigger, useToast, cn } from "@kitchencloud/ui"
+  Switch, Tabs, TabsContent, TabsList, TabsTrigger, useToast, cn } from "@homejiak/ui"
 import { ChevronLeft, Save, Upload, X, Plus } from "lucide-react"
-import { ProductStatus } from "@kitchencloud/database/types"
+import { ProductStatus } from "@homejiak/database/types"
 
 // ---------- Schema & Types ----------
 const productFormSchema = z.object({

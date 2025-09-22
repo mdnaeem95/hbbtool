@@ -33,7 +33,7 @@ async function timeQuery<T>(name: string, queryFn: () => Promise<T>, threshold =
 }
 
 async function main() {
-  console.log('🚀 Starting KitchenCloud Performance Tests...\n')
+  console.log('🚀 Starting HomeJiak Performance Tests...\n')
   
   const results: TestResult[] = []
 

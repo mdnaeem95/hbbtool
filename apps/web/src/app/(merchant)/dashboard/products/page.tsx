@@ -1,15 +1,15 @@
 "use client"
 
 import { Suspense, use, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, toast } from "@kitchencloud/ui"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, toast } from "@homejiak/ui"
 import { Loader2, Package, Plus } from "lucide-react"
 import { ProductList } from "../../../../components/product/product-list"
 import { ProductListSkeleton } from "../../../../components/product/product-list-skeleton"
 import { ProductStats } from "../../../../components/product/product-stats"
-import { Button } from "@kitchencloud/ui"
+import { Button } from "@homejiak/ui"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@kitchencloud/auth/client"
+import { useAuth } from "@homejiak/auth/client"
 
 export default function ProductsPage({
   searchParams,

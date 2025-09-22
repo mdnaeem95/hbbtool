@@ -1,7 +1,6 @@
-// packages/api/src/services/notification/__tests__/integration.test.ts
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { NotificationService } from '../index'
-import { NotificationType, NotificationPriority } from '@kitchencloud/database'
+import { NotificationType, NotificationPriority } from '@homejiak/database'
 
 // Mock external APIs AND database operations for integration tests
 const mocks = vi.hoisted(() => ({
@@ -32,7 +31,7 @@ vi.mock('resend', () => ({
   }))
 }))
 
-vi.mock('@kitchencloud/database', () => ({
+vi.mock('@homejiak/database', () => ({
   db: {
     notification: {
       create: mocks.mockNotificationCreate,

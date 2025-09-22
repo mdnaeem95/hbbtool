@@ -1,5 +1,6 @@
+// @ts-ignore
 import { Twilio } from 'twilio'
-import { db } from '@kitchencloud/database'
+import { db } from '@homejiak/database'
 
 const twilio = new Twilio(
   process.env.TWILIO_ACCOUNT_SID!,
@@ -156,7 +157,7 @@ export const smsProvider = {
     // Replace common variables
     const replacements: Record<string, string> = {
       '{{customerName}}': user.name || 'Valued Customer',
-      '{{businessName}}': user.name || 'KitchenCloud Merchant',
+      '{{businessName}}': user.name || ' Merchant',
       ...Object.fromEntries(
         Object.entries(data).map(([key, value]) => [
           `{{${key}}}`,

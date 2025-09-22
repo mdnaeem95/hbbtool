@@ -1,5 +1,5 @@
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch'
-import { appRouter, createTRPCContext } from '@kitchencloud/api'
+import { appRouter, createTRPCContext } from '@homejiak/api'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

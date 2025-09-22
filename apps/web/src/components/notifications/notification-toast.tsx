@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useToast, ToastAction } from '@kitchencloud/ui'
+import { useToast, ToastAction } from '@homejiak/ui'
 import { api } from "../../lib/trpc/client"
-import { useAuth } from '@kitchencloud/auth/client'
+import { useAuth } from '@homejiak/auth/client'
 
 export function NotificationToast() {
   const { toast } = useToast()

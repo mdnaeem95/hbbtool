@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle, Skeleton } from "@kitchencloud/ui"
+import { Card, CardContent, CardHeader, CardTitle, Skeleton } from "@homejiak/ui"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { Clock, CheckCircle2, XCircle, Truck } from "lucide-react"
 
@@ -170,6 +170,7 @@ export function OrderAnalytics({ data, isLoading }: OrderAnalyticsProps) {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
+                    // @ts-ignore
                     label={({ name, percent }: { name: string; percent?: number }) => `${name} ${(percent! * 100).toFixed(0)}%`}
                     outerRadius={80}
                     fill="#8884d8"

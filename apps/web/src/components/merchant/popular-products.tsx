@@ -1,7 +1,7 @@
 'use client'
 
 import Link from "next/link"
-import { Card, CardContent, CardHeader, CardTitle, Button } from "@kitchencloud/ui"
+import { Card, CardContent, CardHeader, CardTitle, Button } from "@homejiak/ui"
 import { ArrowUpRight, Package, TrendingUp } from "lucide-react"
 
 interface PopularProductsProps {

@@ -1,4 +1,4 @@
-import { OrderStatus } from '@kitchencloud/database'
+import { OrderStatus } from '@homejiak/database'
 
 // Allowed transitions
 type Flow = Record<OrderStatus, readonly OrderStatus[]>

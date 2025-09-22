@@ -1,4 +1,4 @@
-import { type Decimal } from '@kitchencloud/database'
+import { type Decimal } from '@homejiak/database'
 
 export class PricingService {
   private static GST_RATE = 0.09 // Singapore GST 9%

@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { orderRouter } from '../order'
-import { db } from '@kitchencloud/database'
-import { OrderStatus, NotificationPriority } from '@kitchencloud/database'
-import type { AuthSession } from '@kitchencloud/auth'
+import { db } from '@homejiak/database'
+import { OrderStatus, NotificationPriority } from '@homejiak/database'
+import type { AuthSession } from '@homejiak/auth'
 
 // Mock dependencies
-vi.mock('@kitchencloud/database', () => ({
+vi.mock('@homejiak/database', () => ({
   db: {
     order: {
       findUnique: vi.fn(),
@@ -126,32 +126,17 @@ interface Context {
   resHeaders: Headers
 }
 
-// Mock sessions
+// Mock session - Only merchant session needed now
 const mockMerchantSession: AuthSession = {
   user: {
     id: 'clh3sa9g10001qzrm5h4n8xo2',
     email: 'merchant@test.com',
-    userType: 'merchant',
     merchant: {
       id: 'clh3sa9g10001qzrm5h4n8xo2',
       email: 'merchant@test.com',
       businessName: 'Test Restaurant',
       phone: '91234567',
       status: 'ACTIVE',
-    } as any,
-  },
-}
-
-const mockCustomerSession: AuthSession = {
-  user: {
-    id: 'clh3sa9g10002qzrm5h4n8xo3',
-    email: 'customer@test.com',
-    userType: 'customer',
-    phone: '98765432',
-    customer: {
-      id: 'clh3sa9g10002qzrm5h4n8xo3',
-      email: 'customer@test.com',
-      name: 'John Doe',
     } as any,
   },
 }
@@ -356,9 +341,9 @@ describe('Order Router', () => {
         page: 1,
       })
 
-    // Add assertion to use the result
-    expect(result).toBeDefined()
-    expect(result.items).toBeDefined()
+      // Add assertion to use the result
+      expect(result).toBeDefined()
+      expect(result.items).toBeDefined()
 
       expect(paginatedResponse).toHaveBeenCalledWith(
         db.order,
@@ -393,12 +378,6 @@ describe('Order Router', () => {
 
     it('should require merchant authentication', async () => {
       const caller = createCaller(null)
-
-      await expect(caller.list({})).rejects.toThrow()
-    })
-
-    it('should prevent customer access', async () => {
-      const caller = createCaller(mockCustomerSession)
 
       await expect(caller.list({})).rejects.toThrow()
     })
@@ -597,104 +576,48 @@ describe('Order Router', () => {
     })
 
     it('should set correct timestamps for each status', async () => {
-    const caller = createCaller()
-    
-    const statusTests = [
+      const caller = createCaller()
+      
+      const statusTests = [
         { from: 'PENDING', to: OrderStatus.CONFIRMED, field: 'confirmedAt' },
         { from: 'CONFIRMED', to: OrderStatus.PREPARING, field: 'preparedAt' },
         { from: 'PREPARING', to: OrderStatus.READY, field: 'readyAt' },
         { from: 'READY', to: OrderStatus.DELIVERED, field: 'deliveredAt' },
         { from: 'PENDING', to: OrderStatus.CANCELLED, field: 'cancelledAt' },
         { from: 'DELIVERED', to: OrderStatus.COMPLETED, field: 'completedAt' },
-    ]
+      ]
 
-    for (const test of statusTests) {
+      for (const test of statusTests) {
         vi.mocked(db.order.findFirst).mockResolvedValue({
-        id: 'clh3sa9g10000qzrm5h4n8xo1',
-        status: test.from,  // Use the correct "from" status
+          id: 'clh3sa9g10000qzrm5h4n8xo1',
+          status: test.from,
         } as any)
 
         vi.mocked(db.order.update).mockResolvedValue({
-        ...mockOrders[0],
-        status: test.to,
-        [test.field]: new Date(),
+          ...mockOrders[0],
+          status: test.to,
+          [test.field]: new Date(),
         } as any)
 
         await caller.updateStatus({
-        id: 'clh3sa9g10000qzrm5h4n8xo1',
-        status: test.to,
+          id: 'clh3sa9g10000qzrm5h4n8xo1',
+          status: test.to,
         })
 
         expect(db.order.update).toHaveBeenCalledWith({
-        where: { id: 'clh3sa9g10000qzrm5h4n8xo1' },
-        data: expect.objectContaining({
+          where: { id: 'clh3sa9g10000qzrm5h4n8xo1' },
+          data: expect.objectContaining({
             status: test.to,
             [test.field]: expect.any(Date),
-        }),
+          }),
         })
 
         vi.clearAllMocks()
-    }
+      }
     })
   })
 
-  describe('customerHistory', () => {
-    it('should return customer order history', async () => {
-      const caller = createCaller(mockCustomerSession)
-
-      const customerOrders = mockOrders.filter(o => o.customerId === 'clh3sa9g10002qzrm5h4n8xo3')
-      vi.mocked(db.order.findMany).mockResolvedValue(customerOrders as any)
-      vi.mocked(db.order.count).mockResolvedValue(1)
-
-      const result = await caller.customerHistory({
-        limit: 10,
-        page: 1,
-      })
-
-      expect(result).toMatchObject({
-        items: expect.arrayContaining([
-          expect.objectContaining({
-            customerId: 'clh3sa9g10002qzrm5h4n8xo3',
-          }),
-        ]),
-        total: 1,
-      })
-    })
-
-    it('should include merchant and items info', async () => {
-      const caller = createCaller(mockCustomerSession)
-
-      vi.mocked(db.order.findMany).mockResolvedValue([mockOrders[0]] as any)
-      vi.mocked(db.order.count).mockResolvedValue(1)
-
-      await caller.customerHistory({
-        limit: 10,
-        page: 1,
-      })
-
-      expect(paginatedResponse).toHaveBeenCalledWith(
-        db.order,
-        { customerId: 'clh3sa9g10002qzrm5h4n8xo3' },
-        expect.any(Object),
-        {
-          merchant: true,
-          items: { include: { product: true } },
-        }
-      )
-    })
-
-    it('should require customer authentication', async () => {
-      const caller = createCaller(mockMerchantSession)
-
-      await expect(caller.customerHistory({})).rejects.toThrow()
-    })
-
-    it('should not be accessible without authentication', async () => {
-      const caller = createCaller(null)
-
-      await expect(caller.customerHistory({})).rejects.toThrow()
-    })
-  })
+  // REMOVED: customerHistory tests - no longer applicable
 
   describe('bulkUpdateStatus', () => {
     it('should bulk update order statuses', async () => {
@@ -709,7 +632,7 @@ describe('Order Router', () => {
 
       vi.mocked(db.order.update).mockImplementation(({ where }: any) => 
         Promise.resolve({ id: where.id, status: 'CONFIRMED' }) as any
-    )
+      )
 
       const result = await caller.bulkUpdateStatus({
         orderIds: ['clh3sa9g10000qzrm5h4n8xo1', 'clh3sa9g10003qzrm5h4n8xo4'],
@@ -898,14 +821,14 @@ describe('Order Router', () => {
 
       const result = await caller.export({ orderIds: ['clh3sa9g10000qzrm5h4n8xo1'] })
 
-        // Just check the CSV result contains expected headers
-        expect(result.csv).toContain('Order Number')
-        expect(result.csv).toContain('Date')
-        expect(result.csv).toContain('Time')
-        expect(result.csv).toContain('Status')
-        expect(result.csv).toContain('Customer Name')
-        expect(result.csv).toContain('Total')
-        expect(result.csv).toBeDefined()
+      // Just check the CSV result contains expected headers
+      expect(result.csv).toContain('Order Number')
+      expect(result.csv).toContain('Date')
+      expect(result.csv).toContain('Time')
+      expect(result.csv).toContain('Status')
+      expect(result.csv).toContain('Customer Name')
+      expect(result.csv).toContain('Total')
+      expect(result.csv).toBeDefined()
     })
 
     it('should limit to 1000 orders', async () => {
@@ -1016,16 +939,6 @@ describe('Order Router', () => {
 
     it('should require merchant authentication', async () => {
       const caller = createCaller(null)
-
-      await expect(
-        caller.getPrintData({
-          orderIds: ['clh3sa9g10000qzrm5h4n8xo1'],
-        })
-      ).rejects.toThrow()
-    })
-
-    it('should prevent customer access', async () => {
-      const caller = createCaller(mockCustomerSession)
 
       await expect(
         caller.getPrintData({

@@ -1,5 +1,5 @@
 import Image from "next/image"
-import { cn } from "@kitchencloud/ui"
+import { cn } from "@homejiak/ui"
 
 interface ProductImageProps {
   src: string
