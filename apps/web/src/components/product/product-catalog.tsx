@@ -8,37 +8,13 @@ import { Search, SlidersHorizontal, X } from "lucide-react"
 import { QuickViewModal } from "./quick-view-modal"
 import { useCartStore } from "../../stores/cart-store"
 import { api } from "../../lib/trpc/client"
+import { keepPreviousData } from "@tanstack/react-query"
 
 interface Category {
   id: string
   name: string
   slug: string
   productCount?: number
-}
-
-interface Product {
-  id: string
-  merchantId: string
-  name: string
-  description?: string | null  // Fix: Allow null
-  price: number
-  compareAtPrice?: number | null  // Fix: Allow null
-  effectivePrice: number
-  images?: string[]
-  categoryId?: string
-  category?: { id: string; name: string; slug: string } | null  // Fix: Allow null
-  featured: boolean
-  tags?: string[]
-  inStock: boolean
-  lowStock?: boolean
-  discountPercentage?: number | null  // Fix: Allow null
-  isOnSale?: boolean | null  // Fix: Allow null
-  trackInventory: boolean
-  inventory: number
-  status?: "ACTIVE" | "SOLD_OUT" | "UNAVAILABLE"  // Optional status field
-  preparationTime?: number | string  // Optional preparation time
-  _count?: { orderItems: number; reviews: number }
-  [key: string]: any  // Allow extra properties from API
 }
 
 interface ProductCatalogProps {
@@ -59,26 +35,32 @@ export function ProductCatalog({
 
   // State Management
   const [quickViewProductId, setQuickViewProductId] = React.useState<string | null>(null)
-  const [allProducts, setAllProducts] = React.useState<Product[]>([]) // Store all products
-  const [filteredProducts, setFilteredProducts] = React.useState<Product[]>([]) // Store filtered results
-  const [isInitialLoading, setIsInitialLoading] = React.useState(true)
   const [showMobileFilters, setShowMobileFilters] = React.useState(false)
   
-  // Price range from all products
-  const [globalPriceRange, setGlobalPriceRange] = React.useState<{
-    min: number
-    max: number
-  } | null>(null)
-
+  // Define sort type
+  type SortOption = "featured" | "rating" | "price-asc" | "price-desc" | "newest" | "popular" | "name-asc" | "name-desc"
+  
+  // Define filters type
+  interface Filters {
+    categories: string[]
+    minPrice?: number
+    maxPrice?: number
+    search: string
+    sort: SortOption
+    featured: boolean
+    inStock: boolean
+    tags: string[]
+  }
+  
   // Parse filters from URL params
-  const parseFiltersFromURL = React.useCallback(() => {
+  const parseFiltersFromURL = React.useCallback((): Filters => {
     const params = new URLSearchParams(searchParams.toString())
     return {
       categories: params.get("category")?.split(",").filter(Boolean) || [],
       minPrice: params.get("min") ? Number(params.get("min")) : undefined,
       maxPrice: params.get("max") ? Number(params.get("max")) : undefined,
       search: params.get("search") || "",
-      sort: params.get("sort") || "featured",
+      sort: (params.get("sort") || "featured") as SortOption,
       featured: params.get("featured") === "true",
       inStock: params.get("inStock") === "true",
       tags: params.get("tags")?.split(",").filter(Boolean) || [],
@@ -86,14 +68,14 @@ export function ProductCatalog({
   }, [searchParams])
 
   // Initialize filters from URL
-  const [filters, setFilters] = React.useState(parseFiltersFromURL)
+  const [filters, setFilters] = React.useState<Filters>(parseFiltersFromURL())
   const [localSearch, setLocalSearch] = React.useState(filters.search)
   
-  // Debounce search input and price range
+  // Debounce search input
   const debouncedSearch = useDebounce(localSearch, 500)
-  const debouncedFilters = useDebounce(filters, 800) // Debounce all filters for URL update
+  const debouncedFilters = useDebounce(filters, 300) // Shorter debounce for better UX
 
-  // Fetch ALL products once on mount (no filtering on backend)
+  // **KEY CHANGE: Use backend filtering with debounced filters**
   const {
     data: productsData,
     isLoading: isLoadingProducts,
@@ -102,122 +84,36 @@ export function ProductCatalog({
     {
       merchantSlug,
       page: 1,
-      limit: 100, // API max limit is 100, which is plenty for most home-based merchants
-      sort: "featured", // Default sort
+      limit: 50, // Reasonable limit for initial load
+      categoryIds: debouncedFilters.categories.length > 0 ? debouncedFilters.categories : undefined,
+      search: debouncedFilters.search || undefined,
+      minPrice: debouncedFilters.minPrice,
+      maxPrice: debouncedFilters.maxPrice,
+      featured: debouncedFilters.featured || undefined,
+      inStock: debouncedFilters.inStock || undefined,
+      tags: debouncedFilters.tags.length > 0 ? debouncedFilters.tags : undefined,
+      sort: debouncedFilters.sort,
     },
     {
-      staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-      gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+      staleTime: 1 * 60 * 1000, // Cache for 1 minute (reduced from 5)
+      gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes (reduced from 10)
       refetchOnWindowFocus: false,
+      placeholderData: keepPreviousData, // Keep previous data while fetching new data
     }
   )
 
-  // Set all products and calculate price range on data load
-  React.useEffect(() => {
-    if (productsData?.items) {
-      // Type assertion to handle the API response
-      const products = productsData.items as Product[]
-      setAllProducts(products)
-      setIsInitialLoading(false)
-      
-      // Calculate global price range
-      const prices = products.map(p => p.effectivePrice || p.price)
-      if (prices.length > 0) {
-        setGlobalPriceRange({
-          min: Math.floor(Math.min(...prices)),
-          max: Math.ceil(Math.max(...prices)),
-        })
+  // Use aggregations from the API response for price range
+  const globalPriceRange = React.useMemo(() => {
+    if (productsData?.aggregations?.priceRange) {
+      return {
+        min: Math.floor(productsData.aggregations.priceRange.min),
+        max: Math.ceil(productsData.aggregations.priceRange.max),
       }
     }
+    return null
   }, [productsData])
 
-  // Client-side filtering and sorting
-  const applyFiltersAndSort = React.useCallback((
-    products: Product[],
-    currentFilters: typeof filters
-  ) => {
-    let filtered = [...products]
-
-    // Category filter
-    if (currentFilters.categories.length > 0) {
-      filtered = filtered.filter(p => 
-        p.categoryId && currentFilters.categories.includes(p.categoryId)
-      )
-    }
-
-    // Search filter
-    if (currentFilters.search) {
-      const searchLower = currentFilters.search.toLowerCase()
-      filtered = filtered.filter(p => 
-        p.name.toLowerCase().includes(searchLower) ||
-        p.description?.toLowerCase().includes(searchLower) ||
-        p.tags?.some(tag => tag.toLowerCase().includes(searchLower))
-      )
-    }
-
-    // Price range filter
-    if (currentFilters.minPrice !== undefined || currentFilters.maxPrice !== undefined) {
-      filtered = filtered.filter(p => {
-        const price = p.effectivePrice || p.price
-        if (currentFilters.minPrice !== undefined && price < currentFilters.minPrice) return false
-        if (currentFilters.maxPrice !== undefined && price > currentFilters.maxPrice) return false
-        return true
-      })
-    }
-
-    // Featured filter
-    if (currentFilters.featured) {
-      filtered = filtered.filter(p => p.featured)
-    }
-
-    // In stock filter
-    if (currentFilters.inStock) {
-      filtered = filtered.filter(p => p.inStock)
-    }
-
-    // Tags filter
-    if (currentFilters.tags.length > 0) {
-      filtered = filtered.filter(p => 
-        p.tags?.some(tag => currentFilters.tags.includes(tag))
-      )
-    }
-
-    // Sorting
-    filtered.sort((a, b) => {
-      switch (currentFilters.sort) {
-        case "price-asc":
-          return (a.effectivePrice || a.price) - (b.effectivePrice || b.price)
-        case "price-desc":
-          return (b.effectivePrice || b.price) - (a.effectivePrice || a.price)
-        case "newest":
-          // Assuming products are already sorted by created date from server
-          return 0 
-        case "name-asc":
-          return a.name.localeCompare(b.name)
-        case "name-desc":
-          return b.name.localeCompare(a.name)
-        case "popular":
-          return (b._count?.orderItems || 0) - (a._count?.orderItems || 0)
-        case "featured":
-        default:
-          // Featured first, then by order count
-          if (a.featured !== b.featured) return b.featured ? 1 : -1
-          return (b._count?.orderItems || 0) - (a._count?.orderItems || 0)
-      }
-    })
-
-    return filtered
-  }, [])
-
-  // Apply filters whenever they change or products load
-  React.useEffect(() => {
-    if (allProducts.length > 0) {
-      const filtered = applyFiltersAndSort(allProducts, filters)
-      setFilteredProducts(filtered)
-    }
-  }, [allProducts, filters, applyFiltersAndSort])
-
-  // Update URL params only after debounce
+  // Update URL params after debounce
   React.useEffect(() => {
     const params = new URLSearchParams()
     
@@ -250,11 +146,10 @@ export function ProductCatalog({
     const queryString = params.toString()
     const url = queryString ? `${pathname}?${queryString}` : pathname
     
-    // Update URL without causing re-render
     router.replace(url, { scroll: false })
   }, [debouncedFilters, pathname, router])
 
-  // Handle filter changes (immediate for UI, debounced for URL)
+  // Handle filter changes
   const handleFilterChange = React.useCallback((filterKey: string, value: any) => {
     setFilters(prev => ({
       ...prev,
@@ -269,7 +164,7 @@ export function ProductCatalog({
 
   // Clear all filters
   const clearAllFilters = React.useCallback(() => {
-    const defaultFilters = {
+    const defaultFilters: Filters = {
       categories: [],
       minPrice: undefined,
       maxPrice: undefined,
@@ -285,7 +180,7 @@ export function ProductCatalog({
 
   // Add to cart handler
   const handleAddToCart = React.useCallback((productId: string, quantity = 1) => {
-    const product = allProducts.find(p => p.id === productId)
+    const product = productsData?.items.find(p => p.id === productId)
     if (!product) return
     
     addToCart({
@@ -301,7 +196,7 @@ export function ProductCatalog({
       title: "Added to cart",
       description: `${product.name} has been added to your cart`,
     })
-  }, [allProducts, addToCart, toast])
+  }, [productsData, addToCart, toast])
 
   // Active filters for display
   const activeFilters = React.useMemo(() => {
@@ -371,23 +266,16 @@ export function ProductCatalog({
     }
   }, [filters, handleFilterChange])
 
-  // Category options with counts (calculated from filtered products)
+  // Category options with counts from API aggregations
   const categoryOptions = React.useMemo(() => {
-    const counts: Record<string, number> = {}
-    
-    // Count products per category from current filtered results
-    allProducts.forEach(product => {
-      if (product.categoryId) {
-        counts[product.categoryId] = (counts[product.categoryId] || 0) + 1
-      }
-    })
+    const counts = productsData?.aggregations?.categoryCount || {}
     
     return categories.map(category => ({
       value: category.id,
       label: category.name,
       count: counts[category.id] || 0,
     }))
-  }, [categories, allProducts])
+  }, [categories, productsData])
 
   // Price range for slider
   const priceRange = React.useMemo(() => {
@@ -401,6 +289,10 @@ export function ProductCatalog({
       ] as [number, number],
     }
   }, [globalPriceRange, filters.minPrice, filters.maxPrice])
+
+  // Products from API
+  const products = productsData?.items || []
+  const totalProducts = productsData?.pagination?.total || 0
 
   return (
     <div className="container py-8">
@@ -471,7 +363,7 @@ export function ProductCatalog({
           )}
 
           {/* Products Grid */}
-          {isInitialLoading || isLoadingProducts ? (
+          {isLoadingProducts ? (
             <div className="flex items-center justify-center h-64">
               <Spinner className="h-8 w-8" />
             </div>
@@ -480,10 +372,10 @@ export function ProductCatalog({
               <p className="text-destructive mb-4">Failed to load products</p>
               <Button onClick={() => window.location.reload()}>Try Again</Button>
             </div>
-          ) : filteredProducts.length === 0 ? (
+          ) : products.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground mb-4">
-                {allProducts.length === 0 ? "No products available" : "No products match your filters"}
+                {totalProducts === 0 ? "No products available" : "No products match your filters"}
               </p>
               {activeFilters.length > 0 && (
                 <Button variant="outline" onClick={clearAllFilters}>
@@ -495,27 +387,27 @@ export function ProductCatalog({
             <div className="space-y-4">
               {/* Results count */}
               <p className="text-sm text-muted-foreground">
-                Showing {filteredProducts.length} of {allProducts.length} products
+                Showing {products.length} of {totalProducts} products
               </p>
               
-              {/* Product Grid - No loading states needed since filtering is instant */}
+              {/* Product Grid */}
               <ProductGrid
-                products={filteredProducts.map(p => ({
+                products={products.map(p => ({
                   id: p.id,
                   name: p.name,
-                  description: p.description || undefined,  // Convert null to undefined
+                  description: p.description || undefined,
                   price: p.price,
                   images: p.images || [],
-                  status: (p.status as "ACTIVE" | "SOLD_OUT" | "UNAVAILABLE") || "ACTIVE",  // Provide default status
-                  featured: p.featured || undefined,  // Make optional
-                  inventory: p.inventory || undefined,  // Make optional
+                  status: (p.status as "ACTIVE" | "SOLD_OUT" | "UNAVAILABLE") || "ACTIVE",
+                  featured: p.featured || undefined,
+                  inventory: p.inventory || undefined,
                   preparationTime: p.preparationTime 
                     ? (typeof p.preparationTime === 'number' 
                       ? `${p.preparationTime} min` 
                       : String(p.preparationTime))
-                    : undefined,  // Ensure it's always string or undefined
+                    : undefined,
                   merchant: p.merchantId ? { 
-                    name: "", // These will be populated if needed
+                    name: "",
                     slug: merchantSlug 
                   } : undefined,
                 }))}

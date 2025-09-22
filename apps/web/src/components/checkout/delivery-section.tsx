@@ -258,8 +258,8 @@ export function DeliverySection({ merchantId, merchantAddress }: DeliverySection
               </div>
 
               {/* Delivery Zone Notice */}
-              <Alert className="bg-blue-50 border-blue-200">
-                <Info className="h-4 w-4 text-blue-600" />
+              <Alert className="bg-blue-50 border-blue-200 flex items-start space-x-2">
+                <Info className="h-4 w-4 text-blue-600 mt-1" />
                 <AlertDescription className="text-blue-700">
                   <span className="font-medium text-blue-900">Delivery Coverage:</span> We currently deliver within 5km of our location. Delivery fees may vary based on distance.
                 </AlertDescription>
@@ -272,20 +272,22 @@ export function DeliverySection({ merchantId, merchantAddress }: DeliverySection
       {/* Pickup Location Info */}
       {deliveryMethod === 'PICKUP' && merchantAddress && (
         <div className="mt-6 animate-in slide-in-from-bottom-2 duration-300">
-          <Alert className="bg-blue-50 border-blue-200">
-            <Info className="h-4 w-4 text-blue-600" />
-            <AlertDescription>
-              <p className="font-medium text-blue-900 mb-1">Pickup Location</p>
-              <p className="text-blue-700">
-                {merchantAddress.line1}<br />
-                {merchantAddress.line2 && <>{merchantAddress.line2}<br /></>}
-                Singapore {merchantAddress.postalCode}
-              </p>
-              
-              {/* Optional: Add pickup notes */}
+          <Alert className="bg-blue-50 border-blue-200 flex items-start space-x-3 p-4">
+            <Info className="h-5 w-5 text-blue-600 mt-1" />
+
+            <AlertDescription className="flex-1 text-sm">
+              <div className="mb-2">
+                <p className="font-semibold text-blue-900">Pickup Location</p>
+                <p className="text-blue-700 leading-relaxed">
+                  {merchantAddress.line1}<br />
+                  {merchantAddress.line2 && <>{merchantAddress.line2}<br /></>}
+                  Singapore {merchantAddress.postalCode}
+                </p>
+              </div>
+
               <div className="mt-3">
-                <Label htmlFor="pickupNotes" className="text-blue-900">
-                  Pickup Notes <span className="text-blue-600 text-xs">(Optional)</span>
+                <Label htmlFor="pickupNotes" className="text-blue-900 text-sm font-medium">
+                  Pickup Notes <span className="text-blue-600 text-xs font-normal">(Optional)</span>
                 </Label>
                 <Textarea
                   id="pickupNotes"
@@ -293,7 +295,7 @@ export function DeliverySection({ merchantId, merchantAddress }: DeliverySection
                   placeholder="Any special requests for pickup?"
                   value={pickupNotes || ''}
                   onChange={(e: any) => setPickupNotes(e.target.value)}
-                  className="mt-1.5 bg-white/50"
+                  className="mt-1.5 bg-white/50 text-sm"
                 />
               </div>
             </AlertDescription>

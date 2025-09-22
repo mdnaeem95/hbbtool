@@ -145,17 +145,22 @@ export default function CheckoutPage() {
     }
   }
 
-  // Calculate fees
+  // Get the current session data (either from mutation result or query)
+  const currentSessionData = session || sessionData
+
+  // Calculate fees - with proper null checks
   const deliveryFee = deliveryMethod === 'DELIVERY' 
-    ? (sessionData?.deliveryFee || session?.merchant?.deliveryFee || 0)
+    ? (currentSessionData?.deliveryFee || currentSessionData?.merchant?.deliveryFee || 0)
     : 0
   const total = subtotal + deliveryFee
 
+  // Early returns for edge cases
   if (items.length === 0) {
     return null
   }
 
-  if (isCreatingSession || isLoadingSession) {
+  // Combined loading state check - includes session data check
+  if (isCreatingSession || isLoadingSession || !currentSessionData) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -166,7 +171,8 @@ export default function CheckoutPage() {
     )
   }
 
-  const currentSessionData = session || sessionData
+  // At this point, currentSessionData is guaranteed to exist
+  const effectiveMerchantId = currentSessionData.merchant?.id || currentSessionData.merchantId || merchantId
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
@@ -211,9 +217,9 @@ export default function CheckoutPage() {
           <div className="lg:col-span-2">
             <Card className="rounded-2xl shadow-sm border-slate-100 overflow-hidden">
               <div className="p-6 sm:p-8">
-                {currentStep === 'delivery' && (
+                {currentStep === 'delivery' && effectiveMerchantId && (
                   <DeliverySection 
-                    merchantId={currentSessionData.merchant?.id || merchantId!}
+                    merchantId={effectiveMerchantId}
                     merchantAddress={currentSessionData.merchant?.address || undefined}
                   />
                 )}
@@ -238,13 +244,13 @@ export default function CheckoutPage() {
                   </div>
                 )}
 
-                {currentStep === 'payment' && (
+                {currentStep === 'payment' && currentSessionData.merchant && (
                   <PaymentSection
                     sessionId={sessionId!}
                     paymentReference={currentSessionData.paymentReference}
                     amount={total}
                     merchant={{
-                      businessName: currentSessionData.merchant.businessName,
+                      businessName: currentSessionData.merchant.businessName || 'Merchant',
                       paynowNumber: currentSessionData.merchant.paynowNumber,
                       paynowQrCode: currentSessionData.merchant.paynowQrCode,
                     }}
@@ -261,7 +267,7 @@ export default function CheckoutPage() {
                         recentOrders.unshift({
                           orderId,
                           orderNumber,
-                          merchantName: currentSessionData.merchant.businessName,
+                          merchantName: currentSessionData.merchant?.businessName || 'Merchant',
                           date: new Date().toISOString(),
                           total,
                         })
