@@ -165,21 +165,20 @@ export async function sendMerchantApprovalEmail(
 ): Promise<boolean> {
   if (!resend) {
     console.log('📧 [EMAIL MOCK] Would send approval email to:', email)
-    console.log('   Subject: Your HomeJiak Account Has Been Approved! 🎉')
-    console.log('   Merchant:', merchantName)
     return true
   }
 
   try {
-    const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth`
+    const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://homejiak.com'}/auth`
     const template = emailTemplates.merchantApproved(merchantName, loginUrl)
     
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'HomeJiak <noreply@homejiak.sg>',
+      from: process.env.RESEND_FROM_EMAIL || 'HomeJiak <noreply@homejiak.com>',
       to: email,
       subject: template.subject,
       html: template.html,
       text: template.text,
+      replyTo: 'support@homejiak.com',  // Add this for replies
     })
 
     if (error) {
@@ -187,8 +186,7 @@ export async function sendMerchantApprovalEmail(
       return false
     }
 
-    console.log('✅ Approval email sent to:', email)
-    console.log('   Email ID:', data?.id)
+    console.log('✅ Approval email sent:', { to: email, id: data?.id })
     return true
   } catch (error) {
     console.error('❌ Email sending error:', error)
