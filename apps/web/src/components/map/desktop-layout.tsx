@@ -17,7 +17,7 @@ interface DesktopLayoutProps {
   filters: any
   setFilters: (filters: any) => void
   isLoading: boolean
-  onBoundsChange: (bounds: LngLatBounds) => void
+  onBoundsChange: (bounds: LngLatBounds, isProgrammatic?: boolean) => void
 }
 
 export function DesktopLayout({

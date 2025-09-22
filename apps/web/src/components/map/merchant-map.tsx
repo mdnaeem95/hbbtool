@@ -12,7 +12,7 @@ import { SINGAPORE_CENTER, SINGAPORE_BOUNDS } from '../../lib/constants/map'
 
 interface MerchantMapProps {
   merchants: MerchantMapMarker[]
-  onBoundsChange?: (bounds: mapboxgl.LngLatBounds) => void
+  onBoundsChange?: (bounds: mapboxgl.LngLatBounds, isProgrammatic?: boolean) => void
   selectedMerchantId?: string | null
   onMerchantSelect?: (merchantId: string | null) => void
   showPopup?: boolean
@@ -35,10 +35,20 @@ export function MerchantMap({
   const [popupMerchant, setPopupMerchant] = useState<MerchantMapMarker | null>(null)
   const mapRef = useRef<any>(null)
 
-  // Handle bounds change
+  // Track if we're programmatically moving the map
+  const isProgrammaticMoveRef = useRef(false)
+  const moveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Handle bounds change - ONLY for user-initiated moves
   const handleMoveEnd = useCallback(() => {
     if (mapRef.current && onBoundsChange) {
       const bounds = mapRef.current.getBounds()
+
+      // Pass the isProgrammatic flag to parent
+      onBoundsChange(bounds, isProgrammaticMoveRef.current)
+
+      // Reset the flag after the move
+      isProgrammaticMoveRef.current = false
       onBoundsChange(bounds)
     }
   }, [onBoundsChange])
@@ -47,7 +57,7 @@ export function MerchantMap({
   const handleMapLoad = useCallback(() => {
     if (mapRef.current && onBoundsChange) {
       const bounds = mapRef.current.getBounds()
-      onBoundsChange(bounds)
+      onBoundsChange(bounds, false)
     }
   }, [onBoundsChange])
 
@@ -56,6 +66,20 @@ export function MerchantMap({
     if (selectedMerchantId && mapRef.current) {
       const merchant = merchants.find(m => m.id === selectedMerchantId)
       if (merchant) {
+        // Set flag BEFORE flying
+        isProgrammaticMoveRef.current = true
+
+        // Clear any existing timeout
+        if (moveTimeoutRef.current) {
+          clearTimeout(moveTimeoutRef.current)
+        }
+        
+        // Set a backup timeout to reset the flag
+        // in case moveEnd doesn't fire properly
+        moveTimeoutRef.current = setTimeout(() => {
+          isProgrammaticMoveRef.current = false
+        }, 1500) // Slightly longer than animation duration
+
         mapRef.current.flyTo({
           center: [merchant.longitude, merchant.latitude],
           zoom: 14,
@@ -68,6 +92,19 @@ export function MerchantMap({
 
   useEffect(() => {
     if (userLocation && mapRef.current) {
+      // Set flag for programmatic move
+      isProgrammaticMoveRef.current = true
+
+      // Clear any existing timeout
+      if (moveTimeoutRef.current) {
+        clearTimeout(moveTimeoutRef.current)
+      }
+      
+      // Set backup timeout
+      moveTimeoutRef.current = setTimeout(() => {
+        isProgrammaticMoveRef.current = false
+      }, 2000)
+
       // Only fly to user location once when it's first obtained
       mapRef.current.flyTo({
         center: [userLocation.lng, userLocation.lat],
@@ -76,6 +113,15 @@ export function MerchantMap({
       })
     }
   }, [userLocation?.lat, userLocation?.lng])
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (moveTimeoutRef.current) {
+        clearTimeout(moveTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const handleMarkerClick = (merchant: MerchantMapMarker) => {
     setPopupMerchant(merchant)

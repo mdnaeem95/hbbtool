@@ -130,7 +130,7 @@ export function MobileBottomSheet({
               {merchants.map(merchant => (
                 <Link
                   key={merchant.id}
-                  href={`/merchant/${merchant.slug}`}
+                  href={`/merchant/${merchant.slug}/products`}
                   className="block"
                 >
                   <MerchantCard
@@ -292,7 +292,7 @@ function MerchantCard({
 }) {
   return (
     <Link
-      href={`/merchant/${merchant.slug}`}
+      href={`/merchant/${merchant.slug}/products`}
       onClick={(e: any) => {
         if (onSelect) {
           e.preventDefault()

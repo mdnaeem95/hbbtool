@@ -12,6 +12,7 @@ import { api } from '../lib/trpc/client'
 import { LngLatBounds } from 'react-map-gl/mapbox'
 import { useMediaQuery } from '../hooks/use-media-query'
 import { useUserLocation } from '../hooks/use-user-location'
+import { keepPreviousData } from '@tanstack/react-query'
 
 export interface FilterState {
   cuisineType?: string[]
@@ -72,8 +73,12 @@ export default function HomePage() {
       radius: 10, // You can adjust this or make it dynamic
     },
   }, {
-    enabled: true,
+    enabled: !!mapBounds,
+    staleTime: 60000,
+    gcTime: 300000,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    placeholderData: keepPreviousData,
   })
 
   // Handle location request
@@ -121,9 +126,38 @@ export default function HomePage() {
     }
   }, [isMobile])
 
-  const handleBoundsChange = useCallback((bounds: LngLatBounds) => {
+  // Update the handleBoundsChange to accept isProgrammatic flag
+  const handleBoundsChange = useCallback((bounds: LngLatBounds, isProgrammatic = false) => {
+    // Skip updating bounds if this is a programmatic move (selecting merchant, centering on user)
+    if (isProgrammatic) {
+      console.log('Skipping bounds update - programmatic move')
+      return
+    }
+    
+    // Only update if bounds have actually changed significantly
+    if (mapBounds) {
+      const ne = bounds.getNorthEast()
+      const sw = bounds.getSouthWest()
+      const oldNe = mapBounds.getNorthEast()
+      const oldSw = mapBounds.getSouthWest()
+      
+      // Check if bounds changed significantly (more than 0.001 degrees)
+      const threshold = 0.001
+      const hasSignificantChange = 
+        Math.abs(ne.lat - oldNe.lat) > threshold ||
+        Math.abs(ne.lng - oldNe.lng) > threshold ||
+        Math.abs(sw.lat - oldSw.lat) > threshold ||
+        Math.abs(sw.lng - oldSw.lng) > threshold
+      
+      if (!hasSignificantChange) {
+        console.log('Skipping bounds update - insignificant change')
+        return
+      }
+    }
+    
+    console.log('Updating map bounds - user initiated')
     setMapBounds(bounds)
-  }, [])
+  }, [mapBounds])
 
   // Mobile view
   if (isMobile) {
