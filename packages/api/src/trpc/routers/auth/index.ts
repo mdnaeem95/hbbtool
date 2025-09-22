@@ -97,6 +97,27 @@ export const authRouter = router({
         }
       }
 
+      // CREATE SUPABASE USER FIRST to get the ID
+      const { data: authData, error: authError } = await ctx.supabase.auth.signUp({
+        email: normalizedEmail,
+        password: input.password,
+        options: {
+          data: {
+            businessName: input.businessName,
+            userType: 'merchant',
+          },
+          emailRedirectTo: undefined,
+        }
+      })
+
+      if (authError || !authData.user) {
+        console.error('Supabase signup failed:', authError)
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: authError?.message || 'Failed to create account',
+        })
+      }
+
       // Create unique slug
       const baseSlug = slugify(input.businessName)
       let slug = baseSlug
@@ -113,6 +134,7 @@ export const authRouter = router({
       // Create merchant in database first
       const merchant = await ctx.db.merchant.create({
         data: {
+          id: authData.user.id,
           email: normalizedEmail,
           phone: input.phone,
           businessName: input.businessName,
@@ -135,32 +157,6 @@ export const authRouter = router({
           }
         },
       })
-
-      // Use regular Supabase signup (not admin API)
-      const { data: authData, error: authError } = await ctx.supabase.auth.signUp({
-        email: normalizedEmail,
-        password: input.password,
-        options: {
-          data: {
-            businessName: input.businessName,
-            userType: 'merchant',
-            merchantId: merchant.id,
-          },
-          // Don't send confirmation email - we'll handle approval manually
-          emailRedirectTo: undefined,
-        }
-      })
-
-      if (authError) {
-        console.error('Supabase signup failed:', authError)
-        console.log('Failed for: ', authData)
-        // Clean up merchant record if Supabase fails
-        await ctx.db.merchant.delete({ where: { id: merchant.id } })
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: authError.message || 'Failed to create account. Please try again.',
-        })
-      }
 
       console.log(`New merchant signup: ${merchant.businessName} (${merchant.email}) - Status: ${merchant.status}`)
 
