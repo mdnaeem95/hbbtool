@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { ChevronUp, Clock, MapPin, Star, Bike, ShoppingBag } from 'lucide-react'
-import { Badge, Button, Skeleton, Spinner } from '@homejiak/ui'
+import { Badge, Button, Skeleton } from '@homejiak/ui'
 import Image from 'next/image'
 import { motion, useAnimation, PanInfo } from 'framer-motion'
 
@@ -60,8 +60,6 @@ export function MobileBottomSheet({
   const [isDragging, setIsDragging] = useState(false)
   const controls = useAnimation()
   const constraintsRef = useRef<HTMLDivElement>(null)
-  const [loadingMerchantId, setLoadingMerchantId] = useState<string | null>(null)
-  const [loadingMerchantName, setLoadingMerchantName] = useState<string>('')
 
   const snapPoints = [120, window.innerHeight * 0.5, window.innerHeight * 0.85]
   
@@ -78,13 +76,6 @@ export function MobileBottomSheet({
     setSheetHeight(closestSnapPoint)
     controls.start({ y: window.innerHeight - closestSnapPoint })
   }
-
-  useEffect(() => {
-    return () => {
-      setLoadingMerchantId(null)
-      setLoadingMerchantName('')
-    }
-  }, [isListView, isFullScreen])
 
   useEffect(() => {
     if (isListView) {
@@ -104,95 +95,71 @@ export function MobileBottomSheet({
 
   const selectedMerchant = merchants.find(m => m.id === selectedMerchantId)
 
-  // Loading Overlay Component
-  const LoadingOverlay = () => {
-    if (!loadingMerchantId) return null
-
+  // Full-screen list view mode (no dragging)
+  if (isFullScreen) {
     return (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/95 backdrop-blur-sm">
-        <div className="text-center">
+      <div 
+        className="bg-white"
+        style={{
+          marginTop: '8px',
+          minHeight: 'auto',
+        }}
+      >
+        {/* Content without drag handle */}
+        <div className="px-4 pb-20">
+          {/* List Header */}
           <div className="mb-4">
-            <Spinner className="h-10 w-10 text-orange-500 mx-auto" />
+            <h2 className="font-semibold">All Merchants</h2>
+            <p className="text-sm text-gray-500">
+              {isLoading ? 'Loading...' : `${merchants.length} available`}
+            </p>
           </div>
-          <p className="text-lg font-medium text-gray-800">
-            Directing to {loadingMerchantName}
-          </p>
-          <p className="text-sm text-gray-500 mt-2">
-            Loading menu...
-          </p>
+
+          {/* Loading State */}
+          {isLoading && (
+            <div className="space-y-4">
+              {[...Array(5)].map((_, i) => (
+                <MerchantCardSkeleton key={i} />
+              ))}
+            </div>
+          )}
+
+          {/* Merchant List */}
+          {!isLoading && merchants.length > 0 && (
+            <div className="space-y-3">
+              {merchants.map(merchant => (
+                <Link
+                  key={merchant.id}
+                  href={`/merchant/${merchant.slug}/products`}
+                  className="block"
+                  prefetch={true}
+                >
+                  <MerchantCard
+                    merchant={merchant}
+                    isSelected={merchant.id === selectedMerchantId}
+                  />
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!isLoading && merchants.length === 0 && (
+            <div className="text-center py-12">
+              <MapPin className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+              <p className="text-gray-600 font-medium text-lg">No merchants found</p>
+              <p className="text-sm text-gray-500 mt-2">
+                Try adjusting your search or filters
+              </p>
+            </div>
+          )}
         </div>
       </div>
     )
   }
 
-  // Full-screen list view mode (no dragging)
-  if (isFullScreen) {
-    return (
-      <>
-        <LoadingOverlay />
-        <div 
-          className="bg-white"
-          style={{
-            marginTop: '8px',
-            minHeight: 'auto',
-          }}
-        >
-          {/* Content without drag handle */}
-          <div className="px-4 pb-20">
-            {/* List Header */}
-            <div className="mb-4">
-              <h2 className="font-semibold">All Merchants</h2>
-              <p className="text-sm text-gray-500">
-                {isLoading ? 'Loading...' : `${merchants.length} available`}
-              </p>
-            </div>
-
-            {/* Loading State */}
-            {isLoading && (
-              <div className="space-y-4">
-                {[...Array(5)].map((_, i) => (
-                  <MerchantCardSkeleton key={i} />
-                ))}
-              </div>
-            )}
-
-            {/* Merchant List */}
-            {!isLoading && merchants.length > 0 && (
-              <div className="space-y-3">
-                {merchants.map(merchant => (
-                  <Link
-                    key={merchant.id}
-                    href={`/merchant/${merchant.slug}/products`}
-                    className="block"
-                  >
-                    <MerchantCard
-                      merchant={merchant}
-                      isSelected={merchant.id === selectedMerchantId}
-                    />
-                  </Link>
-                ))}
-              </div>
-            )}
-
-            {/* Empty State */}
-            {!isLoading && merchants.length === 0 && (
-              <div className="text-center py-12">
-                <MapPin className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p className="text-gray-600 font-medium text-lg">No merchants found</p>
-                <p className="text-sm text-gray-500 mt-2">
-                  Try adjusting your search or filters
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      </>
-    )
-  }
-
   return (
     <>
-      <LoadingOverlay />
       {/* Backdrop when sheet is expanded */}
       {sheetHeight > 200 && (
         <div 
@@ -289,21 +256,17 @@ export function MobileBottomSheet({
               {merchants
                 .filter(m => m.id !== selectedMerchantId)
                 .map(merchant => (
-                  <div 
+                  <Link 
                     key={merchant.id}
-                    onClick={() => {
-                      setLoadingMerchantId(merchant.id)
-                      setLoadingMerchantName(merchant.businessName)
-                      onMerchantSelect?.(merchant.id)
-                    }}
+                    href={`/merchant/${merchant.slug}/products`}
+                    onClick={() => onMerchantSelect?.(merchant.id)}
+                    prefetch={true}
                   >
-                    <Link href={`/merchant/${merchant.slug}/products`}>
-                      <MerchantCard
-                        merchant={merchant}
-                        isSelected={false}
-                      />
-                    </Link>
-                  </div>
+                    <MerchantCard
+                      merchant={merchant}
+                      isSelected={false}
+                    />
+                  </Link>
                 ))}
             </div>
           )}

@@ -60,7 +60,11 @@ export function ProductsPageClient({
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Spinner className="h-8 w-8" />
+        <div className="text-center">
+          <Spinner className="h-10 w-10 text-orange-500 mx-auto" />
+          <p className="mt-4 text-lg font-medium">Loading {slug.replace(/-/g, ' ')}</p>
+          <p className="text-sm text-gray-500">Preparing menu...</p>
+        </div>
       </div>
     )
   }
