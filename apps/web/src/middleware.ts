@@ -4,7 +4,7 @@ import { getGeolocation, isVercelEdge } from '@/types/vercel'
 
 // This runs on Vercel Edge Network globally
 export const config = {
-  runtime: 'edge',
+  runtime: 'experimental-edge',
   regions: ['sin1'], // Singapore region for optimal performance
   matcher: [
     /*
