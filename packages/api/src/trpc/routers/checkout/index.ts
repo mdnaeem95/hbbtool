@@ -608,7 +608,7 @@ export const checkoutRouter = router({
         // 11) Send notifications (best effort, don't fail the order)
         try {
           // Generate tracking URL
-            const trackingUrl = `${process.env.APP_URL || 'https://homejiak.sg'}/order/${order.orderNumber}/track`
+            const trackingUrl = `${process.env.APP_URL || 'https://homejiak.com'}/order/${order.orderNumber}/track`
 
             // send SMS to customer if phone provided
             if (input.contactInfo.phone) {

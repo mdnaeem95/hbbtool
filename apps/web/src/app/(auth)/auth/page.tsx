@@ -124,8 +124,8 @@ export default function AuthPage() {
         
         <p className="text-sm text-gray-500">
           Have questions? Contact us at{' '}
-          <a href="mailto:support@homejiak.sg" className="text-orange-600 hover:underline">
-            support@homejiak.sg
+          <a href="mailto:support@homejiak.com" className="text-orange-600 hover:underline">
+            support@homejiak.com
           </a>
         </p>
         

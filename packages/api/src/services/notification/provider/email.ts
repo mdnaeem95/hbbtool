@@ -52,7 +52,7 @@ class EmailProvider {
       console.log('[email.provider] Sending email via Resend...')
       
       const response = await resend.emails.send({
-        from: 'HomeJiak <noreply@homejiak.sg>',
+        from: 'HomeJiak <noreply@homejiak.com>',
         to: user.email,
         subject,
         html: htmlContent,
@@ -261,7 +261,7 @@ class EmailProvider {
       <p>
         This email was sent from HomeJiak, Singapore's home-based F&B platform.
         <br>
-        <a href="https://homejiak.sg" style="color: #ff6b35;">Visit HomeJiak</a>
+        <a href="https://homejiak.com" style="color: #ff6b35;">Visit HomeJiak</a>
       </p>
     </div>
   </div>

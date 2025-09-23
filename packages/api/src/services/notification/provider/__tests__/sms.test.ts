@@ -32,7 +32,7 @@ vi.mock('@homejiak/database', () => ({
 process.env.TWILIO_ACCOUNT_SID = 'test_account_sid'
 process.env.TWILIO_AUTH_TOKEN = 'test_auth_token'
 process.env.TWILIO_PHONE_NUMBER = '+12345678901'
-process.env.APP_URL = 'https://test.homejiak.sg'
+process.env.APP_URL = 'https://test.homejiak.com'
 
 // Import after mocking
 import { smsProvider } from '../sms'
@@ -88,7 +88,7 @@ describe('SMS Provider', () => {
         body: 'New order #ORD-001 received from John Doe - $25.00',
         from: '+12345678901',
         to: '+6591234567',
-        statusCallback: 'https://test.homejiak.sg/api/webhooks/twilio/status'
+        statusCallback: 'https://test.homejiak.com/api/webhooks/twilio/status'
       })
     })
 

@@ -60,7 +60,7 @@ const emailTemplates = {
             
             <p style="color: #888; font-size: 14px;">
               If you have any questions, our support team is here to help at 
-              <a href="mailto:support@homejiak.sg" style="color: #FF6B35;">support@homejiak.sg</a>
+              <a href="mailto:support@homejiak.com" style="color: #FF6B35;">support@homejiak.com</a>
             </p>
             
             <p style="color: #888; font-size: 14px;">
@@ -95,7 +95,7 @@ Pro Tips to Get Started:
 - Enable WhatsApp notifications
 - Complete your profile 100%
 
-If you have any questions, contact us at support@homejiak.sg
+If you have any questions, contact us at support@homejiak.com
 
 Best regards,
 The HomeJiak Team
@@ -130,7 +130,7 @@ The HomeJiak Team
             
             <p style="color: #555;">
               If you believe this decision was made in error or if you can address the concerns mentioned above, 
-              please feel free to contact us at <a href="mailto:support@homejiak.sg" style="color: #FF6B35;">support@homejiak.sg</a>
+              please feel free to contact us at <a href="mailto:support@homejiak.com" style="color: #FF6B35;">support@homejiak.com</a>
             </p>
             
             <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
@@ -150,7 +150,7 @@ Thank you for your interest in joining HomeJiak. After reviewing your applicatio
 
 Reason: ${reason}
 
-If you believe this decision was made in error or if you can address the concerns mentioned above, please contact us at support@homejiak.sg
+If you believe this decision was made in error or if you can address the concerns mentioned above, please contact us at support@homejiak.com
 
 Best regards,
 The HomeJiak Team
@@ -210,7 +210,7 @@ export async function sendMerchantRejectionEmail(
     const template = emailTemplates.merchantRejected(merchantName, reason)
     
     const { data, error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'HomeJiak <noreply@homejiak.sg>',
+      from: process.env.RESEND_FROM_EMAIL || 'HomeJiak <noreply@homejiak.com>',
       to: email,
       subject: template.subject,
       html: template.html,
@@ -247,7 +247,7 @@ export async function sendEmail(
 
   try {
     const { error } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL || 'HomeJiak <noreply@homejiak.sg>',
+      from: process.env.RESEND_FROM_EMAIL || 'HomeJiak <noreply@homejiak.com>',
       to,
       subject,
       html,
