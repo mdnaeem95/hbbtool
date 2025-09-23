@@ -8,6 +8,8 @@ import { Parser } from 'json2csv'
 import { canUpdateOrderStatus } from '../../../lib/helpers/order'
 import { NotificationService } from '../../../services/notification'
 import { NotificationPriority } from '@homejiak/database'
+import { orderSMSTemplates } from '../../../services/notification/templates/order-sms'
+import { smsProvider } from '../../../services/notification/provider/sms'
 
 /* =========================
    Zod
@@ -100,6 +102,7 @@ async function triggerOrderNotification(
             id: true, 
             businessName: true,
             emailNotifications: true,
+            smsNoticfications: true,
             whatsappNotifications: true 
           }
         },
@@ -108,7 +111,9 @@ async function triggerOrderNotification(
             id: true, 
             name: true, 
             email: true,
+            phone: true,
             emailNotifications: true,
+            smsNoticfications: true,
             whatsappNotifications: true 
           }
         }
@@ -116,6 +121,88 @@ async function triggerOrderNotification(
     })
 
     if (!order) return
+
+    // Prepare SMS message based on status
+    let smsMessage = ''
+
+        switch (newStatus) {
+      case 'CONFIRMED':
+        smsMessage = orderSMSTemplates.orderConfirmed({
+          orderNumber: order.orderNumber,
+          estimatedTime: order.estimatedReady 
+            ? new Date(order.estimatedReady).toLocaleTimeString('en-SG', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+              })
+            : undefined
+        })
+        break
+        
+      case 'PREPARING':
+        smsMessage = orderSMSTemplates.orderPreparing({
+          orderNumber: order.orderNumber
+        })
+        break
+        
+      case 'READY':
+        smsMessage = orderSMSTemplates.orderReady({
+          orderNumber: order.orderNumber,
+          isDelivery: order.deliveryMethod === 'DELIVERY'
+        })
+        break
+        
+      case 'OUT_FOR_DELIVERY':
+        smsMessage = orderSMSTemplates.orderOutForDelivery({
+          orderNumber: order.orderNumber,
+          driverName: order.driverName,
+          driverPhone: order.driverPhone
+        })
+        break
+        
+      case 'DELIVERED':
+        smsMessage = orderSMSTemplates.orderDelivered({
+          orderNumber: order.orderNumber
+        })
+        break
+        
+      case 'COMPLETED':
+        smsMessage = orderSMSTemplates.orderCompleted({
+          orderNumber: order.orderNumber
+        })
+        break
+        
+      case 'CANCELLED':
+        smsMessage = orderSMSTemplates.orderCancelled({
+          orderNumber: order.orderNumber,
+          reason: order.cancellationReason
+        })
+        break
+    }
+
+    // Send SMS if message prepared
+    if (smsMessage) {
+      // If customer exists in DB, use their preferences
+      if (order.customer?.id && order.customer.smsNotifications !== false) {
+        await smsProvider.send({
+          userId: order.customer.id,
+          message: smsMessage,
+          data: {
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            status: newStatus
+          }
+        })
+      } 
+      // For guest customers, use customerPhone directly
+      else if (order.customerPhone) {
+        await smsProvider.sendDirect({
+          phone: order.customerPhone,
+          message: smsMessage
+        })
+      }
+      
+      console.log(`📱 SMS sent for order ${order.orderNumber} status: ${newStatus}`)
+    }
 
     const channels: ('in_app' | 'email' | 'whatsapp')[] = ['in_app']
     

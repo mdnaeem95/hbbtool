@@ -4,6 +4,8 @@ import { router, publicProcedure } from '../../core'
 import { phoneSchema, postalCodeSchema } from '../../../utils/validation'
 import { nanoid } from 'nanoid'
 import { DeliveryMethod, PaymentMethod, OrderStatus, PaymentStatus } from '@homejiak/database'
+import { orderSMSTemplates } from '../../../services/notification/templates/order-sms'
+import { smsProvider } from '../../../services/notification/provider/sms'
 
 // ---------- types ----------
 export enum DeliveryPricingModel {
@@ -617,8 +619,37 @@ export const checkoutRouter = router({
         
         // 11) Send notifications (best effort, don't fail the order)
         try {
-          // Send order confirmation SMS/Email
-          // await sendOrderConfirmation(order, customer)
+          // Generate tracking URL
+            const trackingUrl = `${process.env.APP_URL || 'https://homejiak.sg'}/order/${order.orderNumber}/track`
+
+            // send SMS to customer if phone provided
+            if (input.contactInfo.phone) {
+              const smsMessage = orderSMSTemplates.orderPlaced({
+                orderNumber: order.orderNumber,
+                merchantName: session.merchant.businessName,
+                trackingUrl
+              })
+
+            // since we're using guest checkout - send SMS directly using phone
+            await smsProvider.sendDirect({
+              phone: input.contactInfo.phone,
+              message: smsMessage
+            })
+
+            console.log('📱 [Checkout] SMS sent to customer:', input.contactInfo.phone)
+            }
+
+            // Also notify merchant
+            await smsProvider.send({
+              userId: session.merchantId,
+              message: `📱 New order #${order.orderNumber} from ${customer.name} - $${order.total}. Check your dashboard!`,
+              data: {
+                orderId: order.id,
+                orderNumber: order.orderNumber,
+                customerName: customer.name,
+                amount: Number(order.total)
+              }
+            })
         } catch (notifError) {
           console.error('⚠️ [Checkout] Notification failed:', notifError)
           // Don't throw - order was created successfully

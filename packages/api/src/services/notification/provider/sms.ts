@@ -101,6 +101,54 @@ export const smsProvider = {
     }
   },
 
+  async sendDirect(options: {
+    phone: string
+    message: string
+  }): Promise<SMSResult> {
+    try {
+      // Format Singapore phone number
+      const formattedPhone = this.formatSingaporePhone(options.phone)
+      if (!formattedPhone) {
+        return { success: false, error: 'Invalid phone number format' }
+      }
+
+      // Truncate message if too long
+      const truncatedMessage = options.message.length > 160 
+        ? options.message.substring(0, 157) + '...'
+        : options.message
+
+      // Get Twilio client
+      const twilio = getTwilioClient()
+
+      // Send SMS via Twilio
+      const smsResult = await twilio.messages.create({
+        body: truncatedMessage,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: formattedPhone,
+        statusCallback: process.env.APP_URL 
+          ? `${process.env.APP_URL}/api/webhooks/twilio/status`
+          : undefined,
+      })
+
+      console.log('[sms.provider] Direct SMS sent successfully:', {
+        to: formattedPhone,
+        messageId: smsResult.sid,
+      })
+
+      return {
+        success: true,
+        id: smsResult.sid,
+      }
+
+    } catch (error) {
+      console.error('[sms.provider] Direct SMS send failed:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }
+    }
+  },
+
   async getUserDetails(userId: string) {
     try {
       // Try merchant first
