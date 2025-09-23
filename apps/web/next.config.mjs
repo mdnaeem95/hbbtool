@@ -7,11 +7,9 @@ const nextConfig = {
   
   // Enable edge runtime experiments
   experimental: {
-    runtime: 'experimental-edge', // Enable edge runtime features
     serverActions: {
       bodySizeLimit: '2mb',
     },
-    ppr: true, // Partial Pre-rendering for better edge performance
     optimizePackageImports: [
       '@homejiak/ui',
       '@homejiak/api',
