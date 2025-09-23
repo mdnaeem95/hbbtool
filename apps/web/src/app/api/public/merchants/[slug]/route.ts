@@ -109,39 +109,3 @@ export async function GET(
     )
   }
 }
-
-// Prefetch popular merchants at build time
-export async function generateStaticParams() {
-  if (process.env.NODE_ENV === 'development') {
-    return []
-  }
-
-  try {
-    // Initialize Supabase
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_KEY!,
-      {
-        cookies: {
-          getAll() { return [] },
-          setAll() {},
-        },
-      }
-    )
-
-    // Get top 20 most popular merchants
-    const { data: merchants } = await supabase
-      .from('merchants')
-      .select('slug')
-      .eq('isActive', true)
-      .order('totalOrders', { ascending: false })
-      .limit(20)
-
-    return merchants?.map((merchant) => ({
-      slug: merchant.slug,
-    })) || []
-  } catch (error) {
-    console.error('[API] Error generating static params:', error)
-    return []
-  }
-}
