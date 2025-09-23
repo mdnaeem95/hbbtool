@@ -580,7 +580,7 @@ export const checkoutRouter = router({
                   quantity: it.quantity ?? 1,
                   price: asNumber(it.productPrice ?? it.price ?? 0),
                   total: asNumber(it.total ?? 0),
-                  notes: it.notes || null,
+                  specialRequest: it.notes || null,
                 })),
               },
             },
