@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { ChevronUp, MapPin, Star, ShoppingBag } from 'lucide-react'
+import { ChevronUp, MapPin, Star, ShoppingBag, Clock } from 'lucide-react'
 import { Badge, Button, Skeleton } from '@homejiak/ui'
 import Image from 'next/image'
 import { motion, useAnimation, PanInfo } from 'framer-motion'
@@ -296,42 +296,85 @@ function MerchantCard({
 }) {
   const router = useRouter()
   const utils = api.useUtils()
+  const [isClicked, setIsClicked] = useState(false)
+  const [isPrefetching, setIsPrefetching] = useState(false)
   
-  // OPTIMIZATION: Prefetch merchant data on hover
-  const handleMouseEnter = () => {
+  // Prefetch merchant data on hover/touch
+  const handlePrefetch = () => {
+    if (isPrefetching) return
+    setIsPrefetching(true)
+    
     // Prefetch merchant details
     utils.public.getMerchant.prefetch(
       { slug: merchant.slug },
-      {
-        staleTime: 5 * 60 * 1000,
-      }
+      { staleTime: 5 * 60 * 1000 }
     )
     
-    // Prefetch first page of products
+    // Prefetch products
     utils.public.listProducts.prefetch(
       { 
         merchantSlug: merchant.slug,
         limit: 20,
         page: 1 
       },
-      {
-        staleTime: 2 * 60 * 1000,
-      }
+      { staleTime: 2 * 60 * 1000 }
     )
 
-    // Preload the merchant page
+    // Preload the page
     router.prefetch(`/merchant/${merchant.slug}/products`)
   }
 
+  const handleClick = async (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault()
+    
+    // Set clicked state immediately
+    setIsClicked(true)
+    
+    // Haptic feedback for mobile devices
+    if ('vibrate' in navigator) {
+      navigator.vibrate(10) // Short 10ms vibration
+    }
+    
+    // Add a tiny delay to show the animation before navigation
+    setTimeout(() => {
+      router.push(`/merchant/${merchant.slug}/products`)
+    }, 100)
+  }
+
   return (
-    <div 
+    <motion.div
+      initial={false}
+      animate={{
+        scale: isClicked ? 0.97 : 1,
+        backgroundColor: isClicked ? 'rgb(251, 146, 60, 0.1)' : 'white',
+      }}
+      transition={{
+        scale: { duration: 0.15, ease: 'easeOut' },
+        backgroundColor: { duration: 0.2 }
+      }}
+      whileTap={{ scale: 0.98 }}
       className={`
-        bg-white rounded-lg border transition-all cursor-pointer
-        ${isSelected ? 'border-orange-500 shadow-md' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'}
+        relative bg-white rounded-lg border transition-all cursor-pointer
+        ${isSelected ? 'border-orange-500 shadow-md' : 'border-gray-200'}
+        ${isClicked ? 'opacity-90' : 'hover:border-gray-300 hover:shadow-sm'}
+        active:scale-[0.98] active:transition-transform active:duration-75
       `}
-      onMouseEnter={handleMouseEnter}
-      onTouchStart={handleMouseEnter} // Also prefetch on mobile touch
+      onMouseEnter={handlePrefetch}
+      onTouchStart={handlePrefetch}
+      onClick={handleClick}
+      onTouchEnd={handleClick}
     >
+      {/* Loading Overlay */}
+      {isClicked && (
+        <div className="absolute inset-0 bg-white/60 rounded-lg z-10 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-2">
+            <div className="w-8 h-8 border-3 border-orange-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs text-gray-600 font-medium">Loading...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Card Content */}
       <div className="flex gap-3 p-3">
         <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
           {merchant.imageUrl || merchant.logoUrl ? (
@@ -341,72 +384,87 @@ function MerchantCard({
               fill
               className="object-cover"
               sizes="80px"
-              // OPTIMIZATION: Use priority loading for first 6 merchants
-              priority={false}
-              // Use blur placeholder if available
-              placeholder={merchant.logoBlurDataUrl ? 'blur' : 'empty'}
-              blurDataURL={merchant.logoBlurDataUrl}
+              priority={isSelected}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400">
-              <ShoppingBag className="h-8 w-8" />
+            <div className="w-full h-full flex items-center justify-center">
+              <ShoppingBag className="h-6 w-6 text-gray-400" />
             </div>
           )}
-          {!merchant.isOpen && (
-            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-              <span className="text-white text-xs font-medium">Closed</span>
+          
+          {/* Status Badge */}
+          {merchant.isOpen !== undefined && (
+            <div className="absolute top-1 left-1">
+              <Badge 
+                className="text-xs px-1.5 py-0.5"
+              >
+                {merchant.isOpen ? 'Open' : 'Closed'}
+              </Badge>
             </div>
           )}
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between mb-1">
-            <h3 className="font-semibold text-sm truncate pr-2">
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <h3 className="font-semibold text-sm truncate">
               {merchant.businessName}
             </h3>
             {merchant.rating && (
-              <div className="flex items-center gap-1 text-xs">
+              <div className="flex items-center gap-0.5 flex-shrink-0">
                 <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                <span className="font-medium">{merchant.rating.toFixed(1)}</span>
-                <span className="text-gray-500">({merchant.reviewCount || 0})</span>
+                <span className="text-xs font-medium">{merchant.rating.toFixed(1)}</span>
               </div>
             )}
           </div>
 
+          {/* Cuisine Tags */}
           {merchant.cuisineType && merchant.cuisineType.length > 0 && (
-            <div className="flex gap-1 mb-1">
+            <div className="flex gap-1 mb-1.5 flex-wrap">
               {merchant.cuisineType.slice(0, 2).map((cuisine: string) => (
-                <Badge 
-                  key={cuisine} 
-                  variant="secondary" 
-                  className="text-[10px] py-0 px-1 bg-gray-100"
-                >
+                <Badge key={cuisine} variant="secondary" className="text-xs px-1.5 py-0">
                   {cuisine}
                 </Badge>
               ))}
+              {merchant.cuisineType.length > 2 && (
+                <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                  +{merchant.cuisineType.length - 2}
+                </Badge>
+              )}
             </div>
           )}
 
+          {/* Info Row */}
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            {merchant.estimatedDeliveryTime && (
+              <div className="flex items-center gap-0.5">
+                <Clock className="h-3 w-3" />
+                <span>{merchant.estimatedDeliveryTime}</span>
+              </div>
+            )}
+            
+            {merchant.distance && (
+              <div className="flex items-center gap-0.5">
+                <MapPin className="h-3 w-3" />
+                <span>{merchant.distance < 1 ? `${(merchant.distance * 1000).toFixed(0)}m` : `${merchant.distance.toFixed(1)}km`}</span>
+              </div>
+            )}
+
+            {merchant.minimumOrder && (
+              <span className="text-gray-400">
+                Min ${typeof merchant.minimumOrder === 'object' ? merchant.minimumOrder.toString() : merchant.minimumOrder}
+              </span>
+            )}
+          </div>
+
+          {/* Description */}
           {merchant.description && (
-            <p className="text-xs text-gray-600 line-clamp-1 mb-1">
+            <p className="text-xs text-gray-600 mt-1.5 line-clamp-1">
               {merchant.description}
             </p>
           )}
-
-          <div className="flex items-center gap-2 text-[10px] text-gray-500">
-            {merchant.preparationTime && (
-              <span>{merchant.preparationTime} mins</span>
-            )}
-            {merchant.minimumOrder && merchant.minimumOrder > 0 && (
-              <span>Min ${merchant.minimumOrder}</span>
-            )}
-            {merchant.deliveryFee !== undefined && (
-              <span>Delivery ${merchant.deliveryFee}</span>
-            )}
-          </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   )
 }
 
