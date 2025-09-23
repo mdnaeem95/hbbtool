@@ -2,21 +2,12 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { ChevronUp, Clock, MapPin, Star, Bike, ShoppingBag } from 'lucide-react'
+import { ChevronUp, MapPin, Star, ShoppingBag } from 'lucide-react'
 import { Badge, Button, Skeleton } from '@homejiak/ui'
 import Image from 'next/image'
 import { motion, useAnimation, PanInfo } from 'framer-motion'
-
-// Add distance formatting helper
-function formatDistance(meters?: number | null): string {
-  if (!meters && meters !== 0) return ''
-  
-  if (meters < 1000) {
-    return `${Math.round(meters)}m`
-  } else {
-    return `${(meters / 1000).toFixed(1)}km`
-  }
-}
+import { useRouter } from 'next/navigation'
+import { api } from '../../lib/trpc/client'
 
 interface Merchant {
   id: string
@@ -131,8 +122,8 @@ export function MobileBottomSheet({
                 <Link
                   key={merchant.id}
                   href={`/merchant/${merchant.slug}/products`}
-                  className="block"
                   prefetch={true}
+                  onClick={() => onMerchantSelect(merchant.id)}
                 >
                   <MerchantCard
                     merchant={merchant}
@@ -237,7 +228,15 @@ export function MobileBottomSheet({
           {/* Selected Merchant Card */}
           {selectedMerchant && sheetHeight > 200 && (
             <div className="mb-4 pb-4 border-b">
-              <MerchantCard merchant={selectedMerchant} isSelected />
+              <Link 
+                href={`/merchant/${selectedMerchant.slug}/products`}
+                prefetch={true}
+              >
+                <MerchantCard 
+                  merchant={selectedMerchant} 
+                  isSelected 
+                />
+              </Link>
             </div>
           )}
 
@@ -259,8 +258,8 @@ export function MobileBottomSheet({
                   <Link 
                     key={merchant.id}
                     href={`/merchant/${merchant.slug}/products`}
-                    onClick={() => onMerchantSelect?.(merchant.id)}
                     prefetch={true}
+                    onClick={() => onMerchantSelect(merchant.id)}
                   >
                     <MerchantCard
                       merchant={merchant}
@@ -290,25 +289,63 @@ export function MobileBottomSheet({
 // Merchant Card Component
 function MerchantCard({ 
   merchant, 
-  isSelected = false,
+  isSelected = false
 }: { 
-  merchant: Merchant
+  merchant: any
   isSelected?: boolean
 }) {
+  const router = useRouter()
+  const utils = api.useUtils()
+  
+  // OPTIMIZATION: Prefetch merchant data on hover
+  const handleMouseEnter = () => {
+    // Prefetch merchant details
+    utils.public.getMerchant.prefetch(
+      { slug: merchant.slug },
+      {
+        staleTime: 5 * 60 * 1000,
+      }
+    )
+    
+    // Prefetch first page of products
+    utils.public.listProducts.prefetch(
+      { 
+        merchantSlug: merchant.slug,
+        limit: 20,
+        page: 1 
+      },
+      {
+        staleTime: 2 * 60 * 1000,
+      }
+    )
+
+    // Preload the merchant page
+    router.prefetch(`/merchant/${merchant.slug}/products`)
+  }
+
   return (
-    <div className={`
-      bg-white rounded-lg border transition-all cursor-pointer
-      ${isSelected ? 'border-orange-500 shadow-md' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'}
-    `}>
+    <div 
+      className={`
+        bg-white rounded-lg border transition-all cursor-pointer
+        ${isSelected ? 'border-orange-500 shadow-md' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'}
+      `}
+      onMouseEnter={handleMouseEnter}
+      onTouchStart={handleMouseEnter} // Also prefetch on mobile touch
+    >
       <div className="flex gap-3 p-3">
-        {/* Image */}
         <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-          {merchant.imageUrl ? (
+          {merchant.imageUrl || merchant.logoUrl ? (
             <Image
-              src={merchant.imageUrl}
+              src={merchant.imageUrl || merchant.logoUrl || ''}
               alt={merchant.businessName}
               fill
               className="object-cover"
+              sizes="80px"
+              // OPTIMIZATION: Use priority loading for first 6 merchants
+              priority={false}
+              // Use blur placeholder if available
+              placeholder={merchant.logoBlurDataUrl ? 'blur' : 'empty'}
+              blurDataURL={merchant.logoBlurDataUrl}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-400">
@@ -322,7 +359,6 @@ function MerchantCard({
           )}
         </div>
 
-        {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between mb-1">
             <h3 className="font-semibold text-sm truncate pr-2">
@@ -332,15 +368,14 @@ function MerchantCard({
               <div className="flex items-center gap-1 text-xs">
                 <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                 <span className="font-medium">{merchant.rating.toFixed(1)}</span>
-                <span className="text-gray-500">({merchant.reviewCount})</span>
+                <span className="text-gray-500">({merchant.reviewCount || 0})</span>
               </div>
             )}
           </div>
 
-          {/* Cuisine Badges */}
           {merchant.cuisineType && merchant.cuisineType.length > 0 && (
             <div className="flex gap-1 mb-1">
-              {merchant.cuisineType.slice(0, 2).map(cuisine => (
+              {merchant.cuisineType.slice(0, 2).map((cuisine: string) => (
                 <Badge 
                   key={cuisine} 
                   variant="secondary" 
@@ -352,37 +387,21 @@ function MerchantCard({
             </div>
           )}
 
-          {/* Description */}
           {merchant.description && (
             <p className="text-xs text-gray-600 line-clamp-1 mb-1">
               {merchant.description}
             </p>
           )}
 
-          {/* Meta Info */}
-          <div className="flex items-center gap-3 text-[10px] text-gray-500">
-            {/* Distance - Show first if available */}
-            {merchant.distance !== null && merchant.distance !== undefined && (
-              <div className="flex items-center gap-1 font-medium text-gray-700">
-                <MapPin className="h-3 w-3" />
-                <span>{formatDistance(merchant.distance)}</span>
-              </div>
+          <div className="flex items-center gap-2 text-[10px] text-gray-500">
+            {merchant.preparationTime && (
+              <span>{merchant.preparationTime} mins</span>
             )}
-            
-            {merchant.estimatedDeliveryTime && (
-              <div className="flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                <span>{merchant.estimatedDeliveryTime}</span>
-              </div>
-            )}
-            {merchant.minimumOrder && (
-              <span>Min ${Number(merchant.minimumOrder)}</span>
+            {merchant.minimumOrder && merchant.minimumOrder > 0 && (
+              <span>Min ${merchant.minimumOrder}</span>
             )}
             {merchant.deliveryFee !== undefined && (
-              <div className="flex items-center gap-1">
-                <Bike className="h-3 w-3" />
-                <span>{Number(merchant.deliveryFee) === 0 ? 'Free' : `$${Number(merchant.deliveryFee)}`}</span>
-              </div>
+              <span>Delivery ${merchant.deliveryFee}</span>
             )}
           </div>
         </div>

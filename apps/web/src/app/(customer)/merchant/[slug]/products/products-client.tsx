@@ -5,7 +5,6 @@ import { Suspense, useEffect } from "react"
 import { ProductCatalog } from "../../../../../components/product/product-catalog"
 import { ProductCatalogSkeleton } from "../../../../../components/product/product-catalog-skeleton"
 import { api } from "../../../../../lib/trpc/client"
-import { Spinner } from "@homejiak/ui"
 import { Clock } from "lucide-react"
 import { useMerchant } from "../../../../../contexts/merchant-context"
 import { useCartStore } from "../../../../../stores/cart-store"
@@ -24,20 +23,30 @@ interface ProductsPageClientProps {
 
 export function ProductsPageClient({
   slug,
-  searchParams,
 }: ProductsPageClientProps) {
   const { setMerchant } = useMerchant()
   const setCartMerchantInfo = useCartStore(state => state.setMerchantInfo)
   
-  // Fetch merchant data
-  const { data: merchant, isLoading, error } = api.public.getMerchant.useQuery({ 
-    slug 
-  })
+  // OPTIMIZATION: Fetch merchant data with aggressive caching
+  const { data: merchant, isLoading: merchantLoading, error } = api.public.getMerchant.useQuery(
+    { slug },
+    {
+      // Cache merchant data for 5 minutes (rarely changes)
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      // Don't refetch on window focus
+      refetchOnWindowFocus: false,
+      // Don't refetch on mount if we have cached data
+      refetchOnMount: false,
+    }
+  )
 
-  // Update merchant context and cart store when merchant data is loaded
+  // Note: ProductCatalog handles its own data fetching with proper caching
+  // We just need to pass the merchant info and let it handle the products
+
+  // Update merchant context when data is available
   useEffect(() => {
     if (merchant) {
-      // Update merchant context for the drawer to use
       setMerchant({
         id: merchant.id,
         businessName: merchant.businessName,
@@ -51,19 +60,35 @@ export function ProductsPageClient({
         description: merchant.description || undefined,
       })
 
-      // Also update cart store so it knows the merchant info
       setCartMerchantInfo(merchant.id, merchant.businessName)
     }
   }, [merchant, setMerchant, setCartMerchantInfo])
 
-  // Handle loading state
-  if (isLoading) {
+  // Show loading skeleton (not blocking spinner)
+  if (merchantLoading) {   
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Spinner className="h-10 w-10 text-orange-500 mx-auto" />
-          <p className="mt-4 text-lg font-medium">Loading {slug.replace(/-/g, ' ')}</p>
-          <p className="text-sm text-gray-500">Preparing menu...</p>
+      <div className="min-h-screen bg-background">
+        {/* Show merchant header skeleton */}
+        <div className="border-b bg-card animate-pulse">
+          <div className="container py-8">
+            <div className="flex items-start gap-6">
+              <div className="h-20 w-20 rounded-lg bg-gray-200" />
+              <div className="flex-1">
+                <div className="h-8 w-64 bg-gray-200 rounded mb-2" />
+                <div className="h-4 w-96 bg-gray-200 rounded mb-4" />
+                <div className="flex gap-4">
+                  <div className="h-4 w-24 bg-gray-200 rounded" />
+                  <div className="h-4 w-24 bg-gray-200 rounded" />
+                  <div className="h-4 w-24 bg-gray-200 rounded" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Show product catalog skeleton */}
+        <div className="container py-6">
+          <ProductCatalogSkeleton />
         </div>
       </div>
     )
@@ -74,17 +99,17 @@ export function ProductsPageClient({
     notFound()
   }
 
-  // Transform categories to match expected format
+  // Transform categories
   const categoriesForCatalog = merchant.categories.map((cat: any) => ({
     id: cat.id,
     name: cat.name,
     slug: cat.slug,
-    productCount: undefined, // This could be populated from a _count if available
+    productCount: cat._count?.products,
   }))
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Merchant Header */}
+      {/* Merchant Header - Always visible */}
       <div className="border-b bg-card">
         <div className="container py-8">
           <div className="flex items-start gap-6">
@@ -93,6 +118,7 @@ export function ProductsPageClient({
                 src={merchant.logoUrl}
                 alt={merchant.businessName}
                 className="h-20 w-20 rounded-lg object-cover"
+                loading="eager" // Load logo immediately
               />
             )}
             <div className="flex-1">
@@ -106,13 +132,18 @@ export function ProductsPageClient({
                 {merchant.preparationTime && (
                   <div className="flex items-center gap-1 text-muted-foreground">
                     <Clock className="h-4 w-4" />
-                    <span>Est. {merchant.preparationTime}</span>
+                    <span>Est. {merchant.preparationTime} mins</span>
                   </div>
                 )}
-                {merchant.minimumOrder && Number(merchant.minimumOrder) > 0 && (
-                  <span className="text-muted-foreground">
-                    Min order: ${Number(merchant.minimumOrder).toFixed(2)}
-                  </span>
+                {Number(merchant.minimumOrder) > 0 && (
+                  <div className="text-muted-foreground">
+                    Min. order: ${Number(merchant.minimumOrder).toFixed(2)}
+                  </div>
+                )}
+                {merchant.deliveryFee !== undefined && (
+                  <div className="text-muted-foreground">
+                    Delivery: ${merchant.deliveryFee.toFixed(2)}
+                  </div>
                 )}
               </div>
             </div>
@@ -120,14 +151,15 @@ export function ProductsPageClient({
         </div>
       </div>
 
-      {/* Product Catalog - Using correct props based on the actual component */}
-      <Suspense fallback={<ProductCatalogSkeleton />}>
-        <ProductCatalog
-          merchantSlug={merchant.slug}
-          categories={categoriesForCatalog}
-          initialSearchParams={searchParams}
-        />
-      </Suspense>
+      {/* Product Catalog - Has its own optimized data fetching */}
+      <div className="container py-6">
+        <Suspense fallback={<ProductCatalogSkeleton />}>
+          <ProductCatalog
+            merchantSlug={merchant.slug}
+            categories={categoriesForCatalog}
+          />
+        </Suspense>
+      </div>
     </div>
   )
 }
