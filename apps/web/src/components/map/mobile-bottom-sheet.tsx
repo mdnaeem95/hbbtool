@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { ChevronUp, Clock, MapPin, Star, Bike, ShoppingBag } from 'lucide-react'
-import { Badge, Button, Skeleton } from '@homejiak/ui'
+import { Badge, Button, Skeleton, Spinner } from '@homejiak/ui'
 import Image from 'next/image'
 import { motion, useAnimation, PanInfo } from 'framer-motion'
 
@@ -60,6 +60,8 @@ export function MobileBottomSheet({
   const [isDragging, setIsDragging] = useState(false)
   const controls = useAnimation()
   const constraintsRef = useRef<HTMLDivElement>(null)
+  const [loadingMerchantId, setLoadingMerchantId] = useState<string | null>(null)
+  const [loadingMerchantName, setLoadingMerchantName] = useState<string>('')
 
   const snapPoints = [120, window.innerHeight * 0.5, window.innerHeight * 0.85]
   
@@ -76,6 +78,13 @@ export function MobileBottomSheet({
     setSheetHeight(closestSnapPoint)
     controls.start({ y: window.innerHeight - closestSnapPoint })
   }
+
+  useEffect(() => {
+    return () => {
+      setLoadingMerchantId(null)
+      setLoadingMerchantName('')
+    }
+  }, [isListView, isFullScreen])
 
   useEffect(() => {
     if (isListView) {
@@ -95,70 +104,95 @@ export function MobileBottomSheet({
 
   const selectedMerchant = merchants.find(m => m.id === selectedMerchantId)
 
-  // Full-screen list view mode (no dragging)
-  if (isFullScreen) {
+  // Loading Overlay Component
+  const LoadingOverlay = () => {
+    if (!loadingMerchantId) return null
+
     return (
-      <div 
-        className="bg-white"
-        style={{
-          marginTop: '8px',
-          minHeight: 'auto',
-        }}
-      >
-        {/* Content without drag handle */}
-        <div className="px-4 pb-20">
-          {/* List Header */}
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/95 backdrop-blur-sm">
+        <div className="text-center">
           <div className="mb-4">
-            <h2 className="font-semibold">All Merchants</h2>
-            <p className="text-sm text-gray-500">
-              {isLoading ? 'Loading...' : `${merchants.length} available`}
-            </p>
+            <Spinner className="h-10 w-10 text-orange-500 mx-auto" />
           </div>
-
-          {/* Loading State */}
-          {isLoading && (
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <MerchantCardSkeleton key={i} />
-              ))}
-            </div>
-          )}
-
-          {/* Merchant List */}
-          {!isLoading && merchants.length > 0 && (
-            <div className="space-y-3">
-              {merchants.map(merchant => (
-                <Link
-                  key={merchant.id}
-                  href={`/merchant/${merchant.slug}/products`}
-                  className="block"
-                >
-                  <MerchantCard
-                    merchant={merchant}
-                    isSelected={merchant.id === selectedMerchantId}
-                  />
-                </Link>
-              ))}
-            </div>
-          )}
-
-          {/* Empty State */}
-          {!isLoading && merchants.length === 0 && (
-            <div className="text-center py-12">
-              <MapPin className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p className="text-gray-600 font-medium text-lg">No merchants found</p>
-              <p className="text-sm text-gray-500 mt-2">
-                Try adjusting your search or filters
-              </p>
-            </div>
-          )}
+          <p className="text-lg font-medium text-gray-800">
+            Directing to {loadingMerchantName}
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            Loading menu...
+          </p>
         </div>
       </div>
     )
   }
 
+  // Full-screen list view mode (no dragging)
+  if (isFullScreen) {
+    return (
+      <>
+        <LoadingOverlay />
+        <div 
+          className="bg-white"
+          style={{
+            marginTop: '8px',
+            minHeight: 'auto',
+          }}
+        >
+          {/* Content without drag handle */}
+          <div className="px-4 pb-20">
+            {/* List Header */}
+            <div className="mb-4">
+              <h2 className="font-semibold">All Merchants</h2>
+              <p className="text-sm text-gray-500">
+                {isLoading ? 'Loading...' : `${merchants.length} available`}
+              </p>
+            </div>
+
+            {/* Loading State */}
+            {isLoading && (
+              <div className="space-y-4">
+                {[...Array(5)].map((_, i) => (
+                  <MerchantCardSkeleton key={i} />
+                ))}
+              </div>
+            )}
+
+            {/* Merchant List */}
+            {!isLoading && merchants.length > 0 && (
+              <div className="space-y-3">
+                {merchants.map(merchant => (
+                  <Link
+                    key={merchant.id}
+                    href={`/merchant/${merchant.slug}/products`}
+                    className="block"
+                  >
+                    <MerchantCard
+                      merchant={merchant}
+                      isSelected={merchant.id === selectedMerchantId}
+                    />
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            {/* Empty State */}
+            {!isLoading && merchants.length === 0 && (
+              <div className="text-center py-12">
+                <MapPin className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p className="text-gray-600 font-medium text-lg">No merchants found</p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Try adjusting your search or filters
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </>
+    )
+  }
+
   return (
     <>
+      <LoadingOverlay />
       {/* Backdrop when sheet is expanded */}
       {sheetHeight > 200 && (
         <div 
@@ -255,11 +289,21 @@ export function MobileBottomSheet({
               {merchants
                 .filter(m => m.id !== selectedMerchantId)
                 .map(merchant => (
-                  <MerchantCard
+                  <div 
                     key={merchant.id}
-                    merchant={merchant}
-                    onSelect={() => onMerchantSelect(merchant.id)}
-                  />
+                    onClick={() => {
+                      setLoadingMerchantId(merchant.id)
+                      setLoadingMerchantName(merchant.businessName)
+                      onMerchantSelect?.(merchant.id)
+                    }}
+                  >
+                    <Link href={`/merchant/${merchant.slug}/products`}>
+                      <MerchantCard
+                        merchant={merchant}
+                        isSelected={false}
+                      />
+                    </Link>
+                  </div>
                 ))}
             </div>
           )}
@@ -284,116 +328,103 @@ export function MobileBottomSheet({
 function MerchantCard({ 
   merchant, 
   isSelected = false,
-  onSelect 
 }: { 
   merchant: Merchant
   isSelected?: boolean
-  onSelect?: () => void
 }) {
   return (
-    <Link
-      href={`/merchant/${merchant.slug}/products`}
-      onClick={(e: any) => {
-        if (onSelect) {
-          e.preventDefault()
-          onSelect()
-        }
-      }}
-      className={`block ${onSelect ? 'cursor-pointer' : ''}`}
-    >
-      <div className={`
-        bg-white rounded-lg border transition-all
-        ${isSelected ? 'border-orange-500 shadow-md' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'}
-      `}>
-        <div className="flex gap-3 p-3">
-          {/* Image */}
-          <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-            {merchant.imageUrl ? (
-              <Image
-                src={merchant.imageUrl}
-                alt={merchant.businessName}
-                fill
-                className="object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-400">
-                <ShoppingBag className="h-8 w-8" />
-              </div>
-            )}
-            {!merchant.isOpen && (
-              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                <span className="text-white text-xs font-medium">Closed</span>
+    <div className={`
+      bg-white rounded-lg border transition-all cursor-pointer
+      ${isSelected ? 'border-orange-500 shadow-md' : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'}
+    `}>
+      <div className="flex gap-3 p-3">
+        {/* Image */}
+        <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+          {merchant.imageUrl ? (
+            <Image
+              src={merchant.imageUrl}
+              alt={merchant.businessName}
+              fill
+              className="object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-400">
+              <ShoppingBag className="h-8 w-8" />
+            </div>
+          )}
+          {!merchant.isOpen && (
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+              <span className="text-white text-xs font-medium">Closed</span>
+            </div>
+          )}
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between mb-1">
+            <h3 className="font-semibold text-sm truncate pr-2">
+              {merchant.businessName}
+            </h3>
+            {merchant.rating && (
+              <div className="flex items-center gap-1 text-xs">
+                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                <span className="font-medium">{merchant.rating.toFixed(1)}</span>
+                <span className="text-gray-500">({merchant.reviewCount})</span>
               </div>
             )}
           </div>
 
-          {/* Info */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between mb-1">
-              <h3 className="font-semibold text-sm truncate pr-2">
-                {merchant.businessName}
-              </h3>
-              {merchant.rating && (
-                <div className="flex items-center gap-1 text-xs">
-                  <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                  <span className="font-medium">{merchant.rating.toFixed(1)}</span>
-                  <span className="text-gray-500">({merchant.reviewCount})</span>
-                </div>
-              )}
+          {/* Cuisine Badges */}
+          {merchant.cuisineType && merchant.cuisineType.length > 0 && (
+            <div className="flex gap-1 mb-1">
+              {merchant.cuisineType.slice(0, 2).map(cuisine => (
+                <Badge 
+                  key={cuisine} 
+                  variant="secondary" 
+                  className="text-[10px] py-0 px-1 bg-gray-100"
+                >
+                  {cuisine}
+                </Badge>
+              ))}
             </div>
+          )}
 
-            {/* Cuisine Badges */}
-            {merchant.cuisineType && merchant.cuisineType.length > 0 && (
-              <div className="flex gap-1 mb-1">
-                {merchant.cuisineType.slice(0, 2).map(cuisine => (
-                  <Badge 
-                    key={cuisine} 
-                    variant="secondary" 
-                    className="text-[10px] py-0 px-1 bg-gray-100"
-                  >
-                    {cuisine}
-                  </Badge>
-                ))}
+          {/* Description */}
+          {merchant.description && (
+            <p className="text-xs text-gray-600 line-clamp-1 mb-1">
+              {merchant.description}
+            </p>
+          )}
+
+          {/* Meta Info */}
+          <div className="flex items-center gap-3 text-[10px] text-gray-500">
+            {/* Distance - Show first if available */}
+            {merchant.distance !== null && merchant.distance !== undefined && (
+              <div className="flex items-center gap-1 font-medium text-gray-700">
+                <MapPin className="h-3 w-3" />
+                <span>{formatDistance(merchant.distance)}</span>
               </div>
             )}
-
-            {/* Description */}
-            {merchant.description && (
-              <p className="text-xs text-gray-600 line-clamp-1 mb-1">
-                {merchant.description}
-              </p>
+            
+            {merchant.estimatedDeliveryTime && (
+              <div className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                <span>{merchant.estimatedDeliveryTime}</span>
+              </div>
             )}
-
-            {/* Meta Info */}
-            <div className="flex items-center gap-3 text-[10px] text-gray-500">
-              {/* Distance - Show first if available */}
-              {merchant.distance !== null && merchant.distance !== undefined && (
-                <div className="flex items-center gap-1 font-medium text-gray-700">
-                  <MapPin className="h-3 w-3" />
-                  <span>{formatDistance(merchant.distance)}</span>
-                </div>
-              )}
-              
-              {merchant.estimatedDeliveryTime && (
-                <div className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  <span>{merchant.estimatedDeliveryTime}</span>
-                </div>
-              )}
-              {merchant.minimumOrder && (
-                <span>Min ${Number(merchant.minimumOrder)}</span>
-              )}
-              {merchant.deliveryFee !== undefined && (
-                <div className="flex items-center gap-1">
-                  <Bike className="h-3 w-3" />
-                  <span>{Number(merchant.deliveryFee) === 0 ? 'Free' : `$${Number(merchant.deliveryFee)}`}</span>
-                </div>
-              )}
-            </div>
+            {merchant.minimumOrder && (
+              <span>Min ${Number(merchant.minimumOrder)}</span>
+            )}
+            {merchant.deliveryFee !== undefined && (
+              <div className="flex items-center gap-1">
+                <Bike className="h-3 w-3" />
+                <span>{Number(merchant.deliveryFee) === 0 ? 'Free' : `$${Number(merchant.deliveryFee)}`}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   )
 }
 
