@@ -142,7 +142,7 @@ export function ProductsPageClient({
                 )}
                 {merchant.deliveryFee !== undefined && (
                   <div className="text-muted-foreground">
-                    Delivery: ${merchant.deliveryFee.toFixed(2)}
+                    Delivery: ${Number(merchant.deliveryFee).toFixed(2)}
                   </div>
                 )}
               </div>
