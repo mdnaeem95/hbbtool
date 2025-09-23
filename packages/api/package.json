@@ -6,7 +6,8 @@
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
     "./context": "./src/context.ts",
-    "./utils": "./src/utils/settings-validation.ts"
+    "./utils": "./src/utils/settings-validation.ts",
+    "./edge-cache": "./src/utils/edge-cache.ts"
   },
   "scripts": {
     "type-check": "tsc --noEmit",
@@ -28,6 +29,8 @@
     "@types/node": "^24.2.1",
     "@types/qrcode": "^1.5.5",
     "@types/twilio": "^3.19.3",
+    "@upstash/ratelimit": "^2.0.6",
+    "@upstash/redis": "^1.35.3",
     "bcryptjs": "^3.0.2",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.1",
