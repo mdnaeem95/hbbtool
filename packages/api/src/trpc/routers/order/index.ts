@@ -125,7 +125,7 @@ async function triggerOrderNotification(
     // Prepare SMS message based on status
     let smsMessage = ''
 
-        switch (newStatus) {
+    switch (newStatus) {
       case 'CONFIRMED':
         smsMessage = orderSMSTemplates.orderConfirmed({
           orderNumber: order.orderNumber,
@@ -372,46 +372,41 @@ export const orderRouter = router({
   updateStatus: merchantProcedure
     .input(updateStatusZ)
     .mutation(async ({ ctx, input }) => {
-      // Load current order to validate transition
-      const current = await ctx.db.order.findFirst({
-        where: { id: input.id, merchantId: ctx.session!.user.id },
-        select: { id: true, status: true },
+      // Get the current order status before updating
+      const currentOrder = await ctx.db.order.findUnique({
+        where: { id: input.id },
+        select: { status: true }
       })
-      if (!current) throw new TRPCError({ code: 'NOT_FOUND' })
-
-      const from = current.status as OrderStatus
-      const to = input.status
-      if (from === to) {
-        // no-op (but still record event if you prefer)
-        return ctx.db.order.findUnique({ where: { id: input.id } })
+      
+      if (!currentOrder) {
+        throw new TRPCError({ 
+          code: 'NOT_FOUND', 
+          message: 'Order not found' 
+        })
       }
-      assertTransition(from, to)
-
-      // Update + event in a transaction
-      const result = await ctx.db.$transaction(async (tx) => {
-        const order = await tx.order.update({
-          where: { id: input.id },
-          data: {
-            status: to,
-            ...statusTimestamps(to),
-          },
-        })
-
-        await tx.orderEvent.create({
-          data: {
-            orderId: input.id,
-            event: `STATUS_CHANGED_FROM_${from}_TO_${to}`,
-            data: { from, to, notes: input.notes ?? null },
-          },
-        })
-
-        return order
+      
+      // Validate status transition
+      assertTransition(currentOrder.status, input.status)
+      
+      // Update the order
+      const order = await ctx.db.order.update({
+        where: { id: input.id },
+        data: {
+          status: input.status,
+          ...statusTimestamps(input.status),
+          ...(input.notes ? { kitchenNotes: input.notes } : {}),
+        }
       })
-
-      // add notification here
-      await triggerOrderNotification(input.id, from, to, ctx.db)
-
-      return result
+      
+      // Trigger SMS notification for the status change
+      await triggerOrderNotification(
+        order.id,
+        currentOrder.status,  // old status
+        input.status,         // new status
+        ctx.db
+      )
+      
+      return order
     }),
 
   /** -------- Bulk update status (merchant) -------- */
