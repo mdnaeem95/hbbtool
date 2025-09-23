@@ -6,9 +6,6 @@ import { edgeCache, cacheKeys, cacheTTL } from '@homejiak/api/edge-cache'
 export const runtime = 'edge'
 export const preferredRegion = 'sin1'
 
-// Enable static generation with revalidation
-export const revalidate = 300 // 5 minutes
-
 export async function GET(
   request: NextRequest,
   { params }: { params: { slug: string } }
