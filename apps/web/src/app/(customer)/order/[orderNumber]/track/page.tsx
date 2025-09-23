@@ -7,7 +7,24 @@ import { CheckCircle, Clock, Package, Truck, Home, Copy, Phone, MapPin, ChefHat,
 import confetti from 'canvas-confetti'
 import { api } from '../../../../../lib/trpc/client'
 import { format, formatDistanceToNow } from 'date-fns'
-import { DeliveryMethod, OrderStatus } from '@homejiak/database'
+
+enum OrderStatus {
+  PENDING = "PENDING",
+  CONFIRMED = "CONFIRMED",
+  PREPARING = "PREPARING",
+  READY = "READY",
+  OUT_FOR_DELIVERY = "OUT_FOR_DELIVERY",
+  DELIVERED = "DELIVERED",
+  COMPLETED = "COMPLETED",
+  CANCELLED = "CANCELLED",
+  REFUNDED = "REFUNDED"
+}
+
+enum DeliveryMethod {
+  PICKUP = "PICKUP",
+  DELIVERY = "DELIVERY",
+  DINE_IN = "DINE_IN"
+}
 
 // Add this helper function at the top of the component
 const parseVariant = (variant: any): { name?: string; value?: string } | null => {
@@ -286,11 +303,11 @@ export default function OrderTrackingPage() {
     )
   }
   
-  const status = ORDER_STATUSES[order.status]
+  const status = ORDER_STATUSES[order.status as OrderStatus]
   const StatusIcon = status.icon
   const isDelivery = order.deliveryMethod === 'DELIVERY'
-  const timelineSteps = getTimelineSteps(order.deliveryMethod)
-  const currentStepIndex = timelineSteps.indexOf(order.status)
+  const timelineSteps = getTimelineSteps(order.deliveryMethod as DeliveryMethod)
+  const currentStepIndex = timelineSteps.indexOf(order.status as OrderStatus)
   const progressPercentage = ((currentStepIndex + 1) / timelineSteps.length) * 100
   
   return (

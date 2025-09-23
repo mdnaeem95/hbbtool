@@ -5,25 +5,56 @@ import { PaymentMethod } from '@homejiak/database'
 import { generatePayNowQR } from '../../../utils/paynow'
 
 export const paymentRouter = router({
-  // 1) Customer uploads a PayNow proof (public; we verify order existence only)
   uploadProof: publicProcedure
     .input(z.object({
-      orderId: z.string(),
-      proofUrl: z.string(),
-      transactionId: z.string().optional()
+      orderId: z.string().cuid(),
+      proofUrl: z.string().url(),
+      transactionId: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      // First, check if order exists
+      const order = await ctx.db.order.findUnique({
+        where: { id: input.orderId },
+        include: { payment: true }
+      })
+      
+      if (!order) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Order not found'
+        })
+      }
+      
+      // If no payment record exists, create one
+      if (!order.payment) {
+        await ctx.db.payment.create({
+          data: {
+            orderId: input.orderId,
+            method: order.paymentMethod || 'PAYNOW',
+            status: 'PROCESSING',
+            amount: order.total,
+            currency: 'SGD',
+            transactionId: input.transactionId,
+          }
+        })
+      } else {
+        // Update existing payment
+        await ctx.db.payment.update({
+          where: { orderId: input.orderId },
+          data: {
+            transactionId: input.transactionId,
+            status: 'PROCESSING',
+            updatedAt: new Date()
+          }
+        })
+      }
+      
+      // Update order with payment proof
       await ctx.db.order.update({
         where: { id: input.orderId },
         data: {
           paymentProof: input.proofUrl,
           paymentStatus: 'PROCESSING',
-          payment: {
-            update: {
-              status: 'PROCESSING',
-              transactionId: input.transactionId
-            }
-          }
         }
       })
       
