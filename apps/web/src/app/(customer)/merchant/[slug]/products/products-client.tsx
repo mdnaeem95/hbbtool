@@ -190,7 +190,7 @@ function MerchantHeader({ merchant }: { merchant: any }) {
               {merchant.averageRating && (
                 <div className="flex items-center gap-1 px-2 py-1 bg-yellow-50 rounded-lg">
                   <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                  <span className="font-semibold text-sm">{merchant.averageRating.toFixed(1)}</span>
+                  <span className="font-semibold text-sm">{Number(merchant.averageRating).toFixed(1)}</span>
                   {merchant.totalReviews > 0 && (
                     <span className="text-xs text-gray-600">({merchant.totalReviews})</span>
                   )}

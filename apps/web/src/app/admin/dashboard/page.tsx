@@ -1,3 +1,5 @@
+import { PerformanceDashboard } from "../../../components/admin/performance-dashboard"
+
 export default function AdminDashboardPage() {
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -19,6 +21,8 @@ export default function AdminDashboardPage() {
           <p className="text-gray-600">View platform statistics</p>
         </a>
       </div>
+
+      <PerformanceDashboard />
 
       <div className="mt-8 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
         <p className="text-sm text-yellow-800">
