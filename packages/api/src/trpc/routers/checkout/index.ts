@@ -115,49 +115,6 @@ const DISTRICT_COORDINATES: Record<string, { lat: number; lon: number }> = {
   // Add more as needed
 }
 
-// Temporary in-memory session storage (replace with Redis in production)
-const checkoutSessions = new Map<
-  string,
-  {
-    sessionId: string
-    merchantId: string
-    merchant: {
-      id: string
-      businessName: string
-      email: string | null
-      phone: string | null
-      paynowNumber: string | null
-      paynowQrCode: string | null
-      deliveryEnabled: boolean
-      pickupEnabled: boolean
-      deliveryFee: number
-      minimumOrder: number
-      operatingHours: unknown
-      address?: {
-        line1: string
-        line2?: string
-        postalCode?: string
-        buildingName?: string
-      }
-    }
-    items: Array<{
-      productId: string
-      quantity: number
-      variant?: string
-      notes?: string
-      productName: string
-      productPrice: number
-      total: number
-    }>
-    subtotal: number
-    paymentReference: string
-    status: 'pending' | 'completed' | 'expired'
-    createdAt: Date
-    expiresAt: Date
-    orderId?: string
-  }
->()
-
 function getZoneFromPostalCode(postalCode: string): string {
   const district = postalCode.substring(0, 2)
   
@@ -406,27 +363,58 @@ export const checkoutRouter = router({
     .input(z.object({
       sessionId: z.string().min(1),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       console.log('🔍 [Checkout] Getting session:', input.sessionId)
-      
-      const session = checkoutSessions.get(input.sessionId)
-      
-      if (!session) {
-        console.error('❌ [Checkout] Session not found:', input.sessionId)
-        console.log('🔍 [Checkout] Available sessions:', Array.from(checkoutSessions.keys()).slice(0, 5))
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Session not found or expired' })
+    
+    // Get from DATABASE, not memory!
+    const session = await ctx.db.checkoutSession.findFirst({
+      where: {
+        sessionId: input.sessionId,
+        expiresAt: { gt: new Date() }, // Not expired
+      },
+      include: {
+        merchant: {
+          select: {
+            id: true,
+            businessName: true,
+            paynowNumber: true,
+            paynowQrCode: true,
+            deliveryEnabled: true,
+            pickupEnabled: true,
+            deliveryFee: true,
+            email: true,
+            phone: true,
+            address: true,
+            postalCode: true,
+            operatingHours: true,
+          }
+        }
       }
+    })
+    
+    if (!session) {
+      console.error('❌ [Checkout] Session not found:', input.sessionId)
+      throw new TRPCError({ code: 'NOT_FOUND', message: 'Session not found or expired' })
+    }
 
-      // Check if session is expired
-      if (session.expiresAt < new Date()) {
-        console.error('❌ [Checkout] Session expired:', input.sessionId)
-        checkoutSessions.delete(input.sessionId)
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Session expired' })
-      }
-
-      console.log('✅ [Checkout] Session found:', session.merchant.businessName)
-      return session
-    }),
+    console.log('✅ [Checkout] Session found:', session.merchant.businessName)
+    
+    // Return in the format the frontend expects
+    return {
+      sessionId: session.sessionId,
+      merchantId: session.merchantId,
+      items: session.items as any[], // JSON field
+      subtotal: Number(session.subtotal),
+      paymentReference: session.paymentReference,
+      status: 'pending' as const,
+      merchant: {
+        ...session.merchant,
+        deliveryFee: Number(session.merchant.deliveryFee || 0),
+        address: session.merchant.address || undefined,
+      },
+      expiresAt: session.expiresAt.toISOString(),
+    }
+  }),
 
   // Complete checkout and create order
   complete: publicProcedure
