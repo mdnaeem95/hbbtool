@@ -67,6 +67,8 @@ export class SearchService {
     radius?: number
     halal?: boolean
     deliveryEnabled?: boolean
+    pickupEnabled?: boolean  // Add this
+    bounds?: { north: number; south: number; east: number; west: number } // Add bounds
     limit?: number
   }) {
     const {
@@ -77,20 +79,147 @@ export class SearchService {
       radius = 5,
       halal,
       deliveryEnabled,
+      pickupEnabled,
+      bounds,
       limit = 20,
     } = params
-    
-    let where: Prisma.MerchantWhereInput = {
+
+    // If we have bounds, use them for efficient filtering
+    if (bounds && !latitude && !longitude) {
+      const where: Prisma.MerchantWhereInput = {
+        status: 'ACTIVE',
+        deletedAt: null,
+        latitude: { gte: bounds.south, lte: bounds.north },
+        longitude: { gte: bounds.west, lte: bounds.east },
+        ...(halal !== undefined && { halal }),
+        ...(deliveryEnabled !== undefined && { deliveryEnabled }),
+        ...(pickupEnabled !== undefined && { pickupEnabled }),
+        ...(cuisineType?.length && { cuisineType: { hasSome: cuisineType } }),
+      }
+
+      if (query) {
+        where.OR = [
+          { businessName: { contains: query, mode: 'insensitive' } },
+          { description: { contains: query, mode: 'insensitive' } },
+          { cuisineType: { has: query.toLowerCase() } },
+        ]
+      }
+
+      const merchants = await db.merchant.findMany({
+        where,
+        take: limit,
+        include: {
+          _count: { select: { orders: true, reviews: true } },
+        },
+        orderBy: [
+          { verified: 'desc' },
+          { averageRating: 'desc' },
+        ],
+      })
+
+      return merchants
+    }
+
+    // If we have coordinates, use raw SQL for distance calculation
+    if (latitude && longitude) {
+      const queryConditions = []
+      const queryParams: any[] = [latitude, latitude, longitude, latitude]
+      let paramIndex = 5
+
+      queryConditions.push(`m.status = 'ACTIVE'`)
+      queryConditions.push(`m."deletedAt" IS NULL`)
+      queryConditions.push(`m.latitude IS NOT NULL`)
+      queryConditions.push(`m.longitude IS NOT NULL`)
+
+      if (halal !== undefined) {
+        queryConditions.push(`m.halal = $${paramIndex}`)
+        queryParams.push(halal)
+        paramIndex++
+      }
+
+      if (deliveryEnabled !== undefined) {
+        queryConditions.push(`m."deliveryEnabled" = $${paramIndex}`)
+        queryParams.push(deliveryEnabled)
+        paramIndex++
+      }
+
+      if (pickupEnabled !== undefined) {
+        queryConditions.push(`m."pickupEnabled" = $${paramIndex}`)
+        queryParams.push(pickupEnabled)
+        paramIndex++
+      }
+
+      if (cuisineType?.length) {
+        queryConditions.push(`m."cuisineType" && $${paramIndex}::text[]`)
+        queryParams.push(cuisineType)
+        paramIndex++
+      }
+
+      if (query) {
+        queryConditions.push(`(
+          m."businessName" ILIKE $${paramIndex} OR 
+          m.description ILIKE $${paramIndex} OR
+          $${paramIndex + 1} = ANY(m."cuisineType")
+        )`)
+        queryParams.push(`%${query}%`, query.toLowerCase())
+        paramIndex += 2
+      }
+
+      // Add radius to params
+      queryParams.push(radius)
+      queryParams.push(limit)
+
+      const merchants = await db.$queryRawUnsafe<any[]>(`
+        SELECT 
+          m.*,
+          (
+            6371 * acos(
+              cos(radians($1)) * 
+              cos(radians(m.latitude)) * 
+              cos(radians(m.longitude) - radians($3)) + 
+              sin(radians($2)) * 
+              sin(radians(m.latitude))
+            )
+          ) AS distance,
+          COUNT(DISTINCT o.id) as "orderCount"
+        FROM "Merchant" m
+        LEFT JOIN "Order" o ON o."merchantId" = m.id
+        WHERE ${queryConditions.join(' AND ')}
+        GROUP BY m.id
+        HAVING (
+          6371 * acos(
+            cos(radians($1)) * 
+            cos(radians(m.latitude)) * 
+            cos(radians(m.longitude) - radians($3)) + 
+            sin(radians($4)) * 
+            sin(radians(m.latitude))
+          )
+        ) <= $${paramIndex}
+        ORDER BY 
+          m.verified DESC,
+          distance ASC,
+          m."averageRating" DESC NULLS LAST
+        LIMIT $${paramIndex + 1}
+      `, ...queryParams)
+
+      // Format the response to match expected structure
+      return merchants.map(m => ({
+        ...m,
+        _count: { orders: m.orderCount || 0, reviews: m.reviewCount || 0 },
+        rating: m.averageRating,
+      }))
+    }
+
+    // Fallback to original logic if no location data
+    const where: Prisma.MerchantWhereInput = {
       status: 'ACTIVE',
       deletedAt: null,
       ...(halal !== undefined && { halal }),
       ...(deliveryEnabled !== undefined && { deliveryEnabled }),
-      ...(cuisineType && cuisineType.length > 0 && {
-        cuisineType: { hasSome: cuisineType },
-      }),
+      ...(pickupEnabled !== undefined && { pickupEnabled }),
+      ...(cuisineType?.length && { cuisineType: { hasSome: cuisineType } }),
     }
-    
-    // Text search
+
     if (query) {
       where.OR = [
         { businessName: { contains: query, mode: 'insensitive' } },
@@ -98,71 +227,20 @@ export class SearchService {
         { cuisineType: { has: query.toLowerCase() } },
       ]
     }
-    
-    // Get initial results
-    let merchants = await db.merchant.findMany({
+
+    const merchants = await db.merchant.findMany({
       where,
-      take: limit * 2, // Get more for distance filtering
+      take: limit,
       include: {
-        _count: {
-          select: {
-            products: true,
-            orders: true,
-            reviews: true,
-          },
-        },
-        reviews: {
-          where: { isVisible: true },
-          select: { rating: true }
-        }
+        _count: { select: { orders: true, reviews: true } },
       },
+      orderBy: [
+        { verified: 'desc' },
+        { averageRating: 'desc' },
+      ],
     })
 
-    // calculate average ratings and transform results
-    const merchantsWithRatings = merchants.map(merchant => {
-      const { reviews, ...merchantData } = merchant
-
-      // calculate average rating
-      const avgRating = reviews.length > 0
-        ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
-        : null
-
-      return { 
-        ...merchantData,
-        rating: avgRating ? parseFloat(avgRating.toFixed(1)) : null,
-        reviewCount: merchantData._count.reviews
-      }
-    })
-    
-    // Filter by distance if location provided
-    let filtered = merchantsWithRatings
-    if (latitude && longitude) {
-      filtered = merchantsWithRatings.filter(merchant => {
-        if (!merchant.latitude || !merchant.longitude) return false
-        
-        const distance = this.calculateDistance(
-          latitude,
-          longitude,
-          merchant.latitude,
-          merchant.longitude
-        )
-        
-        return distance <= radius
-      })
-    }
-    
-    // Sort by relevance/popularity
-    filtered.sort((a, b) => {
-      // Prioritize verified merchants
-      if (a.verified !== b.verified) {
-        return a.verified ? -1 : 1
-      }
-      
-      // Then by order count
-      return b._count.orders - a._count.orders
-    })
-    
-    return filtered.slice(0, limit)
+    return merchants
   }
   
   static async getSuggestions(params: {
