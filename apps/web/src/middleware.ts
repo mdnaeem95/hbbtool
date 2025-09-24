@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { getGeolocation, isVercelEdge } from '@/types/vercel'
+import { getGeolocation, isVercelEdge } from './types/vercel'
 
 // This runs on Vercel Edge Network globally
 export const config = {
