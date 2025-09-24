@@ -1,6 +1,46 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { getGeolocation, isVercelEdge } from './types/vercel'
+
+export function isVercelEdge(): boolean {
+  return process.env.VERCEL_ENV !== undefined
+}
+
+export function getGeolocation(request: NextRequest): {
+  country: string
+  region: string
+  city: string
+  latitude?: string
+  longitude?: string
+} {
+  // Try to get from headers (works on Vercel)
+  const fromHeaders = {
+    country: request.headers.get('x-vercel-ip-country') || '',
+    region: request.headers.get('x-vercel-ip-country-region') || '',
+    city: request.headers.get('x-vercel-ip-city') || '',
+    latitude: request.headers.get('x-vercel-ip-latitude') || undefined,
+    longitude: request.headers.get('x-vercel-ip-longitude') || undefined,
+  }
+  
+  // In development, use default values
+  if (process.env.NODE_ENV === 'development') {
+    return {
+      country: 'SG',
+      region: 'Singapore',
+      city: 'Singapore',
+      latitude: '1.3521',
+      longitude: '103.8198',
+    }
+  }
+  
+  // Return Vercel headers or defaults
+  return {
+    country: fromHeaders.country || 'SG',
+    region: fromHeaders.region || '',
+    city: fromHeaders.city || '',
+    latitude: fromHeaders.latitude,
+    longitude: fromHeaders.longitude,
+  }
+}
 
 // This runs on Vercel Edge Network globally
 export const config = {
