@@ -57,7 +57,7 @@ export class SearchService {
     cuisineType?: string[]
     latitude?: number
     longitude?: number
-    radius?: number
+    radius?: number // in km
     halal?: boolean
     deliveryEnabled?: boolean
     pickupEnabled?: boolean
@@ -99,7 +99,7 @@ export class SearchService {
       .join("|")
 
     return edgeCache.getOrSet(cacheKey, async () => {
-      // Bounds query
+      // 📍 Bounds-only query (no lat/lng provided)
       if (bounds && !latitude && !longitude) {
         return db.merchant.findMany({
           where: {
@@ -136,37 +136,35 @@ export class SearchService {
         })
       }
 
-      // Coordinates query (optimized raw SQL + distance calc)
+      // 📍 Coordinates query (fast PostGIS distance search)
       if (latitude && longitude) {
-        return db.$queryRawUnsafe<any[]>(
-          `
-          WITH base AS (
-            SELECT 
-              m.id, m."businessName", m.slug,
-              m.latitude, m.longitude,
-              m.halal, m."deliveryEnabled", m."pickupEnabled",
-              m."averageRating", m.verified,
-              6371 * acos(
-                cos(radians($1)) * cos(radians(m.latitude)) *
-                cos(radians(m.longitude) - radians($2)) +
-                sin(radians($1)) * sin(radians(m.latitude))
-              ) AS distance
-            FROM "Merchant" m
-            WHERE m.status = 'ACTIVE' AND m."deletedAt" IS NULL
-          )
-          SELECT * FROM base
-          WHERE distance <= $3
-          ORDER BY verified DESC, distance ASC, "averageRating" DESC NULLS LAST
-          LIMIT $4
-          `,
-          latitude,
-          longitude,
-          radius,
-          limit,
-        )
+        const radiusMeters = radius * 1000
+
+        return db.$queryRaw<any[]>`
+          SELECT m.id, m."businessName", m.slug,
+                 m.latitude, m.longitude,
+                 m.halal, m."deliveryEnabled", m."pickupEnabled",
+                 m."averageRating", m.verified,
+                 ST_Distance(
+                   m.location,
+                   ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography
+                 ) AS distance
+          FROM "Merchant" m
+          WHERE m.status = 'ACTIVE'
+            AND m."deletedAt" IS NULL
+            AND ST_DWithin(
+                  m.location,
+                  ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
+                  ${radiusMeters}
+                )
+          ORDER BY m.verified DESC,
+                   distance ASC,
+                   m."averageRating" DESC NULLS LAST
+          LIMIT ${limit};
+        `
       }
 
-      // Fallback (no bounds, no coords)
+      // 📍 Fallback (no bounds, no coords)
       return db.merchant.findMany({
         where: {
           status: "ACTIVE",
