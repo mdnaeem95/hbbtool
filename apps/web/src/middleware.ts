@@ -1,4 +1,4 @@
-// middleware.ts
+// apps/web/middleware.ts
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 
@@ -42,9 +42,8 @@ export function getGeolocation(request: NextRequest): {
 
 export const config = {
   runtime: "experimental-edge",
-  regions: ["sin1"], // Singapore region
+  regions: ["sin1"], // Singapore edge region
   matcher: [
-    // Run middleware only on important paths
     "/dashboard/:path*",
     "/merchant/:path*",
     "/store/:path*",
@@ -64,11 +63,10 @@ const CACHE_RULES = {
   },
   api: {
     "/api/public/:path*": { maxAge: 60, staleWhileRevalidate: 300 },
-    "/api/trpc/:path*": { maxAge: 0, staleWhileRevalidate: 0 }, // Dynamic
+    "/api/trpc/:path*": { maxAge: 0, staleWhileRevalidate: 0 },
   },
 }
 
-// Utility: pattern matching
 function matchesPattern(pathname: string, pattern: string): boolean {
   if (pattern.includes(":path*")) {
     const base = pattern.replace(":path*", "")
@@ -77,7 +75,6 @@ function matchesPattern(pathname: string, pattern: string): boolean {
   return pathname === pattern
 }
 
-// Utility: cache headers
 function getCacheHeaders(pathname: string): string | null {
   for (const [pattern, cfg] of Object.entries(CACHE_RULES.public)) {
     if (matchesPattern(pathname, pattern)) {
@@ -94,18 +91,20 @@ function getCacheHeaders(pathname: string): string | null {
   return null
 }
 
+const AUTH_REQUIRED = ["/dashboard", "/merchant"]
+
 export async function middleware(request: NextRequest) {
   const start = Date.now()
   const { pathname } = request.nextUrl
   const response = NextResponse.next()
 
-  // --- Security headers ---
+  // Security headers
   response.headers.set("X-Frame-Options", "SAMEORIGIN")
   response.headers.set("X-Content-Type-Options", "nosniff")
   response.headers.set("X-XSS-Protection", "1; mode=block")
   response.headers.set("Referrer-Policy", "origin-when-cross-origin")
 
-  // --- Geolocation ---
+  // Geolocation headers
   const geo = getGeolocation(request)
   response.headers.set("X-Edge-Location", geo.region || geo.country)
   response.headers.set("X-Edge-Request-Id", crypto.randomUUID())
@@ -124,7 +123,7 @@ export async function middleware(request: NextRequest) {
 
   if (isVercelEdge()) response.headers.set("X-Edge-Runtime", "vercel")
 
-  // --- Cache headers ---
+  // Cache headers
   const cacheHeader = getCacheHeaders(pathname)
   if (cacheHeader) {
     response.headers.set("Cache-Control", cacheHeader)
@@ -133,56 +132,54 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // --- Public routes (skip auth) ---
+  // Public routes (no auth)
   const publicRoutes = ["/", "/auth", "/track", "/api/public"]
   const isPublic = publicRoutes.some(
     (r) => pathname === r || pathname.startsWith(`${r}/`),
   )
   if (isPublic || pathname.includes(".")) {
     const duration = Date.now() - start
-    if (duration > 100) {
-      console.warn(`[Edge] Slow middleware execution: ${pathname} took ${duration}ms`)
+    if (duration > 300) {
+      console.warn(`[Edge] Slow middleware: ${pathname} took ${duration}ms`)
     }
     return response
   }
 
-  // --- Auth check only when needed ---
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options)
-          })
+  // Auth only if required
+  if (AUTH_REQUIRED.some((p) => pathname.startsWith(p))) {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll: () => request.cookies.getAll(),
+          setAll: (cookies) =>
+            cookies.forEach(({ name, value, options }) =>
+              response.cookies.set(name, value, options),
+            ),
         },
       },
-    },
-  )
+    )
 
-  const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
 
-  if (pathname.startsWith("/dashboard")) {
     if (!user) {
       const redirectUrl = new URL("/auth", request.url)
       redirectUrl.searchParams.set("redirect", pathname)
       return NextResponse.redirect(redirectUrl)
     }
-    if (user.user_metadata?.userType !== "merchant") {
+
+    if (pathname.startsWith("/dashboard") && user.user_metadata?.userType !== "merchant") {
       return NextResponse.redirect(new URL("/", request.url))
     }
-    response.headers.set("X-User-Context", "merchant")
-    response.headers.set("X-Merchant-Id", user.user_metadata?.merchantId || "")
-  } else {
-    response.headers.set("X-User-Context", user ? "authenticated" : "anonymous")
-    if (user) {
-      response.headers.set("X-User-Type", user.user_metadata?.userType || "customer")
+
+    response.headers.set("X-User-Context", user.user_metadata?.userType || "customer")
+    if (user.user_metadata?.merchantId) {
+      response.headers.set("X-Merchant-Id", user.user_metadata.merchantId)
     }
   }
 
-  // --- A/B test variant ---
+  // A/B test variant
   if (!request.cookies.has("ab-test-variant")) {
     const variant = Math.random() > 0.5 ? "A" : "B"
     response.cookies.set("ab-test-variant", variant, {
@@ -197,10 +194,10 @@ export async function middleware(request: NextRequest) {
     if (variant) response.headers.set("X-AB-Variant", variant)
   }
 
-  // --- Performance log ---
+  // Performance log
   const duration = Date.now() - start
-  if (duration > 100) {
-    console.warn(`[Edge] Slow middleware execution: ${pathname} took ${duration}ms`)
+  if (duration > 300) {
+    console.warn(`[Edge] Slow middleware: ${pathname} took ${duration}ms`)
   }
 
   return response

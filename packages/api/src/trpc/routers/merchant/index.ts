@@ -28,18 +28,38 @@ const operatingHoursZ = z
   .partial()
   .optional()
 
+const searchNearbyInput = z.object({
+  query: z.string().optional(),
+  filters: z.object({
+    cuisineType: z.array(z.string()).optional(),
+    dietaryOptions: z.array(z.string()).optional(),
+    priceRange: z
+      .object({ min: z.number().optional(), max: z.number().optional() })
+      .optional(),
+    deliveryOnly: z.boolean().optional(),
+    pickupOnly: z.boolean().optional(),
+    bounds: z
+      .object({
+        north: z.number(),
+        south: z.number(),
+        east: z.number(),
+        west: z.number(),
+      })
+      .optional(),
+    userLocation: z
+      .object({
+        latitude: z.number(),
+        longitude: z.number(),
+      })
+      .optional(),
+    radius: z.number().optional(),
+  }),
+  take: z.number().default(50),
+});
+
 /* =========================
    Utils
    ========================= */
-const DAY_KEY_BY_INDEX: readonly [
-  'sunday','monday','tuesday','wednesday','thursday','friday','saturday'
-] = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-
-type DayIndex = 0|1|2|3|4|5|6;
-function isDayIndex(n: number): n is DayIndex {
-  return n >= 0 && n <= 6;
-}
-
 const slugify = (s: string) =>
   s
     .toLowerCase()
@@ -62,53 +82,6 @@ async function ensureUniqueSlug(db: any, base: string, currentId?: string) {
   return `${base}-${Math.random().toString(36).slice(2, 6)}`
 }
 
-function sgtNow(): Date {
-  // Create a date in Singapore timezone
-  const date = new Date()
-  // Use Intl.DateTimeFormat to get Singapore time components
-  const formatter = new Intl.DateTimeFormat('en-SG', {
-    timeZone: 'Asia/Singapore',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  })
-  
-  const parts = formatter.formatToParts(date)
-  const dateParts: any = {}
-  
-  parts.forEach(part => {
-    if (part.type !== 'literal') {
-      dateParts[part.type] = part.value
-    }
-  })
-  
-  // Create a new date with Singapore time components
-  const sgDate = new Date(
-    parseInt(dateParts.year),
-    parseInt(dateParts.month) - 1, // Months are 0-indexed
-    parseInt(dateParts.day),
-    parseInt(dateParts.hour),
-    parseInt(dateParts.minute),
-    parseInt(dateParts.second)
-  )
-  
-  return sgDate
-}
-
-function hhmmToMinutes(hhmm: string): number {
-  const [h, m] = hhmm.split(':').map((x) => parseInt(x, 10))
-  return (h || 0) * 60 + (m || 0)
-}
-
-function minutesNowSGT(): number {
-  const now = sgtNow()
-  return now.getHours() * 60 + now.getMinutes()
-}
-
 // Helper to convert Prisma Decimal to number
 const toNumber = (value: unknown): number => {
   if (typeof value === 'number') return value
@@ -121,118 +94,7 @@ const toNumber = (value: unknown): number => {
 /* =========================
    “Open now” helpers (SGT)
    ========================= */
-function checkIfMerchantOpen(merchant: { operatingHours?: any }): boolean {
-  try {
-    // Return true if no operating hours (treat as always open)
-    if (!merchant.operatingHours) return true
-    
-    // Check if operatingHours is a valid object
-    if (typeof merchant.operatingHours !== 'object') return true
-    
-    const now = sgtNow()
-    
-    // Validate the date
-    if (isNaN(now.getTime())) {
-      console.error('Invalid date from sgtNow()')
-      return true // Default to open
-    }
-    
-    const dayIndex = now.getDay()
-    
-    // Extra validation
-    if (!isDayIndex(dayIndex)) {
-      console.error(`Invalid day index from getDay(): ${dayIndex}`)
-      return true // Default to open
-    }
-    
-    const dayKey = DAY_KEY_BY_INDEX[dayIndex]
-    
-    // Check if the day key exists in operating hours
-    if (!merchant.operatingHours[dayKey]) return true
-    
-    const hours = merchant.operatingHours[dayKey]
-    
-    // Check if the merchant is closed on this day
-    if (!hours || hours.closed) return false
-    
-    // If no open/close times specified, check if it has isOpen property
-    if (!hours.open || !hours.close) {
-      // Handle different formats of operating hours
-      if ('isOpen' in hours) return hours.isOpen
-      return true // Default to open if format is unclear
-    }
-    
-    const nowMin = minutesNowSGT()
-    const openMin = hhmmToMinutes(hours.open)
-    const closeMin = hhmmToMinutes(hours.close)
-    
-    // Handle overnight hours (e.g., 22:00 - 02:00)
-    if (closeMin < openMin) {
-      return nowMin >= openMin || nowMin <= closeMin
-    }
-    
-    return nowMin >= openMin && nowMin <= closeMin
-  } catch (error) {
-    console.error('Error checking merchant open status:', error)
-    // Default to open if there's an error
-    return true
-  }
-}
 
-function getNextOpenTime(merchant: { operatingHours?: any }): Date | null {
-  try {
-    if (!merchant.operatingHours || typeof merchant.operatingHours !== 'object') return null
-    
-    const now = sgtNow()
-    
-    // Validate the date
-    if (isNaN(now.getTime())) {
-      console.error('Invalid date from sgtNow()')
-      return null
-    }
-    
-    const nowMin = minutesNowSGT()
-    const todayIdx = now.getDay()
-    
-    if (!isDayIndex(todayIdx)) {
-      console.error(`Invalid day index: ${todayIdx}`)
-      return null
-    }
-    
-    // Check next 7 days
-    for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
-      const checkIdx = (todayIdx + dayOffset) % 7
-      if (!isDayIndex(checkIdx)) continue
-      
-      const dayKey = DAY_KEY_BY_INDEX[checkIdx]
-      const hours = merchant.operatingHours[dayKey]
-      
-      if (!hours || hours.closed || !hours.open) continue
-      
-      const [openHour, openMin] = hours.open.split(':').map(Number)
-      if (isNaN(openHour) || isNaN(openMin)) continue
-      
-      const openDate = new Date(now)
-      openDate.setDate(openDate.getDate() + dayOffset)
-      openDate.setHours(openHour, openMin, 0, 0)
-      
-      // If this is today and we haven't reached opening time yet
-      if (dayOffset === 0 && nowMin < hhmmToMinutes(hours.open)) {
-        return openDate
-      }
-      
-      // If this is a future day
-      if (dayOffset > 0) {
-        return openDate
-      }
-    }
-    
-    return null
-  } catch (error) {
-    console.error('Error getting next open time:', error)
-    return null
-  }
-}
 
 /* =========================
    Router
@@ -634,72 +496,35 @@ export const merchantRouter = router({
 
   // Public: search nearby merchants
   searchNearby: publicProcedure
-    .input(z.object({
-      query: z.string().optional(),
-      filters: z.object({
-        cuisineType: z.array(z.string()).optional(),
-        dietaryOptions: z.array(z.enum(['HALAL','VEGETARIAN','VEGAN'])).optional(),
-        priceRange: z.object({
-          min: z.number().min(0).optional(),
-          max: z.number().min(0).optional(),
-        }).optional(),
-        bounds: z.object({
-          north: z.number(),
-          south: z.number(),
-          east: z.number(),
-          west: z.number(),
-        }).optional(),
-        userLocation: z.object({ lat: z.number(), lng: z.number() }).optional(),
-        radius: z.number().min(0.5).max(20).default(5),
-        deliveryOnly: z.boolean().optional(),
-        pickupOnly: z.boolean().optional(),
-      }).default({ radius: 5 }),
-    }))
+    .input(searchNearbyInput)
     .query(async ({ input }) => {
-      const { query, filters } = input
+      const { query, filters, take } = input
 
       let searchLocation = filters.userLocation
       if (!searchLocation && filters.bounds) {
         searchLocation = {
-          lat: (filters.bounds.north + filters.bounds.south) / 2,
-          lng: (filters.bounds.east + filters.bounds.west) / 2,
+          latitude: (filters.bounds.north + filters.bounds.south) / 2,
+          longitude: (filters.bounds.east + filters.bounds.west) / 2,
         }
       }
 
       const merchants = await SearchService.searchMerchants({
         query,
         cuisineType: filters.cuisineType,
-        latitude: searchLocation?.lat,
-        longitude: searchLocation?.lng,
+        latitude: searchLocation?.latitude,
+        longitude: searchLocation?.longitude,
         radius: filters.radius,
         halal: filters.dietaryOptions?.includes("HALAL"),
         deliveryEnabled: filters.deliveryOnly,
         pickupEnabled: filters.pickupOnly,
         bounds: filters.bounds,
-        limit: 50,
-      })
-
-      const withStatus = merchants.map((m) => {
-        const isOpen = checkIfMerchantOpen(m as any)
-        const nextOpenTime = !isOpen ? getNextOpenTime(m as any) : null
-        const distance = searchLocation
-          ? SearchService.calculateDistance(searchLocation.lat, searchLocation.lng, m.latitude!, m.longitude!)
-          : undefined
-
-        return { ...m, isOpen, nextOpenTime, distance }
-      })
-
-      // Only sort on isOpen; DB already sorts on distance + rating
-      withStatus.sort((a: any, b: any) => {
-        if (a.isOpen !== b.isOpen) return a.isOpen ? -1 : 1
-        return 0
+        limit: take,
       })
 
       return {
-        merchants: withStatus,
-        total: withStatus.length,
+        merchants,
+        total: merchants.length,
         bounds: filters.bounds,
       }
     }),
-
 })

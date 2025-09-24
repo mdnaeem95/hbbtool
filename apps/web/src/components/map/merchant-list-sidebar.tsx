@@ -98,7 +98,7 @@ export function MerchantListSidebar({
                   {merchant.rating && (
                     <div className="flex items-center gap-1">
                       <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-                      {merchant.rating?.toFixed(1)}
+                      {Number(merchant.rating)?.toFixed(1)}
                       <span className="text-muted-foreground">
                         ({merchant.reviewCount || 0})
                       </span>
