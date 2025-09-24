@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { edgeCache, cacheKeys, cacheTTL } from '@homejiak/api/edge-cache'
 
-// This runs on the edge
-export const runtime = 'edge'
-export const preferredRegion = 'sin1'
-
 export async function GET(
   request: NextRequest,
   { params }: { params: { slug: string } }
