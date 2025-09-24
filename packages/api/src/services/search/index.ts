@@ -67,8 +67,8 @@ export class SearchService {
     radius?: number
     halal?: boolean
     deliveryEnabled?: boolean
-    pickupEnabled?: boolean  // Add this
-    bounds?: { north: number; south: number; east: number; west: number } // Add bounds
+    pickupEnabled?: boolean
+    bounds?: { north: number; south: number; east: number; west: number }
     limit?: number
   }) {
     const {
@@ -84,10 +84,10 @@ export class SearchService {
       limit = 20,
     } = params
 
-    // If we have bounds, use them for efficient filtering
+    // If we have bounds, use them directly
     if (bounds && !latitude && !longitude) {
       const where: Prisma.MerchantWhereInput = {
-        status: 'ACTIVE',
+        status: "ACTIVE",
         deletedAt: null,
         latitude: { gte: bounds.south, lte: bounds.north },
         longitude: { gte: bounds.west, lte: bounds.east },
@@ -99,8 +99,8 @@ export class SearchService {
 
       if (query) {
         where.OR = [
-          { businessName: { contains: query, mode: 'insensitive' } },
-          { description: { contains: query, mode: 'insensitive' } },
+          { businessName: { contains: query, mode: "insensitive" } },
+          { description: { contains: query, mode: "insensitive" } },
           { cuisineType: { has: query.toLowerCase() } },
         ]
       }
@@ -111,18 +111,15 @@ export class SearchService {
         include: {
           _count: { select: { orders: true, reviews: true } },
         },
-        orderBy: [
-          { verified: 'desc' },
-          { averageRating: 'desc' },
-        ],
+        orderBy: [{ verified: "desc" }, { averageRating: "desc" }],
       })
 
       return merchants
     }
 
-    // If we have coordinates, use raw SQL for distance calculation
+    // If we have coordinates, use raw SQL for distance
     if (latitude && longitude) {
-      const queryConditions = []
+      const queryConditions: string[] = []
       const queryParams: any[] = [latitude, latitude, longitude, latitude]
       let paramIndex = 5
 
@@ -165,13 +162,38 @@ export class SearchService {
         paramIndex += 2
       }
 
-      // Add radius to params
+      // Add bounding box filter for performance (simple square around radius)
+      // Approximation: 1 degree lat ~ 111 km, 1 degree lng ~ 111 km * cos(lat)
+      const latDelta = radius / 111
+      const lngDelta = radius / (111 * Math.cos((latitude * Math.PI) / 180))
+
+      const minLat = latitude - latDelta
+      const maxLat = latitude + latDelta
+      const minLng = longitude - lngDelta
+      const maxLng = longitude + lngDelta
+
+      queryConditions.push(
+        `m.latitude BETWEEN ${minLat} AND ${maxLat}`,
+      )
+      queryConditions.push(
+        `m.longitude BETWEEN ${minLng} AND ${maxLng}`,
+      )
+
+      // Add radius + limit params
       queryParams.push(radius)
       queryParams.push(limit)
 
-      const merchants = await db.$queryRawUnsafe<any[]>(`
+      const merchants = await db.$queryRawUnsafe<any[]>(
+        `
         SELECT 
-          m.*,
+          m.id,
+          m."businessName",
+          m.latitude,
+          m.longitude,
+          m.halal,
+          m."deliveryEnabled",
+          m."pickupEnabled",
+          m."averageRating",
           (
             6371 * acos(
               cos(radians($1)) * 
@@ -181,10 +203,10 @@ export class SearchService {
               sin(radians(m.latitude))
             )
           ) AS distance,
-          COUNT(DISTINCT o.id) as "orderCount"
+          COUNT(o.id) as "orderCount"
         FROM "Merchant" m
         LEFT JOIN "Order" o ON o."merchantId" = m.id
-        WHERE ${queryConditions.join(' AND ')}
+        WHERE ${queryConditions.join(" AND ")}
         GROUP BY m.id
         HAVING (
           6371 * acos(
@@ -200,19 +222,20 @@ export class SearchService {
           distance ASC,
           m."averageRating" DESC NULLS LAST
         LIMIT $${paramIndex + 1}
-      `, ...queryParams)
+      `,
+        ...queryParams,
+      )
 
-      // Format the response to match expected structure
-      return merchants.map(m => ({
+      return merchants.map((m) => ({
         ...m,
-        _count: { orders: m.orderCount || 0, reviews: m.reviewCount || 0 },
+        _count: { orders: m.orderCount || 0, reviews: 0 },
         rating: m.averageRating,
       }))
     }
 
-    // Fallback to original logic if no location data
+    // Fallback (no bounds, no coords)
     const where: Prisma.MerchantWhereInput = {
-      status: 'ACTIVE',
+      status: "ACTIVE",
       deletedAt: null,
       ...(halal !== undefined && { halal }),
       ...(deliveryEnabled !== undefined && { deliveryEnabled }),
@@ -222,8 +245,8 @@ export class SearchService {
 
     if (query) {
       where.OR = [
-        { businessName: { contains: query, mode: 'insensitive' } },
-        { description: { contains: query, mode: 'insensitive' } },
+        { businessName: { contains: query, mode: "insensitive" } },
+        { description: { contains: query, mode: "insensitive" } },
         { cuisineType: { has: query.toLowerCase() } },
       ]
     }
@@ -234,10 +257,7 @@ export class SearchService {
       include: {
         _count: { select: { orders: true, reviews: true } },
       },
-      orderBy: [
-        { verified: 'desc' },
-        { averageRating: 'desc' },
-      ],
+      orderBy: [{ verified: "desc" }, { averageRating: "desc" }],
     })
 
     return merchants

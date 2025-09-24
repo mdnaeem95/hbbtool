@@ -672,48 +672,27 @@ export const merchantRouter = router({
         latitude: searchLocation?.lat,
         longitude: searchLocation?.lng,
         radius: filters.radius,
-        halal: filters.dietaryOptions?.includes('HALAL'),
+        halal: filters.dietaryOptions?.includes("HALAL"),
         deliveryEnabled: filters.deliveryOnly,
+        pickupEnabled: filters.pickupOnly,
+        bounds: filters.bounds,
         limit: 50,
       })
 
-      let filtered = merchants
-      if (filters.bounds && merchants.length) {
-        filtered = merchants.filter(
-          (m) =>
-            m.latitude != null &&
-            m.longitude != null &&
-            m.latitude >= filters.bounds!.south &&
-            m.latitude <= filters.bounds!.north &&
-            m.longitude >= filters.bounds!.west &&
-            m.longitude <= filters.bounds!.east
-        )
-      }
-
-      if (filters.pickupOnly) filtered = filtered.filter((m) => m.pickupEnabled)
-
-      if (filters.dietaryOptions?.includes('VEGETARIAN')) {
-        filtered = filtered.filter((m) =>
-          m.cuisineType?.some((c: string) =>
-            c.toLowerCase().includes('vegetarian') || c.toLowerCase().includes('vegan')
-          )
-        )
-      }
-
-      const withStatus = filtered.map((m) => {
+      const withStatus = merchants.map((m) => {
         const isOpen = checkIfMerchantOpen(m as any)
         const nextOpenTime = !isOpen ? getNextOpenTime(m as any) : null
         const distance = searchLocation
           ? SearchService.calculateDistance(searchLocation.lat, searchLocation.lng, m.latitude!, m.longitude!)
           : undefined
+
         return { ...m, isOpen, nextOpenTime, distance }
       })
 
+      // Only sort on isOpen; DB already sorts on distance + rating
       withStatus.sort((a: any, b: any) => {
         if (a.isOpen !== b.isOpen) return a.isOpen ? -1 : 1
-        if (a.distance != null && b.distance != null) return a.distance - b.distance
-        if (a.rating !== b.rating !== null) return b.rating - a.rating
-        return (b._count?.orders ?? 0) - (a._count?.orders ?? 0)
+        return 0
       })
 
       return {
@@ -722,4 +701,5 @@ export const merchantRouter = router({
         bounds: filters.bounds,
       }
     }),
+
 })
