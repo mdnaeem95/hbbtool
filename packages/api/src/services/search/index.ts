@@ -1,5 +1,5 @@
-// services/search/index.ts
 import { db, Prisma } from "@homejiak/database"
+import { cacheTTL, edgeCache } from "../../utils/edge-cache"
 
 export class SearchService {
   static async searchProducts(params: {
@@ -77,28 +77,114 @@ export class SearchService {
       limit = 20,
     } = params
 
-    // Bounds query
-    if (bounds && !latitude && !longitude) {
+    // 🔑 Build a cache key unique to this search
+    const cacheKey = [
+      'searchMerchants',
+      query || '',
+      cuisineType?.join(',') || '',
+      latitude?.toFixed(4) || '',
+      longitude?.toFixed(4) || '',
+      radius,
+      halal !== undefined ? `halal:${halal}` : '',
+      deliveryEnabled !== undefined ? `delivery:${deliveryEnabled}` : '',
+      pickupEnabled !== undefined ? `pickup:${pickupEnabled}` : '',
+      bounds
+        ? `bounds:${bounds.north.toFixed(4)}:${bounds.south.toFixed(4)}:${bounds.east.toFixed(
+            4
+          )}:${bounds.west.toFixed(4)}`
+        : '',
+      limit,
+    ]
+      .filter(Boolean)
+      .join('|')
+
+    return edgeCache.getOrSet(cacheKey, async () => {
+      // Bounds query
+      if (bounds && !latitude && !longitude) {
+        return db.merchant.findMany({
+          where: {
+            status: 'ACTIVE',
+            deletedAt: null,
+            latitude: { gte: bounds.south, lte: bounds.north },
+            longitude: { gte: bounds.west, lte: bounds.east },
+            ...(halal !== undefined && { halal }),
+            ...(deliveryEnabled !== undefined && { deliveryEnabled }),
+            ...(pickupEnabled !== undefined && { pickupEnabled }),
+            ...(cuisineType?.length && { cuisineType: { hasSome: cuisineType } }),
+            ...(query && {
+              OR: [
+                { businessName: { contains: query, mode: 'insensitive' } },
+                { description: { contains: query, mode: 'insensitive' } },
+                { cuisineType: { has: query.toLowerCase() } },
+              ],
+            }),
+          },
+          take: limit,
+          orderBy: [{ verified: 'desc' }, { averageRating: 'desc' }],
+          select: {
+            id: true,
+            businessName: true,
+            slug: true,
+            latitude: true,
+            longitude: true,
+            halal: true,
+            deliveryEnabled: true,
+            pickupEnabled: true,
+            averageRating: true,
+            verified: true,
+          },
+        })
+      }
+
+      // Coordinates query (optimized raw SQL)
+      if (latitude && longitude) {
+        return db.$queryRawUnsafe<any[]>(
+          `
+          WITH base AS (
+            SELECT 
+              m.id, m."businessName", m.slug,
+              m.latitude, m.longitude,
+              m.halal, m."deliveryEnabled", m."pickupEnabled",
+              m."averageRating", m.verified,
+              6371 * acos(
+                cos(radians($1)) * cos(radians(m.latitude)) *
+                cos(radians(m.longitude) - radians($2)) +
+                sin(radians($1)) * sin(radians(m.latitude))
+              ) AS distance
+            FROM "Merchant" m
+            WHERE m.status = 'ACTIVE' AND m."deletedAt" IS NULL
+          )
+          SELECT * FROM base
+          WHERE distance <= $3
+          ORDER BY verified DESC, distance ASC, "averageRating" DESC NULLS LAST
+          LIMIT $4
+          `,
+          latitude,
+          longitude,
+          radius,
+          limit,
+        )
+      }
+
+      // Fallback (no bounds, no coords)
       return db.merchant.findMany({
         where: {
-          status: "ACTIVE",
+          status: 'ACTIVE',
           deletedAt: null,
-          latitude: { gte: bounds.south, lte: bounds.north },
-          longitude: { gte: bounds.west, lte: bounds.east },
           ...(halal !== undefined && { halal }),
           ...(deliveryEnabled !== undefined && { deliveryEnabled }),
           ...(pickupEnabled !== undefined && { pickupEnabled }),
           ...(cuisineType?.length && { cuisineType: { hasSome: cuisineType } }),
           ...(query && {
             OR: [
-              { businessName: { contains: query, mode: "insensitive" } },
-              { description: { contains: query, mode: "insensitive" } },
+              { businessName: { contains: query, mode: 'insensitive' } },
+              { description: { contains: query, mode: 'insensitive' } },
               { cuisineType: { has: query.toLowerCase() } },
             ],
           }),
         },
         take: limit,
-        orderBy: [{ verified: "desc" }, { averageRating: "desc" }],
+        orderBy: [{ verified: 'desc' }, { averageRating: 'desc' }],
         select: {
           id: true,
           businessName: true,
@@ -112,70 +198,7 @@ export class SearchService {
           verified: true,
         },
       })
-    }
-
-    // Coordinates query (optimized raw SQL)
-    if (latitude && longitude) {
-      return db.$queryRawUnsafe<any[]>(
-        `
-        WITH base AS (
-          SELECT 
-            m.id, m."businessName", m.slug,
-            m.latitude, m.longitude,
-            m.halal, m."deliveryEnabled", m."pickupEnabled",
-            m."averageRating", m.verified,
-            6371 * acos(
-              cos(radians($1)) * cos(radians(m.latitude)) *
-              cos(radians(m.longitude) - radians($2)) +
-              sin(radians($1)) * sin(radians(m.latitude))
-            ) AS distance
-          FROM "Merchant" m
-          WHERE m.status = 'ACTIVE' AND m."deletedAt" IS NULL
-        )
-        SELECT * FROM base
-        WHERE distance <= $3
-        ORDER BY verified DESC, distance ASC, "averageRating" DESC NULLS LAST
-        LIMIT $4
-        `,
-        latitude,
-        longitude,
-        radius,
-        limit,
-      )
-    }
-
-    // Fallback (no bounds, no coords)
-    return db.merchant.findMany({
-      where: {
-        status: "ACTIVE",
-        deletedAt: null,
-        ...(halal !== undefined && { halal }),
-        ...(deliveryEnabled !== undefined && { deliveryEnabled }),
-        ...(pickupEnabled !== undefined && { pickupEnabled }),
-        ...(cuisineType?.length && { cuisineType: { hasSome: cuisineType } }),
-        ...(query && {
-          OR: [
-            { businessName: { contains: query, mode: "insensitive" } },
-            { description: { contains: query, mode: "insensitive" } },
-            { cuisineType: { has: query.toLowerCase() } },
-          ],
-        }),
-      },
-      take: limit,
-      orderBy: [{ verified: "desc" }, { averageRating: "desc" }],
-      select: {
-        id: true,
-        businessName: true,
-        slug: true,
-        latitude: true,
-        longitude: true,
-        halal: true,
-        deliveryEnabled: true,
-        pickupEnabled: true,
-        averageRating: true,
-        verified: true,
-      },
-    })
+    }, cacheTTL.merchant) // Default TTL (5 minutes)
   }
 
   static async getSuggestions(params: {

@@ -16,150 +16,73 @@ export const t = initTRPC.context<Context>().create({
   },
 })
 
-// ---------- Middlewares ----------
+// --- Middlewares ---
 
 const loggerMiddleware = t.middleware(async ({ path, type, next }) => {
-  const start = Date.now()
+  const start = performance.now()
   const result = await next()
-  const ms = Date.now() - start
-  
+  const ms = (performance.now() - start).toFixed(1)
+
   if (process.env.NODE_ENV !== 'test') {
-    console.log(`[tRPC] [${type}] ${path} - ${ms}ms`)
+    console.log(`[tRPC] ${path} (${type}) - ${ms}ms`)
   }
-  
+
   return result
 })
 
 const isAuthed = t.middleware(async ({ ctx, next }) => {
-  // Get session from Supabase
-  const { data: { session } } = await ctx.supabase.auth.getSession()
-  
-  if (!session?.user) {
-    throw new TRPCError({ 
-      code: 'UNAUTHORIZED',
-      message: 'You must be logged in' 
-    })
+  if (!ctx.session?.user) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Login required' })
   }
-  
-  // Get merchant data
-  const merchant = await ctx.db.merchant.findFirst({
-    where: { 
-      email: {
-        equals: session.user.email!,
-        mode: 'insensitive'
-      }
-    }
+
+  // Lookup merchant only once
+  const merchant = await ctx.db.merchant.findUnique({
+    where: { id: ctx.session.user.id },
   })
 
   if (!merchant) {
-    throw new TRPCError({ 
+    throw new TRPCError({
       code: 'UNAUTHORIZED',
-      message: 'Merchant account not found' 
+      message: 'Merchant account not found',
     })
   }
-  
+
   return next({
     ctx: {
       ...ctx,
-      session: {
-        user: {
-          id: merchant.id,
-          email: merchant.email,
-          userType: 'merchant' as const,
-        }
-      },
       merchant,
     },
   })
 })
 
 const isAdmin = t.middleware(async ({ ctx, next }) => {
-  // Get session from Supabase
-  const { data: { session } } = await ctx.supabase.auth.getSession()
-  
-  if (!session?.user) {
-    throw new TRPCError({
-      code: 'UNAUTHORIZED',
-      message: 'You must be logged in',
-    })
+  if (!ctx.session?.user) {
+    throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Login required' })
   }
 
-  // Check if user is an admin - use consistent admin list
-  const hardcodedAdmins = ['muhdnaeem95@gmail.com']
-  const envAdmins = process.env.ADMIN_EMAILS 
-    ? process.env.ADMIN_EMAILS.split(',').map(email => email.trim().toLowerCase())
-    : []
-  const adminEmails = [...new Set([...hardcodedAdmins, ...envAdmins])]
-  
-  const userEmail = session.user.email?.toLowerCase()
-  
-  console.log('[Admin Middleware] Email:', userEmail)
-  console.log('[Admin Middleware] Admin list:', adminEmails)
-  console.log('[Admin Middleware] Is admin?:', userEmail && adminEmails.includes(userEmail))
-  
+  const userEmail = ctx.session.user.email?.toLowerCase()
+  const adminEmails = [
+    'muhdnaeem95@gmail.com',
+    ...(process.env.ADMIN_EMAILS?.split(',') ?? []),
+  ].map((e) => e.trim().toLowerCase())
+
   if (!userEmail || !adminEmails.includes(userEmail)) {
-    throw new TRPCError({
-      code: 'FORBIDDEN',
-      message: 'Admin access required',
-    })
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Admin access required' })
   }
 
-  // Get merchant data for context
-  const merchant = await ctx.db.merchant.findFirst({
-    where: { 
-      email: {
-        equals: session.user.email!,
-        mode: 'insensitive'
-      }
-    }
-  })
-
-  if (!merchant) {
-    throw new TRPCError({ 
-      code: 'NOT_FOUND',
-      message: 'Merchant account not found' 
-    })
-  }
-
-  // Check merchant status
-  if (merchant.status !== 'ACTIVE' || !merchant.verified) {
-    throw new TRPCError({
-      code: 'FORBIDDEN',
-      message: 'Account is not active',
-    })
-  }
-
-  return next({
-    ctx: {
-      ...ctx,
-      session: {
-        user: {
-          id: merchant.id,
-          email: merchant.email,
-          userType: 'merchant' as const,
-        }
-      },
-      merchant,
-      isAdmin: true,
-    },
-  })
+  return next({ ctx: { ...ctx, isAdmin: true } })
 })
 
-// ---------- Export procedures ----------
-
+// --- Exports ---
 export const router = t.router
 export const middleware = t.middleware
 
-export const publicProcedure = t.procedure
-  .use(loggerMiddleware)
-
+export const publicProcedure = t.procedure.use(loggerMiddleware)
 export const protectedProcedure = t.procedure
   .use(loggerMiddleware)
   .use(isAuthed)
-
 export const adminProcedure = t.procedure
   .use(loggerMiddleware)
   .use(isAdmin)
 
-// merchantProcedure is the same as protectedProcedure
 export const merchantProcedure = protectedProcedure
