@@ -116,12 +116,12 @@ export function MerchantListSidebar({
                 <div className="flex items-center gap-2 mt-2">
                   {merchant.minimumOrder && (
                     <span className="text-xs px-2 py-1 bg-muted rounded-full">
-                      Min ${merchant.minimumOrder.toFixed(0)}
+                      Min ${Number(merchant.minimumOrder).toFixed(0)}
                     </span>
                   )}
                   {merchant.deliveryFee !== undefined && (
                     <span className="text-xs px-2 py-1 bg-muted rounded-full">
-                      Delivery ${merchant.deliveryFee.toFixed(2)}
+                      Delivery ${Number(merchant.deliveryFee).toFixed(2)}
                     </span>
                   )}
                 </div>
