@@ -5,8 +5,8 @@ import { postalCodeSchema, phoneSchema } from '../../../utils/validation'
 import { handleDatabaseError } from '../../../utils/errors'
 import { SearchService } from '../../../services/search'
 import { subDays, startOfMonth, endOfMonth } from 'date-fns'
-import { buildBatchingMiddleware } from '../../../middleware/batching'
 import { performanceMiddleware } from '../../../middleware/performance'
+import { batching } from '../../../middleware/batching'
 
 /* =========================
    Types & Schemas
@@ -92,12 +92,6 @@ const toNumber = (value: unknown): number => {
   }
   return 0
 }
-
-const batching = buildBatchingMiddleware(publicProcedure._def.middlewares[0], {
-  defaultLimit: 20,
-  maxLimit: 100,
-})
-
 
 /* =========================
    Router
