@@ -79,31 +79,31 @@ export class SearchService {
 
     // 🔑 Build a cache key unique to this search
     const cacheKey = [
-      'searchMerchants',
-      query || '',
-      cuisineType?.join(',') || '',
-      latitude?.toFixed(4) || '',
-      longitude?.toFixed(4) || '',
+      "searchMerchants",
+      query || "",
+      cuisineType?.join(",") || "",
+      latitude?.toFixed(4) || "",
+      longitude?.toFixed(4) || "",
       radius,
-      halal !== undefined ? `halal:${halal}` : '',
-      deliveryEnabled !== undefined ? `delivery:${deliveryEnabled}` : '',
-      pickupEnabled !== undefined ? `pickup:${pickupEnabled}` : '',
+      halal !== undefined ? `halal:${halal}` : "",
+      deliveryEnabled !== undefined ? `delivery:${deliveryEnabled}` : "",
+      pickupEnabled !== undefined ? `pickup:${pickupEnabled}` : "",
       bounds
         ? `bounds:${bounds.north.toFixed(4)}:${bounds.south.toFixed(4)}:${bounds.east.toFixed(
             4
           )}:${bounds.west.toFixed(4)}`
-        : '',
+        : "",
       limit,
     ]
       .filter(Boolean)
-      .join('|')
+      .join("|")
 
     return edgeCache.getOrSet(cacheKey, async () => {
       // Bounds query
       if (bounds && !latitude && !longitude) {
         return db.merchant.findMany({
           where: {
-            status: 'ACTIVE',
+            status: "ACTIVE",
             deletedAt: null,
             latitude: { gte: bounds.south, lte: bounds.north },
             longitude: { gte: bounds.west, lte: bounds.east },
@@ -113,14 +113,14 @@ export class SearchService {
             ...(cuisineType?.length && { cuisineType: { hasSome: cuisineType } }),
             ...(query && {
               OR: [
-                { businessName: { contains: query, mode: 'insensitive' } },
-                { description: { contains: query, mode: 'insensitive' } },
+                { businessName: { contains: query, mode: "insensitive" } },
+                { description: { contains: query, mode: "insensitive" } },
                 { cuisineType: { has: query.toLowerCase() } },
               ],
             }),
           },
           take: limit,
-          orderBy: [{ verified: 'desc' }, { averageRating: 'desc' }],
+          orderBy: [{ verified: "desc" }, { averageRating: "desc" }],
           select: {
             id: true,
             businessName: true,
@@ -136,7 +136,7 @@ export class SearchService {
         })
       }
 
-      // Coordinates query (optimized raw SQL)
+      // Coordinates query (optimized raw SQL + distance calc)
       if (latitude && longitude) {
         return db.$queryRawUnsafe<any[]>(
           `
@@ -169,7 +169,7 @@ export class SearchService {
       // Fallback (no bounds, no coords)
       return db.merchant.findMany({
         where: {
-          status: 'ACTIVE',
+          status: "ACTIVE",
           deletedAt: null,
           ...(halal !== undefined && { halal }),
           ...(deliveryEnabled !== undefined && { deliveryEnabled }),
@@ -177,14 +177,14 @@ export class SearchService {
           ...(cuisineType?.length && { cuisineType: { hasSome: cuisineType } }),
           ...(query && {
             OR: [
-              { businessName: { contains: query, mode: 'insensitive' } },
-              { description: { contains: query, mode: 'insensitive' } },
+              { businessName: { contains: query, mode: "insensitive" } },
+              { description: { contains: query, mode: "insensitive" } },
               { cuisineType: { has: query.toLowerCase() } },
             ],
           }),
         },
         take: limit,
-        orderBy: [{ verified: 'desc' }, { averageRating: 'desc' }],
+        orderBy: [{ verified: "desc" }, { averageRating: "desc" }],
         select: {
           id: true,
           businessName: true,
@@ -198,7 +198,7 @@ export class SearchService {
           verified: true,
         },
       })
-    }, cacheTTL.merchant) // Default TTL (5 minutes)
+    }, cacheTTL.merchant)
   }
 
   static async getSuggestions(params: {

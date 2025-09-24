@@ -7,7 +7,6 @@ import { SearchService } from '../../../services/search'
 import { subDays, startOfMonth, endOfMonth } from 'date-fns'
 import { buildBatchingMiddleware } from '../../../middleware/batching'
 import { performanceMiddleware } from '../../../middleware/performance'
-import { cacheTTL, edgeCache } from '../../../utils/edge-cache'
 
 /* =========================
    Types & Schemas
@@ -502,47 +501,36 @@ export const merchantRouter = router({
   searchNearby: publicProcedure
     .input(searchNearbyInput)
     .use(performanceMiddleware)
-    .use(batching)
-    .query(async ({ input }) => {
-      const { query, filters, take } = input
+  .use(batching)
+  .query(async ({ input }) => {
+    const { query, filters, take } = input
 
-      let searchLocation = filters.userLocation
-      if (!searchLocation && filters.bounds) {
-        searchLocation = {
-          latitude: (filters.bounds.north + filters.bounds.south) / 2,
-          longitude: (filters.bounds.east + filters.bounds.west) / 2,
-        }
+    let searchLocation = filters.userLocation
+    if (!searchLocation && filters.bounds) {
+      searchLocation = {
+        latitude: (filters.bounds.north + filters.bounds.south) / 2,
+        longitude: (filters.bounds.east + filters.bounds.west) / 2,
       }
+    }
 
-      // Build cache key (query+lat+lng+radius)
-      const key = `searchNearby:${query || ''}:${searchLocation?.latitude || 'x'}:${
-        searchLocation?.longitude || 'x'
-      }:${filters.radius || 'all'}:${take}`
+    const merchants = await SearchService.searchMerchants({
+      query,
+      cuisineType: filters.cuisineType,
+      latitude: searchLocation?.latitude,
+      longitude: searchLocation?.longitude,
+      radius: filters.radius,
+      halal: filters.dietaryOptions?.includes('HALAL'),
+      deliveryEnabled: filters.deliveryOnly,
+      pickupEnabled: filters.pickupOnly,
+      bounds: filters.bounds,
+      limit: take,
+    })
 
-      // Cache-aside pattern
-      return edgeCache.getOrSet(
-        key,
-        async () => {
-          const merchants = await SearchService.searchMerchants({
-            query,
-            cuisineType: filters.cuisineType,
-            latitude: searchLocation?.latitude,
-            longitude: searchLocation?.longitude,
-            radius: filters.radius,
-            halal: filters.dietaryOptions?.includes('HALAL'),
-            deliveryEnabled: filters.deliveryOnly,
-            pickupEnabled: filters.pickupOnly,
-            bounds: filters.bounds,
-            limit: take,
-          })
+    return {
+      merchants,
+      total: merchants.length,
+      bounds: filters.bounds,
+    }
+  })
 
-          return {
-            merchants,
-            total: merchants.length,
-            bounds: filters.bounds,
-          }
-        },
-        cacheTTL.merchant // e.g. 300s (5 minutes)
-      )
-    }),
 })
