@@ -3,8 +3,7 @@ import { appRouter, createTRPCContext } from '@homejiak/api'
 import { NextRequest } from 'next/server'
 
 // Run on Vercel Edge Runtime
-export const runtime = 'edge'
-export const preferredRegion = 'sin1' // Singapore region
+export const dynamic = 'force-dynamic'
 
 // Define which paths should be cached
 const CACHE_CONFIG = {
