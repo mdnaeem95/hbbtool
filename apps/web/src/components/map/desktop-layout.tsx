@@ -18,6 +18,7 @@ interface DesktopLayoutProps {
   setFilters: (filters: any) => void
   isLoading: boolean
   onBoundsChange: (bounds: LngLatBounds, isProgrammatic?: boolean) => void
+  hasInitiallyLoaded?: boolean
 }
 
 export function DesktopLayout({
@@ -28,6 +29,7 @@ export function DesktopLayout({
   setFilters,
   isLoading,
   onBoundsChange,
+  hasInitiallyLoaded = false,
 }: DesktopLayoutProps) {
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -40,7 +42,7 @@ export function DesktopLayout({
         />
 
       {/* Merchant CTA Banner for Desktop */}
-      {merchants.length === 0 && !isLoading && (
+      {hasInitiallyLoaded && merchants.length === 0 && !isLoading && (
         <div className="bg-gradient-to-r from-orange-50 via-purple-50 to-orange-50 border-b">
           <div className="container mx-auto px-4 py-3">
             <div className="flex items-center justify-between">
@@ -95,7 +97,7 @@ export function DesktopLayout({
             />
 
             {/* Empty State Overlay */}
-            {merchants.length === 0 && !isLoading && (
+            {hasInitiallyLoaded && merchants.length === 0 && !isLoading && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-8 m-4 max-w-md pointer-events-auto">
                   <div className="text-center">

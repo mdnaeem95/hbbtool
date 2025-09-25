@@ -16,6 +16,44 @@ export interface NearbyMerchant {
   distance: number
 }
 
+// Helper function to check if merchant is open
+function isRestaurantOpen(operatingHours: any): boolean {
+  if (!operatingHours) return true // Assume open if no hours specified
+  
+  const now = new Date()
+  const sgTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Singapore" }))
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+  const currentDay = dayNames[sgTime.getDay()]
+  const currentTime = sgTime.getHours() * 60 + sgTime.getMinutes()
+  
+  const todayHours = operatingHours[currentDay!]
+  if (!todayHours) return false
+  if (todayHours.closed) return false
+  
+  const [openHour, openMin] = todayHours.open.split(':').map(Number)
+  const [closeHour, closeMin] = todayHours.close.split(':').map(Number)
+  const openTime = openHour * 60 + openMin
+  const closeTime = closeHour * 60 + closeMin
+  
+  return currentTime >= openTime && currentTime <= closeTime
+}
+
+// Calculate distance in meters using Haversine formula
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3 // Earth's radius in meters
+  const φ1 = lat1 * Math.PI / 180
+  const φ2 = lat2 * Math.PI / 180
+  const Δφ = (lat2 - lat1) * Math.PI / 180
+  const Δλ = (lon2 - lon1) * Math.PI / 180
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+
+  return R * c
+}
+
 export class SearchService {
   static async searchProducts(params: {
     query: string
@@ -72,7 +110,7 @@ export class SearchService {
     cuisineType?: string[]
     latitude?: number
     longitude?: number
-    radius?: number // in km
+    radius?: number // in meters now!
     halal?: boolean
     deliveryEnabled?: boolean
     pickupEnabled?: boolean
@@ -84,7 +122,7 @@ export class SearchService {
       cuisineType,
       latitude,
       longitude,
-      radius = 5,
+      radius = 5000, // Default 5km in meters
       halal,
       deliveryEnabled,
       pickupEnabled,
@@ -92,7 +130,7 @@ export class SearchService {
       limit = 20,
     } = params
 
-    // 🔑 Build a cache key unique to this search
+    // Build cache key
     const cacheKey = [
       "searchMerchants",
       query || "",
@@ -103,86 +141,150 @@ export class SearchService {
       halal !== undefined ? `halal:${halal}` : "",
       deliveryEnabled !== undefined ? `delivery:${deliveryEnabled}` : "",
       pickupEnabled !== undefined ? `pickup:${pickupEnabled}` : "",
-      bounds
-        ? `bounds:${bounds.north.toFixed(4)}:${bounds.south.toFixed(4)}:${bounds.east.toFixed(
-            4
-          )}:${bounds.west.toFixed(4)}`
-        : "",
+      bounds ? `bounds:${bounds.north.toFixed(4)}:${bounds.south.toFixed(4)}:${bounds.east.toFixed(4)}:${bounds.west.toFixed(4)}` : "",
       limit,
-    ]
-      .filter(Boolean)
-      .join("|")
+    ].filter(Boolean).join("|")
 
     return edgeCache.getOrSet(cacheKey, async () => {
-      // 📍 Bounds-only query (no lat/lng provided)
-      if (bounds && !latitude && !longitude) {
-        return db.merchant.findMany({
-          where: {
-            status: "ACTIVE",
-            deletedAt: null,
-            latitude: { gte: bounds.south, lte: bounds.north },
-            longitude: { gte: bounds.west, lte: bounds.east },
-            ...(halal !== undefined && { halal }),
-            ...(deliveryEnabled !== undefined && { deliveryEnabled }),
-            ...(pickupEnabled !== undefined && { pickupEnabled }),
-            ...(cuisineType?.length && { cuisineType: { hasSome: cuisineType } }),
-            ...(query && {
-              OR: [
-                { businessName: { contains: query, mode: "insensitive" } },
-                { description: { contains: query, mode: "insensitive" } },
-                { cuisineType: { has: query.toLowerCase() } },
-              ],
-            }),
-          },
-          take: limit,
-          orderBy: [{ verified: "desc" }, { averageRating: "desc" }],
-          select: {
-            id: true,
-            businessName: true,
-            slug: true,
-            latitude: true,
-            longitude: true,
-            halal: true,
-            deliveryEnabled: true,
-            pickupEnabled: true,
-            averageRating: true,
-            verified: true,
-          },
-        })
+      // Common select fields for all queries
+      const selectFields = {
+        id: true,
+        businessName: true,
+        slug: true,
+        logoUrl: true,
+        description: true,
+        cuisineType: true,
+        latitude: true,
+        longitude: true,
+        halal: true,
+        deliveryEnabled: true,
+        pickupEnabled: true,
+        deliveryFee: true,
+        minimumOrder: true,
+        preparationTime: true,
+        averageRating: true,
+        reviewCount: true,
+        verified: true,
+        operatingHours: true,
+        address: true,
+        postalCode: true,
+        status: true,
       }
 
-      // 📍 Coordinates query (fast PostGIS distance search)
-      if (latitude && longitude) {
-        const radiusMeters = radius * 1000
+      let merchants: any[] = []
 
-        return db.$queryRaw<any[]>`
-          SELECT m.id, m."businessName", m.slug,
-                 m.latitude, m.longitude,
-                 m.halal, m."deliveryEnabled", m."pickupEnabled",
-                 m."averageRating", m.verified,
-                 ST_Distance(
-                   m.location,
-                   ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography
-                 ) AS distance
+      // If we have coordinates, use PostGIS for distance calculation
+      if (latitude && longitude && !bounds) {
+        const rawResults = await db.$queryRaw<any[]>`
+          SELECT 
+            m.id, 
+            m."businessName", 
+            m.slug,
+            m."logoUrl",
+            m.description,
+            m."cuisineType",
+            m.latitude, 
+            m.longitude,
+            m.halal, 
+            m."deliveryEnabled", 
+            m."pickupEnabled",
+            m."deliveryFee",
+            m."minimumOrder",
+            m."preparationTime",
+            m."averageRating",
+            m."reviewCount",
+            m.verified,
+            m."operatingHours",
+            m.address,
+            m."postalCode",
+            m.status,
+            ST_Distance(
+              m.location,
+              ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography
+            ) AS distance
           FROM "Merchant" m
           WHERE m.status = 'ACTIVE'
             AND m."deletedAt" IS NULL
+            ${halal !== undefined ? `AND m.halal = ${halal}` : ''}
+            ${deliveryEnabled !== undefined ? `AND m."deliveryEnabled" = ${deliveryEnabled}` : ''}
+            ${pickupEnabled !== undefined ? `AND m."pickupEnabled" = ${pickupEnabled}` : ''}
+            ${cuisineType?.length ? `AND m."cuisineType" && ARRAY[${cuisineType.map(c => `'${c}'`).join(',')}]` : ''}
+            ${query ? `AND (
+              m."businessName" ILIKE '%${query}%' OR
+              m.description ILIKE '%${query}%'
+            )` : ''}
             AND ST_DWithin(
-                  m.location,
-                  ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
-                  ${radiusMeters}
-                )
-          ORDER BY m.verified DESC,
-                   distance ASC,
-                   m."averageRating" DESC NULLS LAST
+              m.location,
+              ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
+              ${radius}
+            )
+          ORDER BY m.verified DESC, distance ASC, m."averageRating" DESC NULLS LAST
           LIMIT ${limit};
         `
-      }
 
-      // 📍 Fallback (no bounds, no coords)
-      return db.merchant.findMany({
-        where: {
-          status: "ACTIVE",
+        merchants = rawResults.map(m => ({
+          ...m,
+          // Rename averageRating to rating for consistency
+          rating: m.averageRating,
+          // Calculate isOpen status
+          isOpen: isRestaurantOpen(m.operatingHours),
+        }))
+      } 
+      // Bounds-only query
+      else if (bounds) {
+        const where: any = {
+          status: 'ACTIVE',
+          deletedAt: null,
+          latitude: { gte: bounds.south, lte: bounds.north },
+          longitude: { gte: bounds.west, lte: bounds.east },
+          ...(halal !== undefined && { halal }),
+          ...(deliveryEnabled !== undefined && { deliveryEnabled }),
+          ...(pickupEnabled !== undefined && { pickupEnabled }),
+          ...(cuisineType?.length && { cuisineType: { hasSome: cuisineType } }),
+          ...(query && {
+            OR: [
+              { businessName: { contains: query, mode: "insensitive" } },
+              { description: { contains: query, mode: "insensitive" } },
+            ],
+          }),
+        }
+
+        const dbResults = await db.merchant.findMany({
+          where,
+          take: limit,
+          orderBy: [{ verified: "desc" }, { averageRating: "desc" }],
+          select: selectFields,
+        })
+
+        // Calculate distance if we have a center point
+        const centerLat = latitude || (bounds.north + bounds.south) / 2
+        const centerLng = longitude || (bounds.east + bounds.west) / 2
+
+        merchants = dbResults.map(m => ({
+          ...m,
+          // Rename averageRating to rating
+          rating: m.averageRating,
+          // Calculate distance from center
+          distance: m.latitude && m.longitude 
+            ? calculateDistance(centerLat, centerLng, m.latitude, m.longitude)
+            : undefined,
+          // Calculate isOpen status
+          isOpen: isRestaurantOpen(m.operatingHours),
+        }))
+
+        // Sort by distance if available
+        merchants.sort((a, b) => {
+          if (a.isOpen !== b.isOpen) return a.isOpen ? -1 : 1
+          if (a.distance !== undefined && b.distance !== undefined) {
+            return a.distance - b.distance
+          }
+          return 0
+        })
+      }
+      // Fallback query without location
+      else {
+        const where: any = {
+          status: 'ACTIVE',
           deletedAt: null,
           ...(halal !== undefined && { halal }),
           ...(deliveryEnabled !== undefined && { deliveryEnabled }),
@@ -192,25 +294,29 @@ export class SearchService {
             OR: [
               { businessName: { contains: query, mode: "insensitive" } },
               { description: { contains: query, mode: "insensitive" } },
-              { cuisineType: { has: query.toLowerCase() } },
             ],
           }),
-        },
-        take: limit,
-        orderBy: [{ verified: "desc" }, { averageRating: "desc" }],
-        select: {
-          id: true,
-          businessName: true,
-          slug: true,
-          latitude: true,
-          longitude: true,
-          halal: true,
-          deliveryEnabled: true,
-          pickupEnabled: true,
-          averageRating: true,
-          verified: true,
-        },
-      })
+        }
+
+        const dbResults = await db.merchant.findMany({
+          where,
+          take: limit,
+          orderBy: [{ verified: "desc" }, { averageRating: "desc" }],
+          select: selectFields,
+        })
+
+        merchants = dbResults.map(m => ({
+          ...m,
+          // Rename averageRating to rating
+          rating: m.averageRating,
+          // No distance without coordinates
+          distance: undefined,
+          // Calculate isOpen status
+          isOpen: isRestaurantOpen(m.operatingHours),
+        }))
+      }
+
+      return merchants
     }, cacheTTL.merchant)
   }
 

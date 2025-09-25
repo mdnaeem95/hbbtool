@@ -2,13 +2,13 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Card } from '@homejiak/ui'
-import { MapPin, Clock, DollarSign, Star } from 'lucide-react'
+import { MapPin } from 'lucide-react'
 import Link from 'next/link'
-import Image from 'next/image'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import Map, { Marker, Popup, NavigationControl, GeolocateControl } from 'react-map-gl/mapbox'
 import { MerchantMapMarker } from '../../types/merchant'
 import { SINGAPORE_CENTER, SINGAPORE_BOUNDS } from '../../lib/constants/map'
+import { MerchantCardCompact } from './merchant-card'
 
 interface MerchantMapProps {
   merchants: MerchantMapMarker[]
@@ -251,71 +251,7 @@ export function MerchantMap({
         >
           <Card className="border-0 shadow-none">
             <Link href={`/merchant/${popupMerchant.slug}/products`}>
-              <div className="space-y-3">
-                {/* Header with image */}
-                {popupMerchant.logoUrl && (
-                  <div className="relative h-32 w-full overflow-hidden rounded-t-lg">
-                    <Image
-                      src={popupMerchant.logoUrl}
-                      alt={popupMerchant.businessName}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                )}
-                
-                <div className="p-3 space-y-2">
-                  <h3 className="font-semibold text-lg line-clamp-1">
-                    {popupMerchant.businessName}
-                  </h3>
-                  
-                  {popupMerchant.cuisineType && popupMerchant.cuisineType.length > 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      {popupMerchant.cuisineType.join(' • ')}
-                    </p>
-                  )}
-                  
-                  <div className="flex items-center gap-4 text-sm">
-                    {popupMerchant && (
-                      <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        {popupMerchant.rating ? (
-                        <>
-                          <span className="font-medium">{popupMerchant.rating}</span>
-                          <span className="text-muted-foreground">({popupMerchant.reviewCount || 0})</span>
-                        </>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">No reviews</span>
-                        )}
-                      </div>
-                    )}
-                    
-                    {popupMerchant.preparationTime && (
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Clock className="h-4 w-4" />
-                        <span>{popupMerchant.preparationTime}</span>
-                      </div>
-                    )}
-                    
-                    {popupMerchant.minimumOrder && (
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <DollarSign className="h-4 w-4" />
-                        <span>Min ${Number(popupMerchant.minimumOrder).toFixed(2)}</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {popupMerchant.address}
-                  </p>
-                  
-                  {!popupMerchant.isOpen && (
-                    <p className="text-sm font-medium text-destructive">
-                      Currently Closed
-                    </p>
-                  )}
-                </div>
-              </div>
+              <MerchantCardCompact merchant={popupMerchant} />
             </Link>
           </Card>
         </Popup>

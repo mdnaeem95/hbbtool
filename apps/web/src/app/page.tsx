@@ -11,8 +11,7 @@ import { Store, MapPin } from 'lucide-react'
 import { LngLatBounds } from 'react-map-gl/mapbox'
 import { useMediaQuery } from '../hooks/use-media-query'
 import { useUserLocation } from '../hooks/use-user-location'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { fetchNearbyMerchants } from '../lib/api'
+import { api } from '../lib/trpc/client'
 
 export interface FilterState {
   cuisineType?: string[]
@@ -46,36 +45,52 @@ export default function HomePage() {
     hasLocation,
   } = useUserLocation()
 
-  // Fetch merchants with location-based sorting
-  const { data, isLoading, isSuccess } = useQuery({
-    queryKey: ["nearbyMerchants", latitude, longitude, mapBounds, filters],
-    queryFn: () => {
-      const lat = hasLocation
-        ? latitude!
-        : mapBounds
-        ? (mapBounds.getNorth() + mapBounds.getSouth()) / 2
-        : 1.3521 // default central SG
-
-      const lng = hasLocation
-        ? longitude!
-        : mapBounds
-        ? (mapBounds.getEast() + mapBounds.getWest()) / 2
-        : 103.8198
-
-      return fetchNearbyMerchants({
-        lat,
-        lng,
-        radius: 10_000, // km -> meters
-        limit: 20,
-      })
+  // Use tRPC for fetching nearby merchants
+  const { 
+    data, 
+    isLoading,
+    isSuccess,
+  } = api.merchant.searchNearby.useQuery(
+    {
+      query: searchQuery || undefined,
+      filters: {
+        // User location or map center
+        userLocation: hasLocation 
+          ? { latitude: latitude!, longitude: longitude! }
+          : mapBounds
+          ? {
+              latitude: (mapBounds.getNorth() + mapBounds.getSouth()) / 2,
+              longitude: (mapBounds.getEast() + mapBounds.getWest()) / 2,
+            }
+          : { latitude: 1.3521, longitude: 103.8198 }, // Singapore center as fallback
+        
+        // Map bounds for filtering
+        bounds: mapBounds 
+          ? {
+              north: mapBounds.getNorth(),
+              south: mapBounds.getSouth(),
+              east: mapBounds.getEast(),
+              west: mapBounds.getWest(),
+            }
+          : undefined,
+        
+        // Applied filters
+        cuisineType: filters.cuisineType,
+        dietaryOptions: filters.dietaryOptions,
+        deliveryOnly: filters.deliveryOnly,
+        pickupOnly: filters.pickupOnly,
+        radius: 10000, // 10km radius
+      },
+      take: 50, // Fetch more merchants since tRPC is now faster
     },
-    enabled: !!mapBounds,
-    placeholderData: keepPreviousData,
-    staleTime: 60000,
-    gcTime: 300000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  })
+    {
+      enabled: !!mapBounds, // Only fetch when map bounds are available
+      staleTime: 60 * 1000, // Consider data stale after 1 minute
+      gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    }
+  )
 
   // Handle location request
   const handleLocationRequest = useCallback(() => {
@@ -264,6 +279,7 @@ export default function HomePage() {
       setFilters={setFilters}
       isLoading={isLoading}
       onBoundsChange={handleBoundsChange}
+      hasInitiallyLoaded={isSuccess}
     />
   )
 }
