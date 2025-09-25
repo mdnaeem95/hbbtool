@@ -163,7 +163,7 @@ export class SearchService {
         minimumOrder: true,
         preparationTime: true,
         averageRating: true,
-        reviewCount: true,
+        totalReviews: true,
         verified: true,
         operatingHours: true,
         address: true,
@@ -192,7 +192,7 @@ export class SearchService {
             m."minimumOrder",
             m."preparationTime",
             m."averageRating",
-            m."reviewCount",
+            m."totalReviews",
             m.verified,
             m."operatingHours",
             m.address,
@@ -226,6 +226,7 @@ export class SearchService {
           ...m,
           // Rename averageRating to rating for consistency
           rating: m.averageRating,
+          reviewCount: m.totalReviews, 
           // Calculate isOpen status
           isOpen: isRestaurantOpen(m.operatingHours),
         }))
@@ -264,6 +265,7 @@ export class SearchService {
           ...m,
           // Rename averageRating to rating
           rating: m.averageRating,
+          reviewCount: m.totalReviews, 
           // Calculate distance from center
           distance: m.latitude && m.longitude 
             ? calculateDistance(centerLat, centerLng, m.latitude, m.longitude)
@@ -309,6 +311,7 @@ export class SearchService {
           ...m,
           // Rename averageRating to rating
           rating: m.averageRating,
+          reviewCount: m.totalReviews,  
           // No distance without coordinates
           distance: undefined,
           // Calculate isOpen status
