@@ -19,6 +19,7 @@
   "dependencies": {
     "@homejiak/auth": "workspace:*",
     "@homejiak/database": "workspace:*",
+    "@homejiak/storage": "workspace:*",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.55.0",
     "@trpc/client": "^11.0.0",

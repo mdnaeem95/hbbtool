@@ -23,7 +23,8 @@ const nextConfig = {
     '@homejiak/ui', 
     '@homejiak/api', 
     '@homejiak/database', 
-    '@homejiak/auth'
+    '@homejiak/auth',
+    '@homejiak/storage'
   ],
   
   // Enhanced image optimization for edge

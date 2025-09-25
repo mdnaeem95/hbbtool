@@ -11,6 +11,7 @@ import { analyticsRouter } from './trpc/routers/analytics'
 import { settingsRouter } from './trpc/routers/settings'
 import { notificationRouter } from './trpc/routers/notification'
 import { adminRouter } from './trpc/routers/admin'
+import { storageRouter } from './trpc/routers/storage'
 
 export { createTRPCContext } from './trpc/context'
 export type { TRPCContext } from './trpc/context'
@@ -31,7 +32,8 @@ export const appRouter = router({
   analytics: analyticsRouter,
   settings: settingsRouter,
   notification: notificationRouter,
-  admin: adminRouter
+  admin: adminRouter,
+  storage: storageRouter
 })
 
 export * from "./services/search/index"
