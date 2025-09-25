@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import postgres from "postgres"
 import { edgeCache, cacheTTL } from "@homejiak/api/edge-cache"
 
-// ✅ Run on Vercel Edge Runtime (fast cold starts)
-export const runtime = "edge"
-
 // Reuse sql client across invocations
 const sql = postgres(process.env.DATABASE_URL!, {
   ssl: "require",
