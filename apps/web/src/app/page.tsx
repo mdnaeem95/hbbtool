@@ -47,7 +47,7 @@ export default function HomePage() {
   } = useUserLocation()
 
   // Fetch merchants with location-based sorting
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isSuccess } = useQuery({
     queryKey: ["nearbyMerchants", latitude, longitude, mapBounds, filters],
     queryFn: () => {
       const lat = hasLocation
@@ -222,7 +222,7 @@ export default function HomePage() {
             />
             
             {/* Map overlay for loading/empty states */}
-            {totalResults === 0 && !isLoading && (
+            {isSuccess && totalResults === 0 && !isLoading && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-6 m-4 max-w-sm pointer-events-auto">
                   <MapPin className="h-8 w-8 mx-auto mb-3 text-gray-400" />
@@ -246,6 +246,7 @@ export default function HomePage() {
           isLoading={isLoading}
           isListView={isListView}
           isFullScreen={isListView} 
+          hasInitiallyLoaded={isSuccess}
         />
       </div>
     )

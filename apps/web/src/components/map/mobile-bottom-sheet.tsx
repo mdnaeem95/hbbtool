@@ -37,6 +37,7 @@ interface MobileBottomSheetProps {
   isLoading: boolean
   isListView?: boolean
   isFullScreen?: boolean
+  hasInitiallyLoaded?: boolean
 }
 
 export function MobileBottomSheet({
@@ -46,6 +47,7 @@ export function MobileBottomSheet({
   isLoading,
   isListView = false,
   isFullScreen = false,
+  hasInitiallyLoaded = false,
 }: MobileBottomSheetProps) {
   const [sheetHeight, setSheetHeight] = useState(120) // Start with peek height
   const [isDragging, setIsDragging] = useState(false)
@@ -135,7 +137,7 @@ export function MobileBottomSheet({
           )}
 
           {/* Empty State */}
-          {!isLoading && merchants.length === 0 && (
+          {!isLoading && hasInitiallyLoaded && merchants.length === 0 && (
             <div className="text-center py-12">
               <MapPin className="h-12 w-12 mx-auto mb-4 text-gray-300" />
               <p className="text-gray-600 font-medium text-lg">No merchants found</p>
