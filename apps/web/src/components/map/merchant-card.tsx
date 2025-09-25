@@ -102,7 +102,7 @@ export function MerchantCard({
             {merchant.rating ? (
               <div className="flex items-center gap-1">
                 <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                <span className="text-sm font-medium">{merchant.rating.toFixed(1)}</span>
+                <span className="text-sm font-medium">{Number(merchant.rating).toFixed(1)}</span>
                 {merchant.reviewCount !== undefined && (
                   <span className="text-sm text-gray-500">
                     ({merchant.reviewCount})
@@ -217,7 +217,7 @@ export function MerchantCardCompact({ merchant }: { merchant: MerchantCardProps[
           {merchant.rating && (
             <div className="flex items-center gap-1">
               <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-              <span>{merchant.rating.toFixed(1)}</span>
+              <span>{Number(merchant.rating).toFixed(1)}</span>
             </div>
           )}
           
