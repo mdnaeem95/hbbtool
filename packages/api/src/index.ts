@@ -34,5 +34,7 @@ export const appRouter = router({
   admin: adminRouter
 })
 
+export * from "./services/search/index"
+
 export type AppRouter = typeof appRouter
 export { default as transformer } from 'superjson'

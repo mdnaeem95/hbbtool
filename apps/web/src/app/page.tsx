@@ -8,11 +8,11 @@ import { MobileBottomSheet } from '../components/map/mobile-bottom-sheet'
 import { DesktopLayout } from '../components/map/desktop-layout'
 import { Button } from '@homejiak/ui'
 import { Store, MapPin } from 'lucide-react'
-import { api } from '../lib/trpc/client'
 import { LngLatBounds } from 'react-map-gl/mapbox'
 import { useMediaQuery } from '../hooks/use-media-query'
 import { useUserLocation } from '../hooks/use-user-location'
-import { keepPreviousData } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { fetchNearbyMerchants } from '../lib/api'
 
 export interface FilterState {
   cuisineType?: string[]
@@ -47,38 +47,34 @@ export default function HomePage() {
   } = useUserLocation()
 
   // Fetch merchants with location-based sorting
-  const { data, isLoading } = api.merchant.searchNearby.useQuery({
-    query: searchQuery,
-    filters: {
-      cuisineType: filters.cuisineType,
-      dietaryOptions: filters.dietaryOptions,
-      priceRange: filters.priceRange,
-      deliveryOnly: filters.deliveryOnly,
-      pickupOnly: filters.pickupOnly,
-      bounds: mapBounds ? {
-        north: mapBounds.getNorth(),
-        south: mapBounds.getSouth(),
-        east: mapBounds.getEast(),
-        west: mapBounds.getWest()
-      } : undefined,
-      // User location goes here inside filters
-      userLocation: hasLocation ? {
-        lat: latitude!,
-        lng: longitude!
-      } : !hasLocation && !mapBounds ? {
-        // Default to central Singapore if no location permission
-        lat: 1.3521,  // Central Singapore coordinates
-        lng: 103.8198
-      } : undefined,
-      radius: 10, // You can adjust this or make it dynamic
+  const { data, isLoading } = useQuery({
+    queryKey: ["nearbyMerchants", latitude, longitude, mapBounds, filters],
+    queryFn: () => {
+      const lat = hasLocation
+        ? latitude!
+        : mapBounds
+        ? (mapBounds.getNorth() + mapBounds.getSouth()) / 2
+        : 1.3521 // default central SG
+
+      const lng = hasLocation
+        ? longitude!
+        : mapBounds
+        ? (mapBounds.getEast() + mapBounds.getWest()) / 2
+        : 103.8198
+
+      return fetchNearbyMerchants({
+        lat,
+        lng,
+        radius: 10_000, // km -> meters
+        limit: 20,
+      })
     },
-  }, {
     enabled: !!mapBounds,
+    placeholderData: keepPreviousData,
     staleTime: 60000,
     gcTime: 300000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    placeholderData: keepPreviousData,
   })
 
   // Handle location request
