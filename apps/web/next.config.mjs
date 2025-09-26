@@ -16,6 +16,7 @@ const nextConfig = {
       'lucide-react',
       'date-fns',
     ],
+    serverComponentsExternalPackages: ['sharp'],
   },
 
   // Keep your existing transpiled packages
@@ -123,9 +124,6 @@ const nextConfig = {
     ]
   },
 
-  // Enable SWC minification for better edge performance
-  swcMinify: true,
-
   // Standalone output for better Docker/edge deployment
   output: 'standalone',
 
@@ -171,9 +169,6 @@ const nextConfig = {
 
     return config
   },
-
-  // Performance monitoring
-  analyticsId: process.env.NEXT_PUBLIC_ANALYTICS_ID,
   
   // Ignore TypeScript errors in production build (optional)
   typescript: {
