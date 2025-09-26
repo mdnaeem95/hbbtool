@@ -1,11 +1,14 @@
 import { FetchCreateContextFnOptions } from '@trpc/server/adapters/fetch'
 import { db } from '@homejiak/database'
-import { getAuthSession } from '@homejiak/auth/server'
+import { getAuthSession, createServerSupabaseClient } from '@homejiak/auth/server'
 import type { AuthSession } from '@homejiak/auth'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export interface Context {
   db: typeof db
   session: AuthSession | null
+  supabase: SupabaseClient // Add Supabase client to context
+  merchant?: AuthSession['user']['merchant'] // Optional merchant for convenience
   req: Request
   resHeaders: Headers
   ip?: string
@@ -25,7 +28,10 @@ export async function createTRPCContext(
 ): Promise<Context> {
   const { req, resHeaders } = opts
 
-  // Use lightweight auth check only once
+  // Create Supabase client for this request
+  const supabase = await createServerSupabaseClient()
+  
+  // Get auth session using the Supabase client
   const session = await getAuthSession()
 
   // Extract IP
@@ -51,6 +57,8 @@ export async function createTRPCContext(
   return {
     db,
     session,
+    supabase, // Include Supabase client in context
+    merchant: session?.user?.merchant, // Optional convenience field
     req,
     resHeaders,
     ip,
