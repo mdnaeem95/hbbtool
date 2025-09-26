@@ -1,5 +1,5 @@
+// packages/api/src/trpc/routers/storage/index.ts
 import { z } from 'zod'
-import sharp from 'sharp'
 import { SupabaseStorageService } from '@homejiak/storage'
 import { TRPCError } from '@trpc/server'
 import { protectedProcedure, publicProcedure, router } from '../../core'
@@ -12,94 +12,30 @@ const storage = new SupabaseStorageService({
 })
 
 // ============= IMAGE OPTIMIZATION HELPERS =============
+async function optimizeImageViaAPI(
+  base64: string,
+  operation: string,
+  options?: any
+): Promise<{ image?: string; variants?: Record<string, string> }> {
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/image/optimize`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imageBase64: base64,
+        operation,
+        options,
+      }),
+    }
+  )
 
-interface OptimizationOptions {
-  maxWidth?: number
-  maxHeight?: number
-  quality?: number
-  format?: 'jpeg' | 'webp' | 'png'
-}
-
-async function optimizeImage(
-  buffer: Buffer,
-  options: OptimizationOptions = {}
-): Promise<Buffer> {
-  const {
-    maxWidth = 1200,
-    maxHeight = 1200,
-    quality = 85,
-    format = 'jpeg'
-  } = options
-
-  let pipeline = sharp(buffer)
-
-  // Auto-rotate based on EXIF data
-  pipeline = pipeline.rotate()
-
-  // Resize if needed
-  if (maxWidth || maxHeight) {
-    pipeline = pipeline.resize(maxWidth, maxHeight, {
-      fit: 'inside',
-      withoutEnlargement: true,
-    })
+  if (!response.ok) {
+    throw new Error('Failed to optimize image')
   }
 
-  // Convert format and compress
-  switch (format) {
-    case 'webp':
-      pipeline = pipeline.webp({ quality })
-      break
-    case 'png':
-      pipeline = pipeline.png({ quality })
-      break
-    case 'jpeg':
-    default:
-      pipeline = pipeline.jpeg({ 
-        quality,
-        progressive: true,
-        mozjpeg: true // Better compression
-      })
-  }
-
-  return pipeline.toBuffer()
-}
-
-async function generateImageVariants(
-  buffer: Buffer,
-  merchantId: string,
-  productId: string
-): Promise<Record<string, Buffer>> {
-  console.log(merchantId, productId)
-  const variants: Record<string, Buffer> = {}
-
-  // Generate thumbnail
-  variants.thumb = await sharp(buffer)
-    .resize(150, 150, {
-      fit: 'cover',
-      position: 'center',
-    })
-    .jpeg({ quality: 80, progressive: true })
-    .toBuffer()
-
-  // Generate small version for cards
-  variants.small = await sharp(buffer)
-    .resize(400, 400, {
-      fit: 'inside',
-      withoutEnlargement: true,
-    })
-    .jpeg({ quality: 85, progressive: true })
-    .toBuffer()
-
-  // Generate medium version for product pages
-  variants.medium = await sharp(buffer)
-    .resize(800, 800, {
-      fit: 'inside',
-      withoutEnlargement: true,
-    })
-    .jpeg({ quality: 85, progressive: true })
-    .toBuffer()
-
-  return variants
+  // Type assertion needed here
+  return response.json() as Promise<{ image?: string; variants?: Record<string, string> }>
 }
 
 // Helper to convert base64 to Buffer
@@ -123,13 +59,12 @@ function base64ToBuffer(base64: string): Buffer {
 
 export const storageRouter = router({
   // ============= PRODUCT IMAGES =============
-  
   uploadProductImage: protectedProcedure
     .input(z.object({
       productId: z.string().cuid(),
       base64: z.string(),
       position: z.number().optional(),
-      skipOptimization: z.boolean().optional(), // Allow skipping for already optimized images
+      skipOptimization: z.boolean().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       // Verify merchant owns the product
@@ -147,7 +82,6 @@ export const storageRouter = router({
         })
       }
       
-      // Check image limit
       if (product.images.length >= 10) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
@@ -156,48 +90,46 @@ export const storageRouter = router({
       }
       
       try {
-        // Convert base64 to buffer
-        const originalBuffer = base64ToBuffer(input.base64)
+        let imageBuffer: Buffer
+
+        if (input.skipOptimization) {
+          imageBuffer = base64ToBuffer(input.base64)
+        } else {
+          // Optimize via API route
+          const optimized = await optimizeImageViaAPI(input.base64, 'optimize', {
+            maxWidth: 1200,
+            maxHeight: 1200,
+            quality: 85,
+          })
+          imageBuffer = Buffer.from(optimized.image!, 'base64')
+        }
         
-        // Optimize image unless explicitly skipped
-        const optimizedBuffer = input.skipOptimization 
-          ? originalBuffer 
-          : await optimizeImage(originalBuffer, {
-              maxWidth: 1200,
-              maxHeight: 1200,
-              quality: 85,
-              format: 'jpeg'
-            })
-        
-        // Upload main image
+        // Upload optimized image
         const result = await storage.uploadProductImage(
-          optimizedBuffer,
+          imageBuffer,
           ctx.session!.user.id,
           input.productId
         )
         
-        // Generate and upload variants
-        const variants = await generateImageVariants(
-          originalBuffer,
-          ctx.session!.user.id,
-          input.productId
-        )
+        // Generate variants via API if not skipping optimization
+        let variantUrls: Record<string, string> = {}
         
-        const variantUrls: Record<string, string> = {}
-        
-        for (const [suffix, variantBuffer] of Object.entries(variants)) {
-          const timestamp = Date.now()
-          const uuid = crypto.randomUUID().slice(0, 8)
-          const variantResult = await storage.uploadProductImage(
-            variantBuffer,
-            ctx.session!.user.id,
-            input.productId,
-            { 
-              // Custom path for variants
-              customPath: `products/${ctx.session!.user.id}/${input.productId}/${suffix}-${timestamp}-${uuid}.jpg`
-            } as any
-          )
-          variantUrls[suffix] = variantResult.url
+        if (!input.skipOptimization) {
+          const variantsResponse = await optimizeImageViaAPI(input.base64, 'generateVariants')
+          
+          if (variantsResponse.variants) {
+            for (const [suffix, variantBase64] of Object.entries(variantsResponse.variants)) {
+              const variantBuffer = Buffer.from(variantBase64, 'base64')
+              
+              // Upload each variant
+              const variantResult = await storage.uploadProductImage(
+                variantBuffer,
+                ctx.session!.user.id,
+                input.productId
+              )
+              variantUrls[suffix] = variantResult.url
+            }
+          }
         }
         
         // Update product with new image
@@ -250,17 +182,16 @@ export const storageRouter = router({
         })
       }
       
-      // Process and upload images with optimization
+      // Process and upload images with optimization via API
       const uploadPromises = input.images.map(async (image) => {
-        const originalBuffer = base64ToBuffer(image.base64)
-        
-        // Optimize each image
-        const optimizedBuffer = await optimizeImage(originalBuffer, {
+        // Optimize each image via API route
+        const optimized = await optimizeImageViaAPI(image.base64, 'optimize', {
           maxWidth: 1200,
           maxHeight: 1200,
           quality: 85,
-          format: 'jpeg'
         })
+        
+        const optimizedBuffer = Buffer.from(optimized.image!, 'base64')
         
         return storage.uploadProductImage(
           optimizedBuffer,
@@ -399,17 +330,12 @@ export const storageRouter = router({
           select: { logoUrl: true },
         })
         
-        // Convert and optimize logo
-        const originalBuffer = base64ToBuffer(input.base64)
-        const optimizedBuffer = await optimizeImage(originalBuffer, {
-          maxWidth: 512,
-          maxHeight: 512,
-          quality: 90,
-          format: 'webp' // WebP for logos
-        })
+        // Optimize logo via API route
+        const optimized = await optimizeImageViaAPI(input.base64, 'optimizeLogo')
+        const logoBuffer = Buffer.from(optimized.image!, 'base64')
         
         // Upload new logo
-        const result = await storage.uploadMerchantLogo(optimizedBuffer, merchantId)
+        const result = await storage.uploadMerchantLogo(logoBuffer, merchantId)
         
         // Delete old logo if exists
         if (merchant?.logoUrl) {
@@ -450,17 +376,11 @@ export const storageRouter = router({
       const merchantId = ctx.session!.user.id
       
       try {
-        const originalBuffer = base64ToBuffer(input.base64)
+        // For QR codes, we can skip optimization or use minimal processing
+        // Since QR codes need to maintain clarity
+        const buffer = base64ToBuffer(input.base64)
         
-        // QR codes need minimal processing to maintain scannability
-        const optimizedBuffer = await optimizeImage(originalBuffer, {
-          maxWidth: 1024,
-          maxHeight: 1024,
-          quality: 95, // High quality for QR codes
-          format: 'png' // PNG preserves sharp edges better
-        })
-        
-        const result = await storage.uploadPayNowQR(optimizedBuffer, merchantId)
+        const result = await storage.uploadPayNowQR(buffer, merchantId)
         
         // Update merchant
         const updatedMerchant = await ctx.db.merchant.update({
@@ -522,18 +442,13 @@ export const storageRouter = router({
       }
       
       try {
-        // Convert and optimize proof image (maintain readability)
-        const originalBuffer = base64ToBuffer(input.base64)
-        const optimizedBuffer = await optimizeImage(originalBuffer, {
-          maxWidth: 2048,
-          maxHeight: 2048,
-          quality: 90, // Higher quality for payment proofs
-          format: 'jpeg'
-        })
+        // Optimize payment proof via API route
+        const optimized = await optimizeImageViaAPI(input.base64, 'optimizePaymentProof')
+        const proofBuffer = Buffer.from(optimized.image!, 'base64')
         
         // Upload proof
         const result = await storage.uploadPaymentProof(
-          optimizedBuffer,
+          proofBuffer,
           input.orderId,
           input.customerId
         )
@@ -651,15 +566,14 @@ export const storageRouter = router({
       }
       
       try {
-        const originalBuffer = base64ToBuffer(input.base64)
-        
-        // Optimize category image
-        const optimizedBuffer = await optimizeImage(originalBuffer, {
+        // Optimize category image via API route
+        const optimized = await optimizeImageViaAPI(input.base64, 'optimize', {
           maxWidth: 800,
           maxHeight: 600,
           quality: 85,
-          format: 'jpeg'
         })
+        
+        const optimizedBuffer = Buffer.from(optimized.image!, 'base64')
         
         const result = await storage.uploadCategoryImage(optimizedBuffer, input.categoryId)
         

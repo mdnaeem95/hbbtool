@@ -16,8 +16,8 @@ const nextConfig = {
       'lucide-react',
       'date-fns',
     ],
-    // Tell Next.js to treat sharp as an external package
-    serverComponentsExternalPackages: ['sharp', '@node-rs/argon2', '@node-rs/bcrypt'],
+    // Tell Next.js to treat sharp as an external package (keeps it server-side only)
+    serverComponentsExternalPackages: ['sharp'],
   },
 
   // Keep your existing transpiled packages
@@ -42,8 +42,6 @@ const nextConfig = {
       { protocol: 'https', hostname: '*.supabase.co' },
       { protocol: 'https', hostname: 'via.placeholder.com' },
       { protocol: 'https', hostname: 'picsum.photos' },
-      { protocol: 'https', hostname: '**.uploadthing.com' },
-      { protocol: 'https', hostname: '**.cloudinary.com' },
     ],
   },
 
@@ -134,98 +132,11 @@ const nextConfig = {
     NEXT_PUBLIC_ENVIRONMENT: process.env.NODE_ENV,
   },
 
-  // Webpack configuration - keep PrismaPlugin and add edge optimizations
-  webpack: (config, { webpack, isServer, nextRuntime }) => {
-    // Keep your existing Prisma plugin for server
+  // Simplified webpack configuration
+  webpack: (config, { isServer }) => {
+    // Keep Prisma plugin for server
     if (isServer) {
       config.plugins = [...config.plugins, new PrismaPlugin()]
-      
-      // Keep sharp on server
-      config.externals = [...(config.externals || []), 'sharp']
-    }
-    
-    // CRITICAL: Handle Sharp and binary files
-    if (!isServer) {
-      // Completely exclude sharp from client bundle
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        sharp: false,
-        'sharp/lib/index.js': false,
-        'sharp/lib/sharp.js': false,
-        'sharp/lib/input.js': false,
-        'sharp/lib/output.js': false,
-        'sharp/lib/resize.js': false,
-        'sharp/lib/pipeline.js': false,
-        'sharp/lib/utility.js': false,
-        '@prisma/client': './prisma/client',
-      }
-      
-      // Ignore sharp completely on client side
-      config.plugins.push(
-        new webpack.IgnorePlugin({
-          resourceRegExp: /sharp$/,
-        }),
-        new webpack.IgnorePlugin({
-          resourceRegExp: /^sharp$/,
-        })
-      )
-    }
-    
-    // Handle .node binary files
-    config.module.rules.push({
-      test: /\.node$/,
-      use: [
-        {
-          loader: 'node-loader',
-          options: {
-            name: '[name].[hash].[ext]',
-          },
-        },
-      ],
-    })
-    
-    // Alternative: Simply ignore .node files if node-loader doesn't work
-    // config.module.rules.push({
-    //   test: /\.node$/,
-    //   loader: 'null-loader',
-    // })
-    
-    // Add edge runtime optimizations
-    if (nextRuntime === 'edge') {
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        // Use lighter alternatives for edge runtime
-        'lodash': 'lodash-es',
-        // Exclude sharp from edge runtime
-        sharp: false,
-      }
-      
-      // Exclude heavy Node.js modules from edge runtime
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
-        crypto: false,
-        sharp: false,
-      }
-    }
-
-    // Ensure node externals don't include packages we want to bundle
-    if (isServer && config.externals) {
-      config.externals = config.externals.map((external) => {
-        if (typeof external !== 'function') return external
-        return async (context, callback) => {
-          const resolve = await external(context, callback)
-          
-          // Don't externalize our monorepo packages
-          if (context.request?.startsWith('@homejiak/')) {
-            return callback()
-          }
-          
-          callback(null, resolve)
-        }
-      })
     }
 
     return config

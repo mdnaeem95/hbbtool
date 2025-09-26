@@ -208,6 +208,9 @@ importers:
       recharts:
         specifier: ^3.1.2
         version: 3.2.1(@types/react@19.1.10)(react-dom@19.1.1(react@19.1.1))(react-is@19.1.1)(react@19.1.1)(redux@5.0.1)
+      sharp:
+        specifier: 0.32.6
+        version: 0.32.6
       superjson:
         specifier: ^2.2.1
         version: 2.2.2
