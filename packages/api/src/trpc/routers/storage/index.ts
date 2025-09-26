@@ -1,4 +1,3 @@
-// packages/api/src/trpc/routers/storage/index.ts
 import { z } from 'zod'
 import { SupabaseStorageService } from '@homejiak/storage'
 import { TRPCError } from '@trpc/server'

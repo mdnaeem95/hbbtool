@@ -30,6 +30,10 @@ export class SupabaseStorageService {
   private supabase: SupabaseClient
   private serviceSupabase?: SupabaseClient
 
+  private getClient(): SupabaseClient {
+    return this.serviceSupabase || this.supabase
+  }
+
   constructor(config: StorageConfig) {
     this.supabase = createClient(config.supabaseUrl, config.supabaseAnonKey)
     
@@ -60,9 +64,11 @@ export class SupabaseStorageService {
     const extension = this.getFileExtension(file)
     const filename = `${timestamp}-${uuid}.${extension}`
     const path = `products/${merchantId}/${productId}/${filename}`
+
+    const client = this.getClient()
     
     // Upload image
-    const { data: uploadData, error } = await this.supabase.storage
+    const { data: uploadData, error } = await client.storage
       .from('public')
       .upload(path, data, {
         contentType: this.getMimeType(file),
@@ -73,7 +79,7 @@ export class SupabaseStorageService {
     if (error) throw new Error(`Upload failed: ${error.message} for ${uploadData}`)
     
     // Get public URL
-    const { data: { publicUrl } } = this.supabase.storage
+    const { data: { publicUrl } } = client.storage
       .from('public')
       .getPublicUrl(path)
     
@@ -93,8 +99,10 @@ export class SupabaseStorageService {
     const extension = this.getFileExtension(file)
     const filename = `logo-${Date.now()}.${extension}`
     const path = `merchants/${merchantId}/${filename}`
+
+    const client = this.getClient()
     
-    const { data: uploadData, error } = await this.supabase.storage
+    const { data: uploadData, error } = await client.storage
       .from('public')
       .upload(path, data, {
         contentType: this.getMimeType(file),
@@ -104,7 +112,7 @@ export class SupabaseStorageService {
     
     if (error) throw new Error(`Logo upload failed: ${error.message} for ${uploadData}`)
     
-    const { data: { publicUrl } } = this.supabase.storage
+    const { data: { publicUrl } } = client.storage
       .from('public')
       .getPublicUrl(path)
     
@@ -124,8 +132,10 @@ export class SupabaseStorageService {
     const extension = this.getFileExtension(file)
     const filename = `${Date.now()}-${this.generateUUID()}.${extension}`
     const path = `categories/${categoryId}/${filename}`
+
+    const client = this.getClient()
     
-    const { data: uploadData, error } = await this.supabase.storage
+    const { data: uploadData, error } = await client.storage
       .from('public')
       .upload(path, data, {
         contentType: this.getMimeType(file),
@@ -135,7 +145,7 @@ export class SupabaseStorageService {
     
     if (error) throw new Error(`Category image upload failed: ${error.message} for ${uploadData}`)
     
-    const { data: { publicUrl } } = this.supabase.storage
+    const { data: { publicUrl } } = client.storage
       .from('public')
       .getPublicUrl(path)
     
@@ -162,8 +172,7 @@ export class SupabaseStorageService {
     const filename = `${timestamp}-${hash}.${extension}`
     const path = `payments/${orderId}/${filename}`
     
-    // Use service role client if available for private uploads
-    const client = this.serviceSupabase || this.supabase
+    const client = this.getClient()
     
     const { data: uploadData, error } = await client.storage
       .from('private')
@@ -198,8 +207,10 @@ export class SupabaseStorageService {
     const extension = this.getFileExtension(file)
     const filename = `paynow-qr-${Date.now()}.${extension}`
     const path = `merchants/${merchantId}/payment/${filename}`
+
+    const client = this.getClient()
     
-    const { data: uploadData, error } = await this.supabase.storage
+    const { data: uploadData, error } = await client.storage
       .from('public')
       .upload(path, data, {
         contentType: this.getMimeType(file),
@@ -209,7 +220,7 @@ export class SupabaseStorageService {
     
     if (error) throw new Error(`PayNow QR upload failed: ${error.message} for ${uploadData}`)
     
-    const { data: { publicUrl } } = this.supabase.storage
+    const { data: { publicUrl } } = client.storage
       .from('public')
       .getPublicUrl(path)
     
@@ -224,7 +235,8 @@ export class SupabaseStorageService {
   // ============= DELETE OPERATIONS =============
 
   async deleteImage(bucket: 'public' | 'private', path: string): Promise<void> {
-    const { error } = await this.supabase.storage
+    const client = this.getClient()
+    const { error } = await client.storage
       .from(bucket)
       .remove([path])
     
@@ -232,7 +244,8 @@ export class SupabaseStorageService {
   }
 
   async deleteProductImages(merchantId: string, productId: string): Promise<void> {
-    const { data, error } = await this.supabase.storage
+    const client = this.getClient()
+    const { data, error } = await client.storage
       .from('public')
       .list(`products/${merchantId}/${productId}`)
     
@@ -240,7 +253,7 @@ export class SupabaseStorageService {
     
     if (data && data.length > 0) {
       const paths = data.map(file => `products/${merchantId}/${productId}/${file.name}`)
-      const { error: deleteError } = await this.supabase.storage
+      const { error: deleteError } = await client.storage
         .from('public')
         .remove(paths)
       
@@ -255,7 +268,8 @@ export class SupabaseStorageService {
     path: string,
     expiresIn: number = 3600
   ): Promise<string> {
-    const { data, error } = await this.supabase.storage
+    const client = this.getClient()
+    const { data, error } = await client.storage
       .from(bucket)
       .createSignedUrl(path, expiresIn)
     
@@ -293,7 +307,8 @@ export class SupabaseStorageService {
   // ============= URL UTILITIES =============
 
   getPublicUrl(path: string): string {
-    const { data: { publicUrl } } = this.supabase.storage
+    const client = this.getClient()
+    const { data: { publicUrl } } = client.storage
       .from('public')
       .getPublicUrl(path)
     
