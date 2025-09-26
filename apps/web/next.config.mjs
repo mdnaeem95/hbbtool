@@ -16,7 +16,8 @@ const nextConfig = {
       'lucide-react',
       'date-fns',
     ],
-    serverComponentsExternalPackages: ['sharp'],
+    // Tell Next.js to treat sharp as an external package
+    serverComponentsExternalPackages: ['sharp', '@node-rs/argon2', '@node-rs/bcrypt'],
   },
 
   // Keep your existing transpiled packages
@@ -134,11 +135,60 @@ const nextConfig = {
   },
 
   // Webpack configuration - keep PrismaPlugin and add edge optimizations
-  webpack: (config, { isServer, nextRuntime }) => {
+  webpack: (config, { webpack, isServer, nextRuntime }) => {
     // Keep your existing Prisma plugin for server
     if (isServer) {
       config.plugins = [...config.plugins, new PrismaPlugin()]
+      
+      // Keep sharp on server
+      config.externals = [...(config.externals || []), 'sharp']
     }
+    
+    // CRITICAL: Handle Sharp and binary files
+    if (!isServer) {
+      // Completely exclude sharp from client bundle
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        sharp: false,
+        'sharp/lib/index.js': false,
+        'sharp/lib/sharp.js': false,
+        'sharp/lib/input.js': false,
+        'sharp/lib/output.js': false,
+        'sharp/lib/resize.js': false,
+        'sharp/lib/pipeline.js': false,
+        'sharp/lib/utility.js': false,
+        '@prisma/client': './prisma/client',
+      }
+      
+      // Ignore sharp completely on client side
+      config.plugins.push(
+        new webpack.IgnorePlugin({
+          resourceRegExp: /sharp$/,
+        }),
+        new webpack.IgnorePlugin({
+          resourceRegExp: /^sharp$/,
+        })
+      )
+    }
+    
+    // Handle .node binary files
+    config.module.rules.push({
+      test: /\.node$/,
+      use: [
+        {
+          loader: 'node-loader',
+          options: {
+            name: '[name].[hash].[ext]',
+          },
+        },
+      ],
+    })
+    
+    // Alternative: Simply ignore .node files if node-loader doesn't work
+    // config.module.rules.push({
+    //   test: /\.node$/,
+    //   loader: 'null-loader',
+    // })
     
     // Add edge runtime optimizations
     if (nextRuntime === 'edge') {
@@ -146,6 +196,8 @@ const nextConfig = {
         ...config.resolve.alias,
         // Use lighter alternatives for edge runtime
         'lodash': 'lodash-es',
+        // Exclude sharp from edge runtime
+        sharp: false,
       }
       
       // Exclude heavy Node.js modules from edge runtime
@@ -155,16 +207,25 @@ const nextConfig = {
         net: false,
         tls: false,
         crypto: false,
+        sharp: false,
       }
     }
 
-    // Add any additional webpack rules if needed
-    if (!isServer) {
-      // Client-side optimizations
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        '@prisma/client': './prisma/client',
-      }
+    // Ensure node externals don't include packages we want to bundle
+    if (isServer && config.externals) {
+      config.externals = config.externals.map((external) => {
+        if (typeof external !== 'function') return external
+        return async (context, callback) => {
+          const resolve = await external(context, callback)
+          
+          // Don't externalize our monorepo packages
+          if (context.request?.startsWith('@homejiak/')) {
+            return callback()
+          }
+          
+          callback(null, resolve)
+        }
+      })
     }
 
     return config
