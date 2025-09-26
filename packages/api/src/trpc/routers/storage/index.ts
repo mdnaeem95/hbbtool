@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import sharp from 'sharp'
 import { SupabaseStorageService } from '@homejiak/storage'
 import { TRPCError } from '@trpc/server'
 import { protectedProcedure, publicProcedure, router } from '../../core'
@@ -9,6 +10,97 @@ const storage = new SupabaseStorageService({
   supabaseAnonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
 })
+
+// ============= IMAGE OPTIMIZATION HELPERS =============
+
+interface OptimizationOptions {
+  maxWidth?: number
+  maxHeight?: number
+  quality?: number
+  format?: 'jpeg' | 'webp' | 'png'
+}
+
+async function optimizeImage(
+  buffer: Buffer,
+  options: OptimizationOptions = {}
+): Promise<Buffer> {
+  const {
+    maxWidth = 1200,
+    maxHeight = 1200,
+    quality = 85,
+    format = 'jpeg'
+  } = options
+
+  let pipeline = sharp(buffer)
+
+  // Auto-rotate based on EXIF data
+  pipeline = pipeline.rotate()
+
+  // Resize if needed
+  if (maxWidth || maxHeight) {
+    pipeline = pipeline.resize(maxWidth, maxHeight, {
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+  }
+
+  // Convert format and compress
+  switch (format) {
+    case 'webp':
+      pipeline = pipeline.webp({ quality })
+      break
+    case 'png':
+      pipeline = pipeline.png({ quality })
+      break
+    case 'jpeg':
+    default:
+      pipeline = pipeline.jpeg({ 
+        quality,
+        progressive: true,
+        mozjpeg: true // Better compression
+      })
+  }
+
+  return pipeline.toBuffer()
+}
+
+async function generateImageVariants(
+  buffer: Buffer,
+  merchantId: string,
+  productId: string
+): Promise<Record<string, Buffer>> {
+  console.log(merchantId, productId)
+  const variants: Record<string, Buffer> = {}
+
+  // Generate thumbnail
+  variants.thumb = await sharp(buffer)
+    .resize(150, 150, {
+      fit: 'cover',
+      position: 'center',
+    })
+    .jpeg({ quality: 80, progressive: true })
+    .toBuffer()
+
+  // Generate small version for cards
+  variants.small = await sharp(buffer)
+    .resize(400, 400, {
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .jpeg({ quality: 85, progressive: true })
+    .toBuffer()
+
+  // Generate medium version for product pages
+  variants.medium = await sharp(buffer)
+    .resize(800, 800, {
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .jpeg({ quality: 85, progressive: true })
+    .toBuffer()
+
+  return variants
+}
 
 // Helper to convert base64 to Buffer
 function base64ToBuffer(base64: string): Buffer {
@@ -36,7 +128,8 @@ export const storageRouter = router({
     .input(z.object({
       productId: z.string().cuid(),
       base64: z.string(),
-      position: z.number().optional(), // For ordering multiple images
+      position: z.number().optional(),
+      skipOptimization: z.boolean().optional(), // Allow skipping for already optimized images
     }))
     .mutation(async ({ input, ctx }) => {
       // Verify merchant owns the product
@@ -54,7 +147,7 @@ export const storageRouter = router({
         })
       }
       
-      // Check image limit (e.g., max 10 images per product)
+      // Check image limit
       if (product.images.length >= 10) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
@@ -64,14 +157,48 @@ export const storageRouter = router({
       
       try {
         // Convert base64 to buffer
-        const buffer = base64ToBuffer(input.base64)
+        const originalBuffer = base64ToBuffer(input.base64)
         
-        // Upload image
+        // Optimize image unless explicitly skipped
+        const optimizedBuffer = input.skipOptimization 
+          ? originalBuffer 
+          : await optimizeImage(originalBuffer, {
+              maxWidth: 1200,
+              maxHeight: 1200,
+              quality: 85,
+              format: 'jpeg'
+            })
+        
+        // Upload main image
         const result = await storage.uploadProductImage(
-          buffer,
+          optimizedBuffer,
           ctx.session!.user.id,
           input.productId
         )
+        
+        // Generate and upload variants
+        const variants = await generateImageVariants(
+          originalBuffer,
+          ctx.session!.user.id,
+          input.productId
+        )
+        
+        const variantUrls: Record<string, string> = {}
+        
+        for (const [suffix, variantBuffer] of Object.entries(variants)) {
+          const timestamp = Date.now()
+          const uuid = crypto.randomUUID().slice(0, 8)
+          const variantResult = await storage.uploadProductImage(
+            variantBuffer,
+            ctx.session!.user.id,
+            input.productId,
+            { 
+              // Custom path for variants
+              customPath: `products/${ctx.session!.user.id}/${input.productId}/${suffix}-${timestamp}-${uuid}.jpg`
+            } as any
+          )
+          variantUrls[suffix] = variantResult.url
+        }
         
         // Update product with new image
         const updatedProduct = await ctx.db.product.update({
@@ -87,10 +214,11 @@ export const storageRouter = router({
         return {
           success: true,
           url: result.url,
-          variants: result.variants,
+          variants: variantUrls,
           product: updatedProduct,
         }
       } catch (error) {
+        console.error('Upload error:', error)
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to upload image',
@@ -122,11 +250,20 @@ export const storageRouter = router({
         })
       }
       
-      // Upload images in parallel (with concurrency limit)
+      // Process and upload images with optimization
       const uploadPromises = input.images.map(async (image) => {
-        const buffer = base64ToBuffer(image.base64)
+        const originalBuffer = base64ToBuffer(image.base64)
+        
+        // Optimize each image
+        const optimizedBuffer = await optimizeImage(originalBuffer, {
+          maxWidth: 1200,
+          maxHeight: 1200,
+          quality: 85,
+          format: 'jpeg'
+        })
+        
         return storage.uploadProductImage(
-          buffer,
+          optimizedBuffer,
           ctx.session!.user.id,
           input.productId
         )
@@ -186,7 +323,7 @@ export const storageRouter = router({
       await storage.deleteImage('public', path)
       
       // Remove from product
-      const updatedImages = product.images.filter(img => img !== input.imageUrl)
+      const updatedImages = product.images.filter((img: any) => img !== input.imageUrl)
       const updatedProduct = await ctx.db.product.update({
         where: { id: input.productId },
         data: {
@@ -262,9 +399,17 @@ export const storageRouter = router({
           select: { logoUrl: true },
         })
         
+        // Convert and optimize logo
+        const originalBuffer = base64ToBuffer(input.base64)
+        const optimizedBuffer = await optimizeImage(originalBuffer, {
+          maxWidth: 512,
+          maxHeight: 512,
+          quality: 90,
+          format: 'webp' // WebP for logos
+        })
+        
         // Upload new logo
-        const buffer = base64ToBuffer(input.base64)
-        const result = await storage.uploadMerchantLogo(buffer, merchantId)
+        const result = await storage.uploadMerchantLogo(optimizedBuffer, merchantId)
         
         // Delete old logo if exists
         if (merchant?.logoUrl) {
@@ -289,6 +434,7 @@ export const storageRouter = router({
           merchant: updatedMerchant,
         }
       } catch (error) {
+        console.error('Logo upload error:', error)
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to upload logo',
@@ -304,8 +450,17 @@ export const storageRouter = router({
       const merchantId = ctx.session!.user.id
       
       try {
-        const buffer = base64ToBuffer(input.base64)
-        const result = await storage.uploadPayNowQR(buffer, merchantId)
+        const originalBuffer = base64ToBuffer(input.base64)
+        
+        // QR codes need minimal processing to maintain scannability
+        const optimizedBuffer = await optimizeImage(originalBuffer, {
+          maxWidth: 1024,
+          maxHeight: 1024,
+          quality: 95, // High quality for QR codes
+          format: 'png' // PNG preserves sharp edges better
+        })
+        
+        const result = await storage.uploadPayNowQR(optimizedBuffer, merchantId)
         
         // Update merchant
         const updatedMerchant = await ctx.db.merchant.update({
@@ -321,6 +476,7 @@ export const storageRouter = router({
           merchant: updatedMerchant,
         }
       } catch (error) {
+        console.error('QR upload error:', error)
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to upload PayNow QR code',
@@ -346,6 +502,7 @@ export const storageRouter = router({
           paymentStatus: true,
           total: true,
           merchantId: true,
+          orderNumber: true,
         },
       })
       
@@ -365,10 +522,18 @@ export const storageRouter = router({
       }
       
       try {
+        // Convert and optimize proof image (maintain readability)
+        const originalBuffer = base64ToBuffer(input.base64)
+        const optimizedBuffer = await optimizeImage(originalBuffer, {
+          maxWidth: 2048,
+          maxHeight: 2048,
+          quality: 90, // Higher quality for payment proofs
+          format: 'jpeg'
+        })
+        
         // Upload proof
-        const buffer = base64ToBuffer(input.base64)
         const result = await storage.uploadPaymentProof(
-          buffer,
+          optimizedBuffer,
           input.orderId,
           input.customerId
         )
@@ -405,7 +570,7 @@ export const storageRouter = router({
             merchantId: order.merchantId,
             type: 'PAYMENT_RECEIVED',
             title: 'Payment Proof Received',
-            message: `Payment proof uploaded for order #${updatedOrder.orderNumber}`,
+            message: `Payment proof uploaded for order #${order.orderNumber}`,
             data: {
               orderId: input.orderId,
               proofUrl: result.url,
@@ -419,6 +584,7 @@ export const storageRouter = router({
           order: updatedOrder,
         }
       } catch (error) {
+        console.error('Payment proof upload error:', error)
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to upload payment proof',
@@ -485,8 +651,17 @@ export const storageRouter = router({
       }
       
       try {
-        const buffer = base64ToBuffer(input.base64)
-        const result = await storage.uploadCategoryImage(buffer, input.categoryId)
+        const originalBuffer = base64ToBuffer(input.base64)
+        
+        // Optimize category image
+        const optimizedBuffer = await optimizeImage(originalBuffer, {
+          maxWidth: 800,
+          maxHeight: 600,
+          quality: 85,
+          format: 'jpeg'
+        })
+        
+        const result = await storage.uploadCategoryImage(optimizedBuffer, input.categoryId)
         
         // Delete old image if exists
         if (category.imageUrl) {
@@ -510,6 +685,7 @@ export const storageRouter = router({
           category: updatedCategory,
         }
       } catch (error) {
+        console.error('Category image upload error:', error)
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to upload category image',

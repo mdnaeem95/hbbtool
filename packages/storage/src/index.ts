@@ -1,5 +1,5 @@
+// packages/storage/src/index.ts
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
-import sharp from 'sharp'
 import { z } from 'zod'
 
 // Validation schemas
@@ -9,17 +9,8 @@ export const ImageUploadSchema = z.object({
   allowedTypes: z.array(z.string()).default(['image/jpeg', 'image/png', 'image/webp']),
 })
 
-export const ImageVariant = z.object({
-  width: z.number(),
-  height: z.number().optional(),
-  quality: z.number().default(85),
-  suffix: z.string(),
-  format: z.enum(['jpeg', 'webp', 'png']).default('jpeg'),
-})
-
 // Types
 export type ImageUploadOptions = z.infer<typeof ImageUploadSchema>
-export type ImageVariantConfig = z.infer<typeof ImageVariant>
 
 export interface StorageConfig {
   supabaseUrl: string
@@ -30,12 +21,11 @@ export interface StorageConfig {
 export interface UploadResult {
   url: string
   path: string
-  variants?: Record<string, string>
   size: number
   mimeType: string
 }
 
-// Main Storage Service
+// Main Storage Service (Browser & Server Compatible)
 export class SupabaseStorageService {
   private supabase: SupabaseClient
   private serviceSupabase?: SupabaseClient
@@ -61,41 +51,26 @@ export class SupabaseStorageService {
     // Validate file size and type
     await this.validateFile(validated)
     
-    // Convert to buffer if needed
-    const buffer = await this.fileToBuffer(file)
-    
-    // Optimize main image
-    const optimized = await this.optimizeImage(buffer, {
-      maxWidth: 1200,
-      maxHeight: 1200,
-      quality: 85,
-      format: 'jpeg',
-    })
+    // Convert to buffer/blob
+    const data = await this.fileToData(file)
     
     // Generate unique filename
     const timestamp = Date.now()
-    const uuid = crypto.randomUUID().slice(0, 8)
-    const filename = `${timestamp}-${uuid}.jpg`
+    const uuid = this.generateUUID()
+    const extension = this.getFileExtension(file)
+    const filename = `${timestamp}-${uuid}.${extension}`
     const path = `products/${merchantId}/${productId}/${filename}`
     
-    // Upload main image
-    const { data, error } = await this.supabase.storage
+    // Upload image
+    const { data: uploadData, error } = await this.supabase.storage
       .from('public')
-      .upload(path, optimized.buffer, {
-        contentType: 'image/jpeg',
+      .upload(path, data, {
+        contentType: this.getMimeType(file),
         cacheControl: '31536000, immutable', // 1 year cache
         upsert: false,
       })
     
-    if (error) throw new Error(`Upload failed: ${error.message} for ${data}`)
-    
-    // Generate variants
-    const variants = await this.generateProductVariants(
-      buffer,
-      merchantId,
-      productId,
-      filename
-    )
+    if (error) throw new Error(`Upload failed: ${error.message} for ${uploadData}`)
     
     // Get public URL
     const { data: { publicUrl } } = this.supabase.storage
@@ -105,9 +80,8 @@ export class SupabaseStorageService {
     return {
       url: publicUrl,
       path,
-      variants,
-      size: optimized.size,
-      mimeType: 'image/jpeg',
+      size: file instanceof File ? file.size : file.length,
+      mimeType: this.getMimeType(file),
     }
   }
 
@@ -115,28 +89,20 @@ export class SupabaseStorageService {
     file: File | Buffer,
     merchantId: string
   ): Promise<UploadResult> {
-    const buffer = await this.fileToBuffer(file)
-    
-    // Optimize logo - smaller size, maintain quality
-    const optimized = await this.optimizeImage(buffer, {
-      maxWidth: 512,
-      maxHeight: 512,
-      quality: 90,
-      format: 'webp',
-    })
-    
-    const filename = `logo-${Date.now()}.webp`
+    const data = await this.fileToData(file)
+    const extension = this.getFileExtension(file)
+    const filename = `logo-${Date.now()}.${extension}`
     const path = `merchants/${merchantId}/${filename}`
     
-    const { data, error } = await this.supabase.storage
+    const { data: uploadData, error } = await this.supabase.storage
       .from('public')
-      .upload(path, optimized.buffer, {
-        contentType: 'image/webp',
+      .upload(path, data, {
+        contentType: this.getMimeType(file),
         cacheControl: '604800', // 1 week cache
         upsert: true, // Allow overwriting logo
       })
     
-    if (error) throw new Error(`Logo upload failed: ${error.message} for ${data}`)
+    if (error) throw new Error(`Logo upload failed: ${error.message} for ${uploadData}`)
     
     const { data: { publicUrl } } = this.supabase.storage
       .from('public')
@@ -145,8 +111,8 @@ export class SupabaseStorageService {
     return {
       url: publicUrl,
       path,
-      size: optimized.size,
-      mimeType: 'image/webp',
+      size: file instanceof File ? file.size : file.length,
+      mimeType: this.getMimeType(file),
     }
   }
 
@@ -154,27 +120,20 @@ export class SupabaseStorageService {
     file: File | Buffer,
     categoryId: string
   ): Promise<UploadResult> {
-    const buffer = await this.fileToBuffer(file)
-    
-    const optimized = await this.optimizeImage(buffer, {
-      maxWidth: 800,
-      maxHeight: 600,
-      quality: 85,
-      format: 'jpeg',
-    })
-    
-    const filename = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}.jpg`
+    const data = await this.fileToData(file)
+    const extension = this.getFileExtension(file)
+    const filename = `${Date.now()}-${this.generateUUID()}.${extension}`
     const path = `categories/${categoryId}/${filename}`
     
-    const { data, error } = await this.supabase.storage
+    const { data: uploadData, error } = await this.supabase.storage
       .from('public')
-      .upload(path, optimized.buffer, {
-        contentType: 'image/jpeg',
+      .upload(path, data, {
+        contentType: this.getMimeType(file),
         cacheControl: '2592000', // 30 days cache
         upsert: false,
       })
     
-    if (error) throw new Error(`Category image upload failed: ${error.message} for ${data}`)
+    if (error) throw new Error(`Category image upload failed: ${error.message} for ${uploadData}`)
     
     const { data: { publicUrl } } = this.supabase.storage
       .from('public')
@@ -183,8 +142,8 @@ export class SupabaseStorageService {
     return {
       url: publicUrl,
       path,
-      size: optimized.size,
-      mimeType: 'image/jpeg',
+      size: file instanceof File ? file.size : file.length,
+      mimeType: this.getMimeType(file),
     }
   }
 
@@ -195,32 +154,24 @@ export class SupabaseStorageService {
     orderId: string,
     customerId?: string
   ): Promise<UploadResult> {
-    console.log('Uploading payment proof for order:', orderId, 'customer:', customerId)
-    const buffer = await this.fileToBuffer(file)
-    
-    // For payment proofs, maintain quality but limit size
-    const optimized = await this.optimizeImage(buffer, {
-      maxWidth: 2048,
-      maxHeight: 2048,
-      quality: 90,
-      format: 'jpeg',
-    })
-    
+    console.log(customerId)
+    const data = await this.fileToData(file)
     const timestamp = Date.now()
-    const hash = crypto.randomUUID().slice(0, 8)
-    const filename = `${timestamp}-${hash}.jpg`
+    const hash = this.generateUUID()
+    const extension = this.getFileExtension(file)
+    const filename = `${timestamp}-${hash}.${extension}`
     const path = `payments/${orderId}/${filename}`
     
     // Use service role client if available for private uploads
     const client = this.serviceSupabase || this.supabase
     
-    const { data, error } = await client.storage
+    const { data: uploadData, error } = await client.storage
       .from('private')
-      .upload(path, optimized.buffer, {
-        contentType: 'image/jpeg',
+      .upload(path, data, {
+        contentType: this.getMimeType(file),
       })
     
-    if (error) throw new Error(`Payment proof upload failed: ${error.message} for ${data}`)
+    if (error) throw new Error(`Payment proof upload failed: ${error.message} for ${uploadData}`)
     
     // Generate a signed URL (valid for 7 days)
     const { data: signedUrlData, error: urlError } = await client.storage
@@ -234,8 +185,8 @@ export class SupabaseStorageService {
     return {
       url: signedUrlData.signedUrl,
       path,
-      size: optimized.size,
-      mimeType: 'image/jpeg',
+      size: file instanceof File ? file.size : file.length,
+      mimeType: this.getMimeType(file),
     }
   }
 
@@ -243,28 +194,20 @@ export class SupabaseStorageService {
     file: File | Buffer,
     merchantId: string
   ): Promise<UploadResult> {
-    const buffer = await this.fileToBuffer(file)
-    
-    // QR codes need to maintain clarity
-    const optimized = await this.optimizeImage(buffer, {
-      maxWidth: 1024,
-      maxHeight: 1024,
-      quality: 95,
-      format: 'png', // PNG for QR codes
-    })
-    
-    const filename = `paynow-qr-${Date.now()}.png`
+    const data = await this.fileToData(file)
+    const extension = this.getFileExtension(file)
+    const filename = `paynow-qr-${Date.now()}.${extension}`
     const path = `merchants/${merchantId}/payment/${filename}`
     
-    const { data, error } = await this.supabase.storage
+    const { data: uploadData, error } = await this.supabase.storage
       .from('public')
-      .upload(path, optimized.buffer, {
-        contentType: 'image/png',
+      .upload(path, data, {
+        contentType: this.getMimeType(file),
         cacheControl: '86400', // 1 day cache
         upsert: true, // Allow updating QR code
       })
     
-    if (error) throw new Error(`PayNow QR upload failed: ${error.message} for ${data}`)
+    if (error) throw new Error(`PayNow QR upload failed: ${error.message} for ${uploadData}`)
     
     const { data: { publicUrl } } = this.supabase.storage
       .from('public')
@@ -273,8 +216,8 @@ export class SupabaseStorageService {
     return {
       url: publicUrl,
       path,
-      size: optimized.size,
-      mimeType: 'image/png',
+      size: file instanceof File ? file.size : file.length,
+      mimeType: this.getMimeType(file),
     }
   }
 
@@ -325,118 +268,6 @@ export class SupabaseStorageService {
     return this.getSignedUrl('private', existingPath, 604800) // 7 days
   }
 
-  // ============= HELPER METHODS =============
-
-  private async fileToBuffer(file: File | Buffer): Promise<Buffer> {
-    if (Buffer.isBuffer(file)) {
-      return file
-    }
-    
-    const arrayBuffer = await file.arrayBuffer()
-    return Buffer.from(arrayBuffer)
-  }
-
-  private async validateFile(options: ImageUploadOptions): Promise<void> {
-    if (options.file instanceof File) {
-      // Check file size
-      const sizeInMB = options.file.size / (1024 * 1024)
-      if (sizeInMB > options.maxSizeInMB) {
-        throw new Error(`File size exceeds ${options.maxSizeInMB}MB limit`)
-      }
-      
-      // Check file type
-      if (!options.allowedTypes.includes(options.file.type)) {
-        throw new Error(`File type ${options.file.type} not allowed`)
-      }
-    }
-  }
-
-  private async optimizeImage(
-    buffer: Buffer,
-    options: {
-      maxWidth?: number
-      maxHeight?: number
-      quality?: number
-      format?: 'jpeg' | 'webp' | 'png'
-    }
-  ): Promise<{ buffer: Buffer; size: number }> {
-    let pipeline = sharp(buffer)
-    
-    // Resize if needed
-    if (options.maxWidth || options.maxHeight) {
-      pipeline = pipeline.resize(options.maxWidth, options.maxHeight, {
-        fit: 'inside',
-        withoutEnlargement: true,
-      })
-    }
-    
-    // Convert format and compress
-    switch (options.format) {
-      case 'webp':
-        pipeline = pipeline.webp({ quality: options.quality || 85 })
-        break
-      case 'png':
-        pipeline = pipeline.png({ quality: options.quality || 95 })
-        break
-      case 'jpeg':
-      default:
-        pipeline = pipeline.jpeg({ 
-          quality: options.quality || 85,
-          progressive: true,
-        })
-    }
-    
-    const optimized = await pipeline.toBuffer()
-    
-    return {
-      buffer: optimized,
-      size: optimized.length,
-    }
-  }
-
-  private async generateProductVariants(
-    originalBuffer: Buffer,
-    merchantId: string,
-    productId: string,
-    originalFilename: string
-  ): Promise<Record<string, string>> {
-    const variants: ImageVariantConfig[] = [
-      { width: 150, height: 150, suffix: 'thumb', quality: 80, format: 'jpeg' },
-      { width: 400, suffix: 'small', quality: 85, format: 'jpeg' },
-      { width: 800, suffix: 'medium', quality: 85, format: 'jpeg' },
-    ]
-    
-    const variantUrls: Record<string, string> = {}
-    
-    for (const variant of variants) {
-      const optimized = await sharp(originalBuffer)
-        .resize(variant.width, variant.height, {
-          fit: variant.height ? 'cover' : 'inside',
-          position: 'center',
-        })
-        .jpeg({ quality: variant.quality, progressive: true })
-        .toBuffer()
-      
-      const variantFilename = `${variant.suffix}-${originalFilename}`
-      const variantPath = `products/${merchantId}/${productId}/${variantFilename}`
-      
-      await this.supabase.storage
-        .from('public')
-        .upload(variantPath, optimized, {
-          contentType: 'image/jpeg',
-          cacheControl: '31536000, immutable',
-        })
-      
-      const { data: { publicUrl } } = this.supabase.storage
-        .from('public')
-        .getPublicUrl(variantPath)
-      
-      variantUrls[variant.suffix] = publicUrl
-    }
-    
-    return variantUrls
-  }
-
   // ============= BULK OPERATIONS =============
 
   async uploadMultipleProductImages(
@@ -477,5 +308,66 @@ export class SupabaseStorageService {
     } catch {
       return null
     }
+  }
+
+  // ============= HELPER METHODS =============
+
+  private async fileToData(file: File | Buffer): Promise<Blob | Buffer> {
+    if (Buffer.isBuffer(file)) {
+      return file
+    }
+    // File can be used directly as Blob in browser
+    return file
+  }
+
+  private async validateFile(options: ImageUploadOptions): Promise<void> {
+    if (options.file instanceof File) {
+      // Check file size
+      const sizeInMB = options.file.size / (1024 * 1024)
+      if (sizeInMB > options.maxSizeInMB) {
+        throw new Error(`File size exceeds ${options.maxSizeInMB}MB limit`)
+      }
+      
+      // Check file type
+      if (!options.allowedTypes.includes(options.file.type)) {
+        throw new Error(`File type ${options.file.type} not allowed`)
+      }
+    }
+  }
+
+  private getMimeType(file: File | Buffer): string {
+    if (file instanceof File) {
+      return file.type
+    }
+    // Default to JPEG for buffers
+    return 'image/jpeg'
+  }
+
+  private getFileExtension(file: File | Buffer): string {
+    if (file instanceof File) {
+      const parts = file.name.split('.')
+      if (parts.length > 1) {
+        return parts[parts.length - 1]!.toLowerCase()
+      }
+      // Fallback based on mime type
+      const mimeExtMap: Record<string, string> = {
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/webp': 'webp',
+        'image/gif': 'gif',
+      }
+      return mimeExtMap[file.type] || 'jpg'
+    }
+    // Default to jpg for buffers
+    return 'jpg'
+  }
+
+  private generateUUID(): string {
+    // Simple UUID generator that works in browser and Node
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID().slice(0, 8)
+    }
+    // Fallback for older environments
+    return Math.random().toString(36).substring(2, 10)
   }
 }
