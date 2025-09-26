@@ -6,12 +6,12 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle,
   Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
-  Input, Textarea, Button, Avatar, AvatarImage, AvatarFallback, useToast } from "@homejiak/ui"
-import { Upload, Loader2, Save, Globe, Instagram, Facebook } from "lucide-react"
+  Input, Textarea, Button, useToast } from "@homejiak/ui"
+import { Loader2, Save, Globe, Instagram, Facebook } from "lucide-react"
 import { api } from "../../lib/trpc/client"
 import { businessProfileSchema } from "@homejiak/api/utils"
 import { OperatingHoursInput } from "./operating-hours-input"
-import { useUploadThing } from "../../hooks/use-uploadthing"
+import { MerchantLogoUpload } from "../merchant/logo-upload"
 
 type BusinessProfileData = z.infer<typeof businessProfileSchema>
 
@@ -22,7 +22,6 @@ interface BusinessProfileFormProps {
 
 export function BusinessProfileForm({ data, onSuccess }: BusinessProfileFormProps) {
   const [isLoading, setIsLoading] = useState(false)
-  const [logoFile, setLogoFile] = useState<File | null>(null)
   const { toast } = useToast()
   
   const form = useForm<BusinessProfileData>({
@@ -47,53 +46,13 @@ export function BusinessProfileForm({ data, onSuccess }: BusinessProfileFormProp
     },
   })
 
-  const uploadLogo = api.settings.uploadLogo.useMutation()
-  
-  const { startUpload, isUploading } = useUploadThing("merchantLogo", {
-    onClientUploadComplete: async (res: any) => {
-      if (res?.[0]) {
-        await uploadLogo.mutateAsync({ url: res[0].url })
-        form.setValue("logoUrl", res[0].url)
-        toast({
-          title: "Logo uploaded",
-          description: "Your business logo has been updated.",
-        })
-      }
-    },
-    onUploadError: (error: any) => {
-      toast({
-        title: "Upload failed",
-        description: error.message || "Failed to upload logo.",
-        variant: "destructive",
-      })
-    },
-  })
-
   const onSubmit = async (values: BusinessProfileData) => {
     setIsLoading(true)
-    try {
-      // Upload logo first if there's a new file
-      if (logoFile) {
-        await startUpload([logoFile])
-      }
-      
+    try {  
       // Then update profile
       await updateProfile.mutateAsync(values)
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setLogoFile(file)
-      // Preview
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        form.setValue("logoUrl", reader.result as string)
-      }
-      reader.readAsDataURL(file)
     }
   }
 
@@ -110,58 +69,7 @@ export function BusinessProfileForm({ data, onSuccess }: BusinessProfileFormProp
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Logo Upload */}
-            <FormField
-              control={form.control}
-              name="logoUrl"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Business Logo</FormLabel>
-                  <FormControl>
-                    <div className="flex items-center gap-4">
-                      <Avatar className="h-20 w-20">
-                        <AvatarImage src={field.value} />
-                        <AvatarFallback>
-                          {form.getValues("businessName")?.charAt(0)?.toUpperCase() || "B"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleLogoChange}
-                          className="hidden"
-                          id="logo-upload"
-                          disabled={isUploading}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => document.getElementById("logo-upload")?.click()}
-                          disabled={isUploading}
-                        >
-                          {isUploading ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Uploading...
-                            </>
-                          ) : (
-                            <>
-                              <Upload className="mr-2 h-4 w-4" />
-                              Upload Logo
-                            </>
-                          )}
-                        </Button>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Recommended: 400x400px, max 2MB
-                        </p>
-                      </div>
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <MerchantLogoUpload />
 
             {/* Business Name */}
             <FormField

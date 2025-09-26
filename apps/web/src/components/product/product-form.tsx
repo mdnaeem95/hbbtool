@@ -11,8 +11,9 @@ import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle,
   Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
   Input, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   Switch, Tabs, TabsContent, TabsList, TabsTrigger, useToast, cn } from "@homejiak/ui"
-import { ChevronLeft, Save, Upload, X, Plus } from "lucide-react"
+import { ChevronLeft, Save, X, Plus } from "lucide-react"
 import { ProductStatus } from "@homejiak/database/types"
+import { ProductImageManager } from "./image-manager"
 
 // ---------- Schema & Types ----------
 const productFormSchema = z.object({
@@ -133,15 +134,6 @@ export function ProductForm({ product }: ProductFormProps) {
     name: "ingredients",
   })
 
-  const {
-    fields: imageFields,
-    append: appendImage,
-    remove: removeImage,
-  } = useFieldArray<FieldValues, "images">({
-    control: form.control as unknown as Control<FieldValues>,
-    name: "images",
-  })
-
   // Fetch categories (assuming dashboard payload includes them)
   const { data: categoriesData } = api.merchant.getDashboard.useQuery()
 
@@ -197,13 +189,6 @@ export function ProductForm({ product }: ProductFormProps) {
     } else {
       createProduct(data)
     }
-  }
-
-  // Helpers
-  const handleImageUpload = () => {
-    // demo placeholder
-    toast({ title: "Coming soon", description: "Image upload will be available soon." })
-    // Example (when ready): appendImage("https://example.com/image.jpg")
   }
 
   type SimpleCategory = { id: string; name: string }
@@ -491,71 +476,14 @@ export function ProductForm({ product }: ProductFormProps) {
 
             {/* Media */}
             <TabsContent value="media" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Product Images</CardTitle>
-                  <CardDescription>Upload images to showcase your product</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4">
-                    {imageFields.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-                        {imageFields.map((field, index) => {
-                          const value = form.watch(`images.${index}`) ?? ""
-                          return (
-                            <div key={field.id} className="relative group">
-                              {value ? (
-                                // preview
-                                <img
-                                  src={value}
-                                  alt={`Product ${index + 1}`}
-                                  className="h-32 w-full rounded-lg object-cover"
-                                />
-                              ) : (
-                                <Input
-                                  placeholder="Paste image URL"
-                                  {...form.register(`images.${index}`)}
-                                />
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => removeImage(index)}
-                                className="absolute right-2 top-2 rounded-full bg-white p-1 opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ) : (
-                      <div className="flex h-32 items-center justify-center rounded-lg border-2 border-dashed">
-                        <div className="text-center">
-                          <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
-                          <p className="mt-2 text-sm text-muted-foreground">No images uploaded yet</p>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex gap-2">
-                      <Button type="button" variant="outline" onClick={handleImageUpload} className="hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 hover:shadow-sm transition-all duration-200">
-                        <Upload className="mr-2 h-4 w-4" />
-                        Upload Images
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => appendImage("")}
-                        title="Add image by URL"
-                        className="hover:bg-green-50 hover:border-green-300 hover:text-green-700 hover:shadow-sm transition-all duration-200"
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Image URL
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <ProductImageManager 
+                productId={product?.id || 'new'} // Pass 'new' for new products
+                images={product?.images || []}
+                onUpdate={() => {
+                  // Refresh product data if needed
+                  toast({ title: "Images updated" })
+                }}
+              />
             </TabsContent>
 
             {/* Details */}

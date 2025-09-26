@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Button, Card, Label, Input, useToast } from '@homejiak/ui'
-import { Upload, Copy, CheckCircle, AlertCircle } from 'lucide-react'
+import { Copy, CheckCircle, AlertCircle } from 'lucide-react'
 import { api } from '../../lib/trpc/client'
 import Image from 'next/image'
+import { PaymentProofUpload } from './payment-proof'
 
 interface PaymentSectionProps {
   sessionId: string
@@ -32,14 +33,11 @@ export function PaymentSection({
   const [orderId, setOrderId] = useState<string>()
   const [orderNumber, setOrderNumber] = useState<string>()
   const [qrCode, setQrCode] = useState<string>()
-  const [proofUrl, setProofUrl] = useState<string>()
-  const [transactionId, setTransactionId] = useState('')
   const [isCompleting, setIsCompleting] = useState(false)
   const [completionError, setCompletionError] = useState<string>()
   const initRef = useRef(false)
   
   const generateQR = api.payment.generateQR.useMutation()
-  const uploadProof = api.payment.uploadProof.useMutation()
   const completeOrder = api.checkout.complete.useMutation({
     // Handle errors properly
     onError: (error) => {
@@ -137,51 +135,7 @@ export function PaymentSection({
       setIsCompleting(false)
     }
   }
-  
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !orderId) return
     
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast({
-        title: 'File too large',
-        description: 'Please upload an image smaller than 5MB',
-        variant: 'destructive'
-      })
-      return
-    }
-    
-    // Create data URL for preview
-    const reader = new FileReader()
-    reader.onloadend = async () => {
-      const dataUrl = reader.result as string
-      setProofUrl(dataUrl)
-      
-      try {
-        await uploadProof.mutateAsync({
-          orderId,
-          proofUrl: dataUrl,
-          transactionId: transactionId || undefined
-        })
-        
-        toast({
-          title: 'Payment proof uploaded',
-          description: 'The merchant will verify your payment shortly.'
-        })
-      } catch (error) {
-        console.error('Upload error:', error)
-        toast({
-          title: 'Upload failed',
-          description: 'Please try uploading again.',
-          variant: 'destructive'
-        })
-        setProofUrl(undefined) // Clear preview on error
-      }
-    }
-    reader.readAsDataURL(file)
-  }
-  
   const handleCopyPayNow = () => {
     if (merchant.paynowNumber) {
       navigator.clipboard.writeText(merchant.paynowNumber)
@@ -329,62 +283,17 @@ export function PaymentSection({
               )}
 
               {/* Upload proof section */}
-              <div className="border-t pt-4">
-                <h3 className="font-medium mb-3">Upload Payment Proof</h3>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="transactionId" className="text-sm">
-                      Transaction Reference (Optional)
-                    </Label>
-                    <Input
-                      id="transactionId"
-                      value={transactionId}
-                      onChange={(e: any) => setTransactionId(e.target.value)}
-                      placeholder="e.g., TXN123456"
-                      className="mt-1"
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="text-sm">Payment Screenshot</Label>
-                    <div className="mt-2">
-                      <label
-                        htmlFor="proof"
-                        className={`flex items-center justify-center w-full px-4 py-8 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
-                          proofUrl 
-                            ? 'border-green-500 bg-green-50 hover:bg-green-100' 
-                            : 'hover:border-primary hover:bg-slate-50'
-                        }`}
-                      >
-                        {proofUrl ? (
-                          <div className="text-center">
-                            <CheckCircle className="mx-auto h-8 w-8 text-green-600 mb-2" />
-                            <p className="text-sm font-medium text-green-700">Payment proof uploaded</p>
-                            <p className="text-xs text-green-600 mt-1">Click to replace</p>
-                          </div>
-                        ) : (
-                          <div className="text-center">
-                            <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-                            <p className="text-sm text-muted-foreground">
-                              Click to upload payment screenshot
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Max size: 5MB (JPG, PNG)
-                            </p>
-                          </div>
-                        )}
-                      </label>
-                      <input
-                        id="proof"
-                        type="file"
-                        className="hidden"
-                        accept="image/jpeg,image/jpg,image/png"
-                        onChange={handleFileUpload}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {orderId && (
+                <PaymentProofUpload
+                  orderId={orderId}
+                  onSuccess={() => {
+                    toast({
+                      title: 'Payment proof uploaded',
+                      description: 'The merchant will verify your payment shortly.'
+                    })
+                  }}
+                />
+              )}
 
               {/* Complete button */}
               <div className="border-t pt-4">
