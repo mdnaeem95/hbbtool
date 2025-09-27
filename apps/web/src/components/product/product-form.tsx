@@ -14,6 +14,7 @@ import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle,
 import { ChevronLeft, Save, X, Plus } from "lucide-react"
 import { ProductStatus } from "@homejiak/database/types"
 import { ProductImageManager } from "./image-manager"
+import { ProductModifiersManager } from "./product-modifier-manager"
 
 // ---------- Schema & Types ----------
 const productFormSchema = z.object({
@@ -90,10 +91,17 @@ interface ProductFormProps {
 }
 
 export function ProductForm({ product }: ProductFormProps) {
+  const productId = product?.id!
   const router = useRouter()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("basic")
+
+  // Fetch modifier groups if editing existing product
+  const { data: modifierGroups } = api.productModifiers.getByProduct.useQuery(
+    { productId },
+    { enabled: !!productId }
+  )
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -258,6 +266,15 @@ export function ProductForm({ product }: ProductFormProps) {
                 )}
               >
                 Media
+              </TabsTrigger>
+              <TabsTrigger 
+                value="media"
+                className={cn(
+                  "settings-tabtrigger gap-2",
+                  activeTab === "customization" && "settings-tabtrigger-active"
+                )}
+              >
+                Customization
               </TabsTrigger>
               <TabsTrigger 
                 value="details"
@@ -483,6 +500,14 @@ export function ProductForm({ product }: ProductFormProps) {
                   // Refresh product data if needed
                   toast({ title: "Images updated" })
                 }}
+              />
+            </TabsContent>
+
+            {/* Customization */}
+            <TabsContent value="customization">
+              <ProductModifiersManager
+                productId={productId}
+                existingGroups={modifierGroups || []}
               />
             </TabsContent>
 

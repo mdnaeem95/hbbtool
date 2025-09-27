@@ -4,7 +4,7 @@
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  binaryTargets   = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -129,9 +129,26 @@ enum NotificationPriority {
   URGENT
 }
 
+enum ModifierGroupType {
+  SINGLE_SELECT // Radio buttons - only one option
+  MULTI_SELECT // Checkboxes - multiple options
+}
+
+enum PriceAdjustmentType {
+  FIXED // Add/subtract fixed amount
+  PERCENTAGE // Add/subtract percentage of base price
+}
+
+enum ModifierScope {
+  PRODUCT // Specific to one product
+  CATEGORY // Applies to all products in category
+  MERCHANT // Applies to all products from merchant
+}
+
 // ==================== MODELS ====================
 
 model Merchant {
+  supabaseId   String?  @unique
   id           String  @id @default(cuid())
   email        String  @unique
   phone        String  @unique
@@ -176,6 +193,9 @@ model Merchant {
   latitude          Float?  @db.DoublePrecision
   longitude         Float?  @db.DoublePrecision
   showExactLocation Boolean @default(false)
+
+  location    Unsupported("geography")?  // PostGIS geography type
+  metadata    Json?                       
 
   // Operating Hours (JSON)
   operatingHours Json? // { monday: { open: "09:00", close: "18:00" }, ... }
@@ -258,6 +278,7 @@ model Merchant {
   // Relations
   categories        Category[]
   products          Product[]
+  modifierGroups    ProductModifierGroup[]
   orders            Order[]
   reviews           Review[]
   sessions          Session[]
@@ -323,8 +344,9 @@ model Category {
   deletedAt DateTime?
 
   // Relations
-  merchant Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  products Product[]
+  merchant       Merchant                       @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  products       Product[]
+  modifierGroups ProductModifierGroupCategory[]
 
   @@unique([merchantId, slug])
   @@index([merchantId, isActive])
@@ -407,14 +429,15 @@ model Product {
   availableTo   DateTime?
 
   // Relations
-  merchant      Merchant         @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  category      Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  orderItems    OrderItem[]
-  reviews       Review[]
-  variants      ProductVariant[]
-  views         ProductView[]
-  inventoryLogs InventoryLog[]
-  promotions    String[] // Promotion IDs this product is eligible for
+  merchant       Merchant               @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  category       Category?              @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  orderItems     OrderItem[]
+  reviews        Review[]
+  variants       ProductVariant[]
+  modifierGroups ProductModifierGroup[]
+  views          ProductView[]
+  inventoryLogs  InventoryLog[]
+  promotions     String[] // Promotion IDs this product is eligible for
 
   @@unique([merchantId, slug])
   @@unique([merchantId, sku])
@@ -686,6 +709,8 @@ model OrderItem {
   variant        Json? // Selected variant details
   modifiers      Json? // Additional modifications
   specialRequest String? // Customer notes for this item
+
+  customizations OrderItemCustomization[]
 
   // Status
   isPrepared Boolean   @default(false)
@@ -1186,4 +1211,116 @@ model AuditLog {
   @@index([entityType, entityId, createdAt])
   @@index([userId, createdAt])
   @@index([action])
+}
+
+model ProductModifierGroup {
+  id         String  @id @default(cuid())
+  productId  String? // Can be null if merchant-wide
+  merchantId String // For merchant-wide modifier groups
+
+  name        String // "Extra Ingredients", "Spice Level", "Add-ons"
+  description String?
+
+  // Configuration
+  type      ModifierGroupType // SINGLE_SELECT, MULTI_SELECT
+  required  Boolean           @default(false)
+  minSelect Int? // For multi-select
+  maxSelect Int? // For multi-select
+
+  // Display settings
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+  showOnPos Boolean @default(true) // Show on POS systems
+
+  // Scope
+  scope           ModifierScope @default(PRODUCT) // PRODUCT, CATEGORY, MERCHANT
+  applyToVariants Boolean       @default(true) // Apply to all variants of product
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  product    Product?                       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  merchant   Merchant                       @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  modifiers  ProductModifier[]
+  categories ProductModifierGroupCategory[] // Link to categories
+
+  @@index([productId, isActive])
+  @@index([merchantId, scope, isActive])
+  @@index([sortOrder])
+}
+
+model ProductModifier {
+  id      String @id @default(cuid())
+  groupId String
+
+  name        String // "Extra Rice", "Extra Gravy", "No Onions"
+  description String?
+
+  // Pricing - this is ADJUSTMENT to base price
+  priceAdjustment Decimal             @default(0) @db.Decimal(10, 2) // Can be negative
+  priceType       PriceAdjustmentType @default(FIXED) // FIXED or PERCENTAGE
+
+  // For variants - different price per variant
+  variantPricing Json? // { "variant-id-1": 2.50, "variant-id-2": 3.00 }
+
+  // Inventory (optional) - for limited add-ons
+  trackInventory Boolean @default(false)
+  inventory      Int     @default(0)
+  maxPerOrder    Int? // Max times this can be added per item
+
+  // Nutritional impact (optional)
+  caloriesAdjustment Int?
+
+  // Display
+  imageUrl    String?
+  sortOrder   Int     @default(0)
+  isDefault   Boolean @default(false) // Pre-selected by default
+  isAvailable Boolean @default(true)
+  isHidden    Boolean @default(false) // Hidden from customers but available for staff
+
+  // Rules
+  incompatibleWith String[] // Array of modifier IDs that can't be selected together
+  requiredWith     String[] // Array of modifier IDs that must be selected together
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  group ProductModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, isAvailable])
+  @@index([sortOrder])
+}
+
+// Link modifier groups to categories (for category-wide modifiers)
+model ProductModifierGroupCategory {
+  groupId    String
+  categoryId String
+
+  group    ProductModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  category Category             @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, categoryId])
+  @@index([categoryId])
+}
+
+// Store customizations in orders
+model OrderItemCustomization {
+  id          String @id @default(cuid())
+  orderItemId String
+
+  // Store what was selected
+  modifierGroupId   String
+  modifierGroupName String // Store name in case group is deleted
+  modifierId        String
+  modifierName      String // Store name in case modifier is deleted
+  priceAdjustment   Decimal @db.Decimal(10, 2)
+  quantity          Int     @default(1) // For multi-add scenarios
+
+  createdAt DateTime @default(now())
+
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([orderItemId])
 }
