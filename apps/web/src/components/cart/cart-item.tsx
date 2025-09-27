@@ -3,7 +3,8 @@
 import { Button, Card } from "@homejiak/ui"
 import { Minus, Plus, Trash2 } from "lucide-react"
 import Image from "next/image"
-import { CartItem as CartItemType } from "../../stores/cart-store"
+import { CartItem as CartItemType, formatCustomizations } from "../../stores/cart-store"
+import { formatPrice } from "../../lib/utils"
 
 interface CartItemProps {
   item: CartItemType
@@ -25,7 +26,10 @@ export function CartItem({ item, onUpdateQuantity, onRemove }: CartItemProps) {
     }
   }
 
-  const itemTotal = item.price * item.quantity
+  // Calculate prices including customizations
+  const unitPrice = item.price + (item.customizationPrice || 0)
+  const itemTotal = unitPrice * item.quantity
+  const customizationsText = formatCustomizations(item.customizations)
 
   return (
     <Card className="p-4">
@@ -49,13 +53,27 @@ export function CartItem({ item, onUpdateQuantity, onRemove }: CartItemProps) {
         {/* Product Details */}
         <div className="flex flex-1 flex-col">
           <div className="flex justify-between">
-            <div>
+            <div className="flex-1">
               <h3 className="font-medium">{item.name}</h3>
               <p className="text-sm text-muted-foreground">{item.merchantName}</p>
+              
+              {/* Display customizations if any */}
+              {customizationsText && (
+                <div className="mt-1">
+                  <p className="text-sm text-muted-foreground">
+                    {customizationsText}
+                  </p>
+                </div>
+              )}
+              
+              {/* Display notes if any */}
               {item.notes && (
-                <p className="mt-1 text-sm text-muted-foreground">{item.notes}</p>
+                <p className="mt-1 text-sm italic text-muted-foreground">
+                  Note: {item.notes}
+                </p>
               )}
             </div>
+            
             <Button
               variant="ghost"
               size="icon"
@@ -90,12 +108,25 @@ export function CartItem({ item, onUpdateQuantity, onRemove }: CartItemProps) {
               </Button>
             </div>
 
-            {/* Price */}
+            {/* Price Display */}
             <div className="text-right">
-              <p className="font-semibold">${itemTotal.toFixed(2)}</p>
-              <p className="text-sm text-muted-foreground">
-                ${item.price.toFixed(2)} each
-              </p>
+              <p className="font-semibold">{formatPrice(itemTotal)}</p>
+              <div className="text-xs text-muted-foreground space-y-0.5">
+                {/* Show base price */}
+                <p>{formatPrice(item.price)} base</p>
+                
+                {/* Show customization price if any */}
+                {item.customizationPrice && item.customizationPrice > 0 && (
+                  <p>+{formatPrice(item.customizationPrice)} extras</p>
+                )}
+                
+                {/* Show unit price if quantity > 1 */}
+                {item.quantity > 1 && (
+                  <p className="pt-1 border-t">
+                    {formatPrice(unitPrice)} × {item.quantity}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>

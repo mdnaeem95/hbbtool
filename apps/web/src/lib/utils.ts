@@ -19,6 +19,13 @@ export function formatDate(date: Date | string) {
   }).format(new Date(date))
 }
 
+export function formatPrice(amount: number): string {
+  return new Intl.NumberFormat('en-SG', {
+    style: 'currency',
+    currency: 'SGD',
+  }).format(amount)
+}
+
 export function formatRelativeTime(date: string | Date): string {
   const now = new Date()
   const targetDate = new Date(date)

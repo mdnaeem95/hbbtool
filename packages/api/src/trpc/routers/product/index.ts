@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
-import { router, merchantProcedure } from '../../core'
+import { router, merchantProcedure, publicProcedure } from '../../core'
 import { paginationSchema, priceSchema, quantitySchema } from '../../../utils/validation'
 import { paginatedResponse } from '../../../utils/pagination'
 import { handleDatabaseError } from '../../../utils/errors'
@@ -279,5 +279,40 @@ export const productRouter = router({
       })
 
       return { success: true, count: input.ids.length }
+    }),
+
+  getWithModifiers: publicProcedure
+    .input(z.object({ id: z.string().cuid() }))
+    .query(async ({ ctx, input }) => {
+      const product = await ctx.db.product.findUnique({
+        where: { id: input.id },
+        include: {
+          merchant: {
+            select: {
+              id: true,
+              businessName: true,
+              slug: true,
+            }
+          },
+          category: true,
+          variants: true,
+          modifierGroups: {
+            where: { isActive: true },
+            include: {
+              modifiers: {
+                where: { isAvailable: true },
+                orderBy: { sortOrder: 'asc' }
+              }
+            },
+            orderBy: { sortOrder: 'asc' }
+          }
+        }
+      })
+
+      if (!product) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Product not found' })
+      }
+
+      return product
     }),
 })
