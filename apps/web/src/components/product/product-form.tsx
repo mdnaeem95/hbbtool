@@ -268,7 +268,7 @@ export function ProductForm({ product }: ProductFormProps) {
                 Media
               </TabsTrigger>
               <TabsTrigger 
-                value="media"
+                value="customization"
                 className={cn(
                   "settings-tabtrigger gap-2",
                   activeTab === "customization" && "settings-tabtrigger-active"
