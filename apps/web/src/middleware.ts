@@ -91,7 +91,7 @@ function getCacheHeaders(pathname: string): string | null {
   return null
 }
 
-const AUTH_REQUIRED = ["/dashboard", "/merchant"]
+const AUTH_REQUIRED = ["/dashboard"]
 
 export async function middleware(request: NextRequest) {
   const start = Date.now()
@@ -133,7 +133,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Public routes (no auth)
-  const publicRoutes = ["/", "/auth", "/track", "/api/public"]
+  const publicRoutes = ["/", "/auth", "/track", "/api/public", "/merchant"]
   const isPublic = publicRoutes.some(
     (r) => pathname === r || pathname.startsWith(`${r}/`),
   )
