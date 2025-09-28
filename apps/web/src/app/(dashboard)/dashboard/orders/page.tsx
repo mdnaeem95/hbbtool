@@ -1,6 +1,6 @@
 import { Metadata } from "next"
 import { redirect } from "next/navigation"
-import { getMerchantSession } from "../../../../app/actions/merchant-auth"
+import { getMerchantSession } from "../../../actions/merchant-auth"
 import { OrdersContent } from "../../../../components/merchant/orders/orders-content"
 
 export const dynamic = 'force-dynamic'
