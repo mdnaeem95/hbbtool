@@ -3,24 +3,8 @@ import { useState } from 'react'
 import { Button, Card } from '@homejiak/ui'
 import { X, GripVertical, Loader2, Image as ImageIcon } from 'lucide-react'
 import Image from 'next/image'
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core'
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  horizontalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import {
-  useSortable,
-} from '@dnd-kit/sortable'
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { api } from '../../lib/trpc/client'
 

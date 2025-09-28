@@ -1727,10 +1727,10 @@ packages:
   '@radix-ui/react-dismissable-layer@1.1.11':
     resolution: {integrity: sha512-Nqcp+t5cTB8BinFkZgXiMJniQH0PsUt2k51FUhbdfeKvc4ACcG2uQniY/8+h1Yv6Kza4Q7lD7PQV0z0oicE0Mg==}
     peerDependencies:
-      '@types/react': 18.3.12
-      '@types/react-dom': 18.3.5
-      react: 18.3.1
-      react-dom: 18.3.1
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -2134,10 +2134,10 @@ packages:
   '@radix-ui/react-visually-hidden@1.2.3':
     resolution: {integrity: sha512-pzJq12tEaaIhqjbzpCuv/OypJY/BPavOofm+dbab+MHLajy277+1lLm6JFcGgF5eskJ6mquGirhXY2GD/8u8Ug==}
     peerDependencies:
-      '@types/react': 18.3.12
-      '@types/react-dom': 18.3.5
-      react: 18.3.1
-      react-dom: 18.3.1
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
     peerDependenciesMeta:
       '@types/react':
         optional: true
@@ -2699,8 +2699,8 @@ packages:
     resolution: {integrity: sha512-HwZyfLjEu+y1mUFvwDAkVxinGm8fEegaWN+O8np/WZ2Sqe5Lv6OXFpV6GWz9LOEvBYMbGuGk1FQdejo+4HCJ5w==}
     peerDependencies:
       maplibre-gl: '>=4.0.0'
-      react: 18.3.1
-      react-dom: 18.3.1
+      react: '>=16.3.0'
+      react-dom: '>=16.3.0'
     peerDependenciesMeta:
       maplibre-gl:
         optional: true

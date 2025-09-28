@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { X, ShoppingCart, Clock, Minus, Plus, ChevronLeft, ChevronRight } from "lucide-react"
+import { X, ShoppingCart, Clock, Minus, Plus, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react"
 import Image from "next/image"
 import { api } from "../../lib/trpc/client"
 import { toNumber } from "../../lib/utils"
@@ -24,11 +24,22 @@ export function QuickViewModal({
   const [selectedImage, setSelectedImage] = React.useState(0)
   const [isOpen, setIsOpen] = React.useState(true)
 
-  // Fetch product details
+  // Fetch product details with modifiers
   const { data: product, isLoading } = api.public.getProduct.useQuery({
     merchantSlug,
     productId,
   })
+
+  // Check if product has active modifiers
+  const hasModifiers = React.useMemo(() => {
+    return !!(
+      product?.modifierGroups &&
+      product.modifierGroups.length > 0 &&
+      product.modifierGroups.some((g: any) =>
+        g.isActive && g.modifiers && g.modifiers.length > 0
+      )
+    )
+  }, [product])
 
   // Handle escape key
   React.useEffect(() => {
@@ -57,8 +68,17 @@ export function QuickViewModal({
   }
 
   const handleAddToCart = () => {
-    onAddToCart(productId, quantity)
-    handleClose()
+    // For products with modifiers, close the modal and let parent handle it
+    // This will trigger the customization sheet in the parent component
+    if (hasModifiers) {
+      handleClose()
+      // Pass quantity to parent to pre-set it if needed
+      onAddToCart(productId, quantity)
+    } else {
+      // For products without modifiers, add directly
+      onAddToCart(productId, quantity)
+      handleClose()
+    }
   }
 
   const incrementQuantity = () => {
@@ -87,6 +107,26 @@ export function QuickViewModal({
   const formatPrice = (price: any) => {
     const numPrice = typeof price === 'number' ? price : Number(price)
     return isNaN(numPrice) ? '0.00' : numPrice.toFixed(2)
+  }
+
+  // Calculate price with base modifiers if any
+  const getDisplayPrice = () => {
+    let basePrice = toNumber(product?.price || 0)
+    
+    // Add default modifier prices if any
+    if (hasModifiers && product?.modifierGroups) {
+      product.modifierGroups.forEach((group: any) => {
+        if (group.type === 'SINGLE_SELECT' && group.required) {
+          // Find default or first modifier
+          const defaultModifier = group.modifiers.find((m: any) => m.isDefault) || group.modifiers[0]
+          if (defaultModifier?.priceAdjustment) {
+            basePrice += defaultModifier.priceAdjustment
+          }
+        }
+      })
+    }
+    
+    return basePrice * quantity
   }
 
   if (!isOpen) return null
@@ -227,12 +267,26 @@ export function QuickViewModal({
                       </div>
                     )}
 
+                    {/* Modifiers Notice */}
+                    {hasModifiers && (
+                      <div className="rounded-lg bg-blue-50 p-3 flex items-start gap-2">
+                        <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <div className="text-sm text-blue-800">
+                          <p className="font-medium">Customizable Item</p>
+                          <p className="mt-1">This item has options you can customize. Click "Select Options" to choose your preferences.</p>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Price */}
                     <div className="space-y-2">
                       <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-bold text-gray-900">
-                          ${formatPrice(product.price)}
-                        </span>
+                        <div className="flex items-baseline gap-1">
+                          {hasModifiers && <span className="text-sm text-gray-600">From</span>}
+                          <span className="text-3xl font-bold text-gray-900">
+                            ${formatPrice(product.price)}
+                          </span>
+                        </div>
                         {product.compareAtPrice && (
                           <span className="text-lg text-gray-500 line-through">
                             ${formatPrice(product.compareAtPrice)}
@@ -243,40 +297,42 @@ export function QuickViewModal({
                       {product.preparationTime && (
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <Clock className="h-4 w-4" />
-                          <span>Ready in {product.preparationTime}</span>
+                          <span>Ready in {product.preparationTime} min</span>
                         </div>
                       )}
                     </div>
 
-                    {/* Quantity Selector */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-900">Quantity</label>
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={decrementQuantity}
-                          disabled={quantity <= 1}
-                          className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                          aria-label="Decrease quantity"
-                        >
-                          <Minus className="h-4 w-4" />
-                        </button>
-                        <span className="w-12 text-center font-medium text-gray-900">{quantity}</span>
-                        <button
-                          onClick={incrementQuantity}
-                          disabled={product.trackInventory && product.inventory !== null && quantity >= product.inventory}
-                          className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                          aria-label="Increase quantity"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </button>
+                    {/* Quantity Selector - Only show if no modifiers */}
+                    {!hasModifiers && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-900">Quantity</label>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={decrementQuantity}
+                            disabled={quantity <= 1}
+                            className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label="Decrease quantity"
+                          >
+                            <Minus className="h-4 w-4" />
+                          </button>
+                          <span className="w-12 text-center font-medium text-gray-900">{quantity}</span>
+                          <button
+                            onClick={incrementQuantity}
+                            disabled={product.trackInventory && product.inventory !== null && quantity >= product.inventory}
+                            className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label="Increase quantity"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                        </div>
+                        
+                        {product.trackInventory && product.inventory !== null && product.inventory > 0 && (
+                          <p className="text-sm text-gray-600">
+                            Only {product.inventory} left in stock
+                          </p>
+                        )}
                       </div>
-                      
-                      {product.trackInventory && product.inventory !== null && product.inventory > 0 && (
-                        <p className="text-sm text-gray-600">
-                          Only {product.inventory} left in stock
-                        </p>
-                      )}
-                    </div>
+                    )}
 
                     {/* Status Badge */}
                     {product.status !== "ACTIVE" && (
@@ -285,7 +341,7 @@ export function QuickViewModal({
                       </div>
                     )}
 
-                    {/* Add to Cart Button */}
+                    {/* Add to Cart / Select Options Button */}
                     <button
                       onClick={handleAddToCart}
                       disabled={
@@ -295,8 +351,32 @@ export function QuickViewModal({
                       className="mt-auto flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-6 py-3 text-white font-medium shadow-lg transition-all hover:bg-orange-600 hover:shadow-xl disabled:cursor-not-allowed disabled:bg-gray-300 disabled:shadow-none"
                     >
                       <ShoppingCart className="h-5 w-5" />
-                      {product.status === "SOLD_OUT" ? "Out of Stock" : `Add to Cart - $${formatPrice(toNumber(product.price) * quantity)}`}
+                      {product.status === "SOLD_OUT" ? (
+                        "Out of Stock"
+                      ) : hasModifiers ? (
+                        "Select Options & Add to Cart"
+                      ) : (
+                        `Add to Cart - $${formatPrice(getDisplayPrice())}`
+                      )}
                     </button>
+
+                    {/* Modifier Groups Preview */}
+                    {hasModifiers && product.modifierGroups && (
+                      <div className="border-t pt-4 space-y-3">
+                        <h3 className="text-sm font-medium text-gray-900">Available Options:</h3>
+                        {product.modifierGroups
+                          .filter((g: any) => g.isActive && g.modifiers?.length > 0)
+                          .map((group: any) => (
+                            <div key={group.id} className="text-sm text-gray-600">
+                              <span className="font-medium">{group.name}</span>
+                              {group.required && <span className="text-red-500 ml-1">*</span>}
+                              <div className="mt-1 text-xs text-gray-500">
+                                {group.type === 'SINGLE_SELECT' ? 'Choose one' : `Choose ${group.minSelect || 0}-${group.maxSelect || 'any'}`}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
 
                     {/* Additional Info */}
                     {(product.sku || (product._count && product._count.orderItems > 0)) && (

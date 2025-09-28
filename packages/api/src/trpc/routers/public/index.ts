@@ -97,6 +97,24 @@ export const publicRouter = router({
         include: {
           category: true,
           variants: { orderBy: { isDefault: 'desc' } },
+          modifierGroups: {
+            where: {
+              isActive: true,
+            },
+            include: {
+              modifiers: {
+                where: {
+                  isAvailable: true,
+                },
+                orderBy: {
+                  sortOrder: 'asc',
+                },
+              },
+            },
+            orderBy: {
+              sortOrder: 'asc',
+            },
+          },
           _count: { select: { orderItems: true, reviews: true } },
         },
       })
@@ -265,6 +283,24 @@ export const publicRouter = router({
               name: true,
               slug: true,
             }
+          },
+          modifierGroups: {
+            where: {
+              isActive: true,
+            },
+            include: {
+              modifiers: {
+                where: {
+                  isAvailable: true,
+                },
+                orderBy: {
+                  sortOrder: 'asc',
+                },
+              },
+            },
+            orderBy: {
+              sortOrder: 'asc',
+            },
           },
           _count: {
             select: {

@@ -5,7 +5,6 @@ import { Button, useToast } from "@homejiak/ui"
 import { ShoppingCart, Plus, Minus, Check } from "lucide-react"
 import { useCart } from "../../stores/cart-store"
 import { cn } from "../../lib/utils"
-import { api } from "../../lib/trpc/client"
 import { ProductCustomizationSheet } from "../product/product-customisation-sheet"
 
 interface AddToCartButtonProps {
@@ -15,7 +14,7 @@ interface AddToCartButtonProps {
     price: number
     image?: string
     merchantId?: string
-    modifierGroups?: any[] // Optional if already fetched
+    modifierGroups?: any[] // Should be included from the API now
   }
   merchant: {
     id: string
@@ -36,17 +35,12 @@ export function AddToCartButton({
   const { addItem, updateQuantity, removeItem, canAddItem, items } = useCart()
   const { toast } = useToast()
 
-  // Fetch product with modifiers if not already included
-  const { data: productWithModifiers } = api.product.getWithModifiers.useQuery(
-    { id: product.id },
-    { 
-      enabled: !product.modifierGroups && !!product.id,
-      staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    }
-  )
-
-  // Merge product data with fetched modifiers
-  const fullProduct = productWithModifiers || product
+  // Check if product has active modifiers
+  const hasModifiers = product.modifierGroups && 
+    product.modifierGroups.length > 0 && 
+    product.modifierGroups.some((g: any) => 
+      g.isActive && g.modifiers && g.modifiers.length > 0
+    )
 
   // Get all cart items for this product (may have different customizations)
   const productCartItems = items.filter(item => item.productId === product.id)
@@ -56,12 +50,6 @@ export function AddToCartButton({
   const simpleCartItem = productCartItems.find(item => 
     !item.customizations || item.customizations.length === 0
   )
-
-  const hasModifiers = fullProduct.modifierGroups && 
-    fullProduct.modifierGroups.length > 0 && 
-    fullProduct.modifierGroups.some((g: any) => 
-      g.isActive && g.modifiers && g.modifiers.length > 0
-    )
 
   const handleAddToCart = () => {
     // Check if we can add items from this merchant
@@ -74,13 +62,13 @@ export function AddToCartButton({
       return
     }
 
-    // If product has modifiers, show customization sheet
+    // ALWAYS check for modifiers before adding to cart
     if (hasModifiers) {
       setShowCustomization(true)
       return
     }
 
-    // Otherwise add directly to cart
+    // Only add directly if no modifiers
     try {
       addItem({
         productId: product.id,
@@ -113,7 +101,7 @@ export function AddToCartButton({
     e.stopPropagation()
     
     if (hasModifiers) {
-      // If product has modifiers, show customization sheet for new item
+      // Always show customization sheet for products with modifiers
       setShowCustomization(true)
     } else if (simpleCartItem) {
       // Increment the simple item without customizations
@@ -173,17 +161,15 @@ export function AddToCartButton({
           Add to Cart
         </Button>
 
-        {hasModifiers && (
-          <ProductCustomizationSheet
-            product={{
-              ...fullProduct,
-              merchantId: merchant.id || product.merchantId,
-              merchant: merchant
-            }}
-            isOpen={showCustomization}
-            onClose={() => setShowCustomization(false)}
-          />
-        )}
+        <ProductCustomizationSheet
+          product={{
+            ...product,
+            merchantId: merchant.id || product.merchantId,
+            merchant: merchant
+          }}
+          isOpen={showCustomization}
+          onClose={() => setShowCustomization(false)}
+        />
       </>
     )
   }
@@ -216,17 +202,15 @@ export function AddToCartButton({
         </Button>
       </div>
 
-      {hasModifiers && (
-        <ProductCustomizationSheet
-          product={{
-            ...fullProduct,
-            merchantId: merchant.id || product.merchantId,
-            merchant: merchant
-          }}
-          isOpen={showCustomization}
-          onClose={() => setShowCustomization(false)}
-        />
-      )}
+      <ProductCustomizationSheet
+        product={{
+          ...product,
+          merchantId: merchant.id || product.merchantId,
+          merchant: merchant
+        }}
+        isOpen={showCustomization}
+        onClose={() => setShowCustomization(false)}
+      />
     </>
   )
 }

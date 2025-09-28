@@ -6,6 +6,7 @@ import { useDebounce } from "../../hooks/use-debounce"
 import { ProductGrid, ProductFilters, ActiveFilters, Input, useToast, Spinner, Button } from "@homejiak/ui"
 import { Search, SlidersHorizontal, X } from "lucide-react"
 import { QuickViewModal } from "./quick-view-modal"
+import { ProductCustomizationSheet } from "./product-customisation-sheet"
 import { useCartStore } from "../../stores/cart-store"
 import { api } from "../../lib/trpc/client"
 import { keepPreviousData } from "@tanstack/react-query"
@@ -19,23 +20,28 @@ interface Category {
 
 interface ProductCatalogProps {
   merchantSlug: string
+  merchantId: string
+  merchantName: string
   categories: Category[]
   initialSearchParams?: Record<string, string>
 }
 
 export function ProductCatalog({
   merchantSlug,
+  merchantId,
+  merchantName,
   categories,
 }: ProductCatalogProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { toast } = useToast()
-  const addToCart = useCartStore((s: any) => s.addItem)
+  const { addItem, canAddItem } = useCartStore()
 
   // State Management
   const [quickViewProductId, setQuickViewProductId] = React.useState<string | null>(null)
   const [showMobileFilters, setShowMobileFilters] = React.useState(false)
+  const [customizationProduct, setCustomizationProduct] = React.useState<any | null>(null)
   
   // Define sort type
   type SortOption = "featured" | "rating" | "price-asc" | "price-desc" | "newest" | "popular" | "name-asc" | "name-desc"
@@ -73,9 +79,9 @@ export function ProductCatalog({
   
   // Debounce search input
   const debouncedSearch = useDebounce(localSearch, 500)
-  const debouncedFilters = useDebounce(filters, 300) // Shorter debounce for better UX
+  const debouncedFilters = useDebounce(filters, 300)
 
-  // **KEY CHANGE: Use backend filtering with debounced filters**
+  // Fetch products with modifiers included
   const {
     data: productsData,
     isLoading: isLoadingProducts,
@@ -84,7 +90,7 @@ export function ProductCatalog({
     {
       merchantSlug,
       page: 1,
-      limit: 50, // Reasonable limit for initial load
+      limit: 50,
       categoryIds: debouncedFilters.categories.length > 0 ? debouncedFilters.categories : undefined,
       search: debouncedFilters.search || undefined,
       minPrice: debouncedFilters.minPrice,
@@ -95,10 +101,10 @@ export function ProductCatalog({
       sort: debouncedFilters.sort,
     },
     {
-      staleTime: 1 * 60 * 1000, // Cache for 1 minute (reduced from 5)
-      gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes (reduced from 10)
+      staleTime: 1 * 60 * 1000,
+      gcTime: 5 * 60 * 1000,
       refetchOnWindowFocus: false,
-      placeholderData: keepPreviousData, // Keep previous data while fetching new data
+      placeholderData: keepPreviousData,
     }
   )
 
@@ -178,25 +184,68 @@ export function ProductCatalog({
     setLocalSearch("")
   }, [])
 
-  // Add to cart handler
+  // Check if product has modifiers
+  const hasModifiers = React.useCallback((product: any): boolean => {
+    return !!(
+      product.modifierGroups &&
+      product.modifierGroups.length > 0 &&
+      product.modifierGroups.some((g: any) =>
+        g.isActive && g.modifiers && g.modifiers.length > 0
+      )
+    )
+  }, [])
+
+  // Add to cart handler with modifier support
   const handleAddToCart = React.useCallback((productId: string, quantity = 1) => {
     const product = productsData?.items.find(p => p.id === productId)
     if (!product) return
     
-    addToCart({
-      productId: product.id,
-      merchantId: product.merchantId,
-      name: product.name,
-      price: product.effectivePrice || product.price,
-      image: product.images?.[0],
-      quantity,
-    })
+    // Check if we can add items from this merchant
+    if (!canAddItem(merchantId)) {
+      toast({
+        title: "Different merchant",
+        description: "You can only order from one merchant at a time. Please clear your cart first.",
+        variant: "destructive",
+      })
+      return
+    }
     
-    toast({
-      title: "Added to cart",
-      description: `${product.name} has been added to your cart`,
-    })
-  }, [productsData, addToCart, toast])
+    // Check if product has modifiers
+    if (hasModifiers(product)) {
+      // Open customization sheet for products with modifiers
+      setCustomizationProduct({
+        ...product,
+        merchantId: merchantId,
+        merchant: {
+          id: merchantId,
+          businessName: merchantName
+        }
+      })
+    } else {
+      // Add directly to cart for products without modifiers
+      addItem({
+        productId: product.id,
+        merchantId: merchantId,
+        merchantName: merchantName,
+        name: product.name,
+        price: product.effectivePrice || product.price,
+        image: product.images?.[0],
+        quantity,
+      })
+      
+      toast({
+        title: "Added to cart",
+        description: `${product.name} has been added to your cart`,
+      })
+    }
+  }, [productsData, canAddItem, merchantId, merchantName, hasModifiers, addItem, toast])
+
+  // Handle add from quick view (may already have modifiers selected)
+  const handleQuickViewAddToCart = React.useCallback((productId: string, quantity = 1) => {
+    // Quick view should close and trigger the main add to cart flow
+    setQuickViewProductId(null)
+    handleAddToCart(productId, quantity)
+  }, [handleAddToCart])
 
   // Active filters for display
   const activeFilters = React.useMemo(() => {
@@ -390,7 +439,7 @@ export function ProductCatalog({
                 Showing {products.length} of {totalProducts} products
               </p>
               
-              {/* Product Grid */}
+              {/* Product Grid with modifiers passed through */}
               <ProductGrid
                 products={products.map(p => ({
                   id: p.id,
@@ -406,10 +455,12 @@ export function ProductCatalog({
                       ? `${p.preparationTime} min` 
                       : String(p.preparationTime))
                     : undefined,
-                  merchant: p.merchantId ? { 
-                    name: "",
-                    slug: merchantSlug 
-                  } : undefined,
+                  merchant: {
+                    id: merchantId,
+                    name: merchantName,
+                    slug: merchantSlug
+                  },
+                  modifierGroups: p.modifierGroups, // Pass modifiers to product grid
                 }))}
                 onAddToCart={handleAddToCart}
                 onQuickView={setQuickViewProductId}
@@ -425,9 +476,16 @@ export function ProductCatalog({
           productId={quickViewProductId}
           merchantSlug={merchantSlug}
           onClose={() => setQuickViewProductId(null)}
-          onAddToCart={handleAddToCart}
+          onAddToCart={handleQuickViewAddToCart}
         />
       )}
+
+      {/* Product Customization Sheet - Single instance for entire catalog */}
+      <ProductCustomizationSheet
+        product={customizationProduct}
+        isOpen={!!customizationProduct}
+        onClose={() => setCustomizationProduct(null)}
+      />
 
       {/* Mobile Filters Sheet */}
       {showMobileFilters && (
