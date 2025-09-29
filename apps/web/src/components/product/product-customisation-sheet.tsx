@@ -1,16 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { 
-  Sheet, 
-  SheetContent, 
-  Button, 
-  RadioGroup, 
-  RadioGroupItem, 
-  Checkbox, 
-  ScrollArea 
-} from "@homejiak/ui"
-import { Plus, Minus, ShoppingCart, X } from "lucide-react"
+import { Sheet, SheetContent, Button, RadioGroup, RadioGroupItem, ScrollArea } from "@homejiak/ui"
+import { Plus, Minus, ShoppingCart } from "lucide-react"
 import { useCart } from "../../stores/cart-store"
 import { formatPrice } from "../../lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
@@ -53,21 +45,30 @@ export function ProductCustomizationSheet({
   }, [product])
 
   const calculateTotalPrice = () => {
-    let price = product.price
+    // Start with base price, default to 0 if not available
+    let price = product?.price || 0
     
-    product.modifierGroups?.forEach((group: any) => {
+    // Ensure we have a valid number
+    if (typeof price !== 'number' || isNaN(price)) {
+      price = 0
+    }
+    
+    // Add modifier prices
+    product?.modifierGroups?.forEach((group: any) => {
       if (group.type === "SINGLE_SELECT") {
         const selectedId = selectedModifiers[group.id]
         const modifier = group.modifiers.find((m: any) => m.id === selectedId)
-        if (modifier) {
-          price += modifier.priceAdjustment
+        if (modifier && modifier.priceAdjustment) {
+          const adjustment = parseFloat(modifier.priceAdjustment) || 0
+          price += adjustment
         }
       } else {
         const selectedIds = selectedModifiers[group.id] || []
         selectedIds.forEach((id: string) => {
           const modifier = group.modifiers.find((m: any) => m.id === id)
-          if (modifier) {
-            price += modifier.priceAdjustment
+          if (modifier && modifier.priceAdjustment) {
+            const adjustment = parseFloat(modifier.priceAdjustment) || 0
+            price += adjustment
           }
         })
       }
@@ -111,7 +112,7 @@ export function ProductCustomizationSheet({
   const validateSelections = () => {
     const newErrors: Record<string, string> = {}
     
-    product.modifierGroups?.forEach((group: any) => {
+    product?.modifierGroups?.forEach((group: any) => {
       if (group.required) {
         if (group.type === "SINGLE_SELECT") {
           if (!selectedModifiers[group.id]) {
@@ -144,7 +145,7 @@ export function ProductCustomizationSheet({
       return
     }
     
-    const customizations = product.modifierGroups?.map((group: any) => {
+    const customizations = product?.modifierGroups?.map((group: any) => {
       const selections = []
       
       if (group.type === "SINGLE_SELECT") {
@@ -155,7 +156,7 @@ export function ProductCustomizationSheet({
             selections.push({
               modifierId: modifier.id,
               modifierName: modifier.name,
-              priceAdjustment: modifier.priceAdjustment,
+              priceAdjustment: modifier.priceAdjustment || 0,
               priceType: modifier.priceType || "FIXED",
               quantity: 1
             })
@@ -169,7 +170,7 @@ export function ProductCustomizationSheet({
             selections.push({
               modifierId: modifier.id,
               modifierName: modifier.name,
-              priceAdjustment: modifier.priceAdjustment,
+              priceAdjustment: modifier.priceAdjustment || 0,
               priceType: modifier.priceType || "FIXED",
               quantity: 1
             })
@@ -189,7 +190,7 @@ export function ProductCustomizationSheet({
       merchantId: product.merchantId,
       merchantName: product.merchant?.businessName || "",
       name: product.name,
-      price: product.price,
+      price: product.price || 0,
       image: product.images?.[0],
       quantity,
       customizations: customizations.length > 0 ? customizations : undefined
@@ -204,27 +205,17 @@ export function ProductCustomizationSheet({
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent 
         side="bottom" 
-        className="h-screen max-h-screen w-full rounded-t-3xl p-0 flex flex-col bg-white/95 backdrop-blur-xl border-t"
+        className="h-screen max-h-screen w-full rounded-t-3xl p-0 flex flex-col bg-white border-t shadow-xl"
       >
-        {/* Header with Product Info */}
-        <div className="px-6 pt-4 pb-3 border-b bg-white/80 backdrop-blur-sm">
-          <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">
-                {product.name}
-              </h2>
-              <p className="text-sm text-gray-500 mt-1">
-                Customize your order
-              </p>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="rounded-full hover:bg-gray-100"
-            >
-              <X className="h-5 w-5" />
-            </Button>
+        {/* Header with Product Info - removed X button since Sheet has one */}
+        <div className="px-6 pt-6 pb-4 border-b bg-white">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">
+              {product?.name || "Product"}
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Customize your order
+            </p>
           </div>
         </div>
 
@@ -232,12 +223,12 @@ export function ProductCustomizationSheet({
         <ScrollArea className="flex-1 overflow-y-auto">
           <div className="px-6 py-4 space-y-6">
             {/* Modifier Groups */}
-            {product.modifierGroups?.map((group: any, index: number) => (
+            {product?.modifierGroups?.map((group: any, index: number) => (
               <motion.div
                 key={group.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
+                transition={{ delay: index * 0.05 }}
                 className="space-y-3"
               >
                 <div className="flex items-center justify-between">
@@ -263,12 +254,12 @@ export function ProductCustomizationSheet({
                     {group.modifiers.map((modifier: any) => (
                       <label
                         key={modifier.id}
-                        htmlFor={modifier.id}
+                        htmlFor={`radio-${modifier.id}`}
                         className={`
                           flex items-center justify-between p-4 rounded-2xl border-2 
                           cursor-pointer transition-all duration-200
                           ${selectedModifiers[group.id] === modifier.id 
-                            ? 'border-orange-500 bg-orange-50/50' 
+                            ? 'border-orange-500 bg-orange-50' 
                             : 'border-gray-200 hover:border-gray-300 bg-white'
                           }
                         `}
@@ -276,7 +267,7 @@ export function ProductCustomizationSheet({
                         <div className="flex items-center gap-3">
                           <RadioGroupItem 
                             value={modifier.id} 
-                            id={modifier.id}
+                            id={`radio-${modifier.id}`}
                             className="text-orange-500 border-gray-300"
                           />
                           <span className="text-gray-900 font-medium">
@@ -286,7 +277,7 @@ export function ProductCustomizationSheet({
                         {modifier.priceAdjustment !== 0 && (
                           <span className="text-sm font-semibold text-gray-700">
                             {modifier.priceAdjustment > 0 ? "+" : ""}
-                            {formatPrice(modifier.priceAdjustment)}
+                            {formatPrice(modifier.priceAdjustment || 0)}
                           </span>
                         )}
                       </label>
@@ -297,38 +288,55 @@ export function ProductCustomizationSheet({
                     {group.modifiers.map((modifier: any) => {
                       const isChecked = (selectedModifiers[group.id] || []).includes(modifier.id)
                       return (
-                        <label
+                        <div
                           key={modifier.id}
-                          htmlFor={modifier.id}
                           className={`
                             flex items-center justify-between p-4 rounded-2xl border-2 
                             cursor-pointer transition-all duration-200
                             ${isChecked 
-                              ? 'border-orange-500 bg-orange-50/50' 
+                              ? 'border-orange-500 bg-orange-50' 
                               : 'border-gray-200 hover:border-gray-300 bg-white'
                             }
                           `}
+                          onClick={() => handleMultiSelect(group.id, modifier.id, !isChecked)}
                         >
                           <div className="flex items-center gap-3">
-                            <Checkbox
-                              id={modifier.id}
-                              checked={isChecked}
-                              onCheckedChange={(checked) => 
-                                handleMultiSelect(group.id, modifier.id, checked as boolean)
-                              }
-                              className="border-gray-300 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
-                            />
-                            <span className="text-gray-900 font-medium">
+                            <div className="relative">
+                              <input
+                                type="checkbox"
+                                id={`check-${modifier.id}`}
+                                checked={isChecked}
+                                onChange={(e) => handleMultiSelect(group.id, modifier.id, e.target.checked)}
+                                className="sr-only"
+                              />
+                              <div className={`
+                                w-5 h-5 rounded border-2 transition-all
+                                ${isChecked 
+                                  ? 'bg-orange-500 border-orange-500' 
+                                  : 'bg-white border-gray-300'
+                                }
+                              `}>
+                                {isChecked && (
+                                  <svg className="w-3 h-3 text-white absolute top-0.5 left-0.5" viewBox="0 0 12 12" fill="none">
+                                    <path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                  </svg>
+                                )}
+                              </div>
+                            </div>
+                            <label 
+                              htmlFor={`check-${modifier.id}`}
+                              className="text-gray-900 font-medium cursor-pointer"
+                            >
                               {modifier.name}
-                            </span>
+                            </label>
                           </div>
                           {modifier.priceAdjustment !== 0 && (
                             <span className="text-sm font-semibold text-gray-700">
                               {modifier.priceAdjustment > 0 ? "+" : ""}
-                              {formatPrice(modifier.priceAdjustment)}
+                              {formatPrice(modifier.priceAdjustment || 0)}
                             </span>
                           )}
-                        </label>
+                        </div>
                       )
                     })}
                   </div>
@@ -357,7 +365,7 @@ export function ProductCustomizationSheet({
               className="space-y-3 pt-4"
             >
               <h3 className="font-medium text-gray-900">Quantity</h3>
-              <div className="flex items-center justify-between bg-gray-50 rounded-2xl p-2">
+              <div className="flex items-center justify-between bg-gray-50 rounded-2xl p-2 max-w-xs">
                 <Button
                   variant="ghost"
                   size="icon"
