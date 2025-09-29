@@ -480,12 +480,14 @@ export function ProductCatalog({
         />
       )}
 
-      {/* Product Customization Sheet - Single instance for entire catalog */}
-      <ProductCustomizationSheet
-        product={customizationProduct}
-        isOpen={!!customizationProduct}
-        onClose={() => setCustomizationProduct(null)}
-      />
+      {/* Only render sheet when product exists */}
+      {customizationProduct && (
+        <ProductCustomizationSheet
+          product={customizationProduct}
+          isOpen={!!customizationProduct}
+          onClose={() => setCustomizationProduct(null)}
+        />
+      )}
 
       {/* Mobile Filters Sheet */}
       {showMobileFilters && (

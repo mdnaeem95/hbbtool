@@ -161,15 +161,18 @@ export function AddToCartButton({
           Add to Cart
         </Button>
 
-        <ProductCustomizationSheet
-          product={{
-            ...product,
-            merchantId: merchant.id || product.merchantId,
-            merchant: merchant
-          }}
-          isOpen={showCustomization}
-          onClose={() => setShowCustomization(false)}
-        />
+        {/* Only render sheet when needed */}
+        {showCustomization && product && (
+          <ProductCustomizationSheet
+            product={{
+              ...product,
+              merchantId: merchant.id || product.merchantId,
+              merchant: merchant
+            }}
+            isOpen={showCustomization}
+            onClose={() => setShowCustomization(false)}
+          />
+        )}
       </>
     )
   }
@@ -202,15 +205,18 @@ export function AddToCartButton({
         </Button>
       </div>
 
-      <ProductCustomizationSheet
-        product={{
-          ...product,
-          merchantId: merchant.id || product.merchantId,
-          merchant: merchant
-        }}
-        isOpen={showCustomization}
-        onClose={() => setShowCustomization(false)}
-      />
+      {/* Only render sheet when needed */}
+      {showCustomization && product && (
+        <ProductCustomizationSheet
+          product={{
+            ...product,
+            merchantId: merchant.id || product.merchantId,
+            merchant: merchant
+          }}
+          isOpen={showCustomization}
+          onClose={() => setShowCustomization(false)}
+        />
+      )}
     </>
   )
 }
