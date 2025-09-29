@@ -1,7 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Sheet, SheetContent, Button, RadioGroup, RadioGroupItem, ScrollArea } from "@homejiak/ui"
+import { 
+  Sheet, 
+  SheetContent, 
+  Button, 
+  ScrollArea 
+} from "@homejiak/ui"
 import { Plus, Minus, ShoppingCart } from "lucide-react"
 import { useCart } from "../../stores/cart-store"
 import { formatPrice } from "../../lib/utils"
@@ -246,43 +251,61 @@ export function ProductCustomizationSheet({
                 </div>
 
                 {group.type === "SINGLE_SELECT" ? (
-                  <RadioGroup
-                    value={selectedModifiers[group.id] || ""}
-                    onValueChange={(value) => handleSingleSelect(group.id, value)}
-                    className="space-y-2"
-                  >
-                    {group.modifiers.map((modifier: any) => (
-                      <label
-                        key={modifier.id}
-                        htmlFor={`radio-${modifier.id}`}
-                        className={`
-                          flex items-center justify-between p-4 rounded-2xl border-2 
-                          cursor-pointer transition-all duration-200
-                          ${selectedModifiers[group.id] === modifier.id 
-                            ? 'border-orange-500 bg-orange-50' 
-                            : 'border-gray-200 hover:border-gray-300 bg-white'
-                          }
-                        `}
-                      >
-                        <div className="flex items-center gap-3">
-                          <RadioGroupItem 
-                            value={modifier.id} 
-                            id={`radio-${modifier.id}`}
-                            className="text-orange-500 border-gray-300"
-                          />
-                          <span className="text-gray-900 font-medium">
-                            {modifier.name}
-                          </span>
+                  <div className="space-y-2">
+                    {group.modifiers.map((modifier: any) => {
+                      const isSelected = selectedModifiers[group.id] === modifier.id
+                      return (
+                        <div
+                          key={modifier.id}
+                          className={`
+                            flex items-center justify-between p-4 rounded-2xl border-2 
+                            cursor-pointer transition-all duration-200
+                            ${isSelected 
+                              ? 'border-orange-500 bg-orange-50' 
+                              : 'border-gray-200 hover:border-gray-300 bg-white'
+                            }
+                          `}
+                          onClick={() => handleSingleSelect(group.id, modifier.id)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="relative flex items-center justify-center">
+                              <input
+                                type="radio"
+                                id={`radio-${modifier.id}`}
+                                name={`radio-group-${group.id}`}
+                                checked={isSelected}
+                                onChange={() => handleSingleSelect(group.id, modifier.id)}
+                                className="sr-only"
+                              />
+                              <div className={`
+                                w-5 h-5 rounded-full border-2 transition-all flex items-center justify-center
+                                ${isSelected 
+                                  ? 'border-orange-500' 
+                                  : 'border-gray-300'
+                                }
+                              `}>
+                                {isSelected && (
+                                  <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+                                )}
+                              </div>
+                            </div>
+                            <label 
+                              htmlFor={`radio-${modifier.id}`}
+                              className="text-gray-900 font-medium cursor-pointer"
+                            >
+                              {modifier.name}
+                            </label>
+                          </div>
+                          {modifier.priceAdjustment !== 0 && (
+                            <span className="text-sm font-semibold text-gray-700">
+                              {modifier.priceAdjustment > 0 ? "+" : ""}
+                              {formatPrice(modifier.priceAdjustment || 0)}
+                            </span>
+                          )}
                         </div>
-                        {modifier.priceAdjustment !== 0 && (
-                          <span className="text-sm font-semibold text-gray-700">
-                            {modifier.priceAdjustment > 0 ? "+" : ""}
-                            {formatPrice(modifier.priceAdjustment || 0)}
-                          </span>
-                        )}
-                      </label>
-                    ))}
-                  </RadioGroup>
+                      )
+                    })}
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     {group.modifiers.map((modifier: any) => {
@@ -301,7 +324,7 @@ export function ProductCustomizationSheet({
                           onClick={() => handleMultiSelect(group.id, modifier.id, !isChecked)}
                         >
                           <div className="flex items-center gap-3">
-                            <div className="relative">
+                            <div className="relative flex items-center justify-center">
                               <input
                                 type="checkbox"
                                 id={`check-${modifier.id}`}
@@ -310,14 +333,14 @@ export function ProductCustomizationSheet({
                                 className="sr-only"
                               />
                               <div className={`
-                                w-5 h-5 rounded border-2 transition-all
+                                w-5 h-5 rounded border-2 transition-all flex items-center justify-center
                                 ${isChecked 
                                   ? 'bg-orange-500 border-orange-500' 
                                   : 'bg-white border-gray-300'
                                 }
                               `}>
                                 {isChecked && (
-                                  <svg className="w-3 h-3 text-white absolute top-0.5 left-0.5" viewBox="0 0 12 12" fill="none">
+                                  <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
                                     <path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                                   </svg>
                                 )}
