@@ -6,6 +6,7 @@ import { authenticator } from "otplib"
 import { merchantProcedure, router } from "../../core"
 import bcrypt from "bcryptjs"
 import qrcode from "qrcode"
+import { generatePayNowQR } from "../../../utils/paynow"
 
 // Type for operating hours
 type OperatingHours = {
@@ -548,9 +549,15 @@ export const settingsRouter = router({
         })
       }
       
-      // Generate QR code using a service
-      const payNowData = `PayNow://${input.paynowNumber}?name=${encodeURIComponent(merchant.businessName)}`
-      const qrCodeUrl = await qrcode.toDataURL(payNowData)
+      // Generate SGQR-compliant QR code
+      // Pass 0 as amount to make it editable by the customer
+      const qrCodeUrl = await generatePayNowQR(
+        input.paynowNumber,
+        0, // Amount set to 0 for editable amount
+        undefined, // No reference number for settings QR
+        merchant.businessName
+      )
+
 
       await ctx.db.merchant.update({
         where: { id: merchantId },
@@ -567,7 +574,7 @@ export const settingsRouter = router({
   getDeliverySettings: merchantProcedure
     .query(async ({ ctx }) => {
       const merchant = await ctx.db.merchant.findUnique({
-        where: { id: ctx.session.user.id },
+        where: { id: ctx.session?.user.id },
         select: {
           deliveryEnabled: true,
           pickupEnabled: true,
@@ -636,7 +643,7 @@ export const settingsRouter = router({
 
       // Update merchant settings
       await ctx.db.merchant.update({
-        where: { id: ctx.session.user.id },
+        where: { id: ctx.session?.user.id },
         data: {
           deliverySettings: deliverySettings as any,
           deliveryRadius,
@@ -673,7 +680,7 @@ export const settingsRouter = router({
       }
 
       await ctx.db.merchant.update({
-        where: { id: ctx.session.user.id },
+        where: { id: ctx.session?.user.id },
         data: {
           deliveryEnabled: input.deliveryEnabled,
           pickupEnabled: input.pickupEnabled,
