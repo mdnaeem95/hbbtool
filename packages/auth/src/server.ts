@@ -74,7 +74,7 @@ export async function getAuthSession(): Promise<AuthSession | null> {
       if (userType === 'merchant' || !userType) {
         console.log('Looking up merchant in database...')
         const merchant = await db.merchant.findUnique({
-          where: { id: supabaseUser.id }
+          where: { supabaseId: supabaseUser.id }
         })
         
         console.log('Merchant found:', merchant ? 'YES' : 'NO')
