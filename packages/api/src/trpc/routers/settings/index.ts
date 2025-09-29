@@ -549,20 +549,36 @@ export const settingsRouter = router({
         })
       }
       
+      // Clean the input - remove any spaces or country code
+      let cleanedNumber = input.paynowNumber.replace(/\s+/g, '').replace(/^\+65/, '')
+      
+      // Validate the number/UEN
+      const isPhone = /^[89]\d{7}$/.test(cleanedNumber)
+      const isUEN = /^[0-9]{9,10}[A-Z]$/.test(cleanedNumber) || 
+                    /^[TSRF][0-9]{2}[A-Z]{2}[0-9]{4}[A-Z]$/.test(cleanedNumber)
+      
+      if (!isPhone && !isUEN) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invalid PayNow number. Must be a valid Singapore mobile number (8/9 followed by 7 digits) or UEN.",
+        })
+      }
+      
       // Generate SGQR-compliant QR code
       // Pass 0 as amount to make it editable by the customer
       const qrCodeUrl = await generatePayNowQR(
-        input.paynowNumber,
+        cleanedNumber,
         0, // Amount set to 0 for editable amount
         undefined, // No reference number for settings QR
-        merchant.businessName
+        merchant.businessName,
+        undefined // Let it default to 7 days expiry
       )
 
-
+      // Save the QR code to database
       await ctx.db.merchant.update({
         where: { id: merchantId },
         data: { 
-          paynowNumber: input.paynowNumber,
+          paynowNumber: cleanedNumber,
           paynowQrCode: qrCodeUrl,
         },
       })
