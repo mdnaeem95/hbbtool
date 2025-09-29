@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { api } from "../../lib/trpc/client"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
   Badge, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -9,6 +9,7 @@ import { MoreHorizontal, Edit, Copy, Trash, Search, Package, ChevronLeft, Chevro
 import { useRouter } from "next/navigation"
 import { formatDistanceToNow } from "date-fns"
 import Link from "next/link"
+import { useDebounce } from "@/hooks/use-debounce"
 
 // Import the enum from the schema
 enum ProductStatus {
@@ -31,6 +32,9 @@ interface ProductListProps {
 export function ProductList({ searchParams }: ProductListProps) {
   const router = useRouter()
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set())
+  const [localSearch, setLocalSearch] = useState(searchParams.search || "")
+
+  const debouncedSearch = useDebounce(localSearch, 500)
   
   const page = Number(searchParams.page) || 1
   const limit = 10
@@ -38,7 +42,7 @@ export function ProductList({ searchParams }: ProductListProps) {
   const { data, isLoading } = api.product.list.useQuery({
     page,
     limit,
-    search: searchParams.search || undefined,
+    search: debouncedSearch  || undefined,
     status: searchParams.status && searchParams.status !== 'all' ? searchParams.status as ProductStatus : undefined,
     categoryId: searchParams.category || undefined,
   })
@@ -60,11 +64,53 @@ export function ProductList({ searchParams }: ProductListProps) {
     },
   })
 
-  // Remove duplicate mutation for now since it's not in the router yet
-  const handleDuplicate = () => {
-    toast({
-      title: "Coming soon",
-      description: "Product duplication will be available soon.",
+  const { mutate: duplicateProduct, isPending: isDuplicating } = api.product.duplicate.useMutation({
+    onSuccess: (data) => {
+      toast({
+        title: "Product duplicated",
+        description: "The product has been duplicated successfully. It's been saved as a draft for your review.",
+        action: (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => router.push(`/dashboard/products/${data.id}`)}
+          >
+            Edit
+          </Button>
+        )
+      })
+      router.refresh()
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to duplicate product. Please try again.",
+        variant: "destructive",
+      })
+    },
+  })
+
+  // Handle URL updates for search (only when debounced value changes)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    
+    if (debouncedSearch && debouncedSearch !== '') {
+      params.set('search', debouncedSearch)
+    } else {
+      params.delete('search')
+    }
+    
+    // Only update URL if the search param actually changed
+    const newUrl = params.toString() ? `/dashboard/products?${params.toString()}` : '/dashboard/products'
+    if (window.location.pathname + window.location.search !== newUrl) {
+      router.replace(newUrl, { scroll: false })
+    }
+  }, [debouncedSearch, router])
+
+  const handleDuplicate = (productId: string) => {
+    duplicateProduct({ 
+      id: productId,
+      includeModifiers: true 
     })
   }
 
@@ -86,7 +132,15 @@ export function ProductList({ searchParams }: ProductListProps) {
     setSelectedProducts(newSelected)
   }
 
-  const updateSearchParam = (key: string, value: string | null) => {
+  // Update other params (not search) immediately
+  const updateSearchParam = useCallback((key: string, value: string | null) => {
+    if (key === 'search') {
+      // For search, just update local state - the effect will handle URL update
+      setLocalSearch(value || '')
+      return
+    }
+    
+    // For other params, update URL immediately
     const params = new URLSearchParams(window.location.search)
     if (value && value !== '') {
       params.set(key, value)
@@ -94,7 +148,7 @@ export function ProductList({ searchParams }: ProductListProps) {
       params.delete(key)
     }
     router.push(`/dashboard/products?${params.toString()}`)
-  }
+  }, [router])
 
   if (isLoading) {
     return <ProductListSkeleton />
@@ -113,7 +167,7 @@ export function ProductList({ searchParams }: ProductListProps) {
             <Input
               placeholder="Search products..."
               defaultValue={searchParams.search}
-              onChange={(e: any) => updateSearchParam("search", e.target.value || null)}
+              onChange={(e: any) => setLocalSearch(e.target.value)}
               className="pl-9"
             />
           </div>
@@ -270,7 +324,8 @@ export function ProductList({ searchParams }: ProductListProps) {
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => handleDuplicate()}
+                          onClick={() => handleDuplicate(product.id)}
+                          disabled={isDuplicating}
                           className="hover:bg-gray-100 cursor-pointer focus:bg-gray-100"
                         >
                           <Copy className="mr-2 h-4 w-4" />

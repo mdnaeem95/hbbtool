@@ -315,4 +315,223 @@ export const productRouter = router({
 
       return product
     }),
+
+  duplicate: merchantProcedure
+    .input(z.object({ 
+      id: z.string().cuid(),
+      includeModifiers: z.boolean().default(true),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const merchantId = ctx.session!.user.id;
+        
+        // Get the original product with all its relations
+        const original = await ctx.db.product.findFirst({
+          where: { 
+            id: input.id, 
+            merchantId 
+          },
+          include: {
+            category: true,
+            variants: true,
+            modifierGroups: {
+              include: {
+                modifiers: true
+              }
+            }
+          }
+        });
+
+        if (!original) {
+          throw new TRPCError({ 
+            code: 'NOT_FOUND',
+            message: 'Product not found' 
+          });
+        }
+
+        // Generate new name and slug
+        const copyNumber = await ctx.db.product.count({
+          where: {
+            merchantId,
+            name: {
+              startsWith: original.name,
+              contains: '(Copy'
+            }
+          }
+        });
+        
+        const newName = copyNumber > 0 
+          ? `${original.name} (Copy ${copyNumber + 1})`
+          : `${original.name} (Copy)`;
+        
+        const baseSlug = slugify(newName);
+        const newSlug = await ensureUniqueProductSlug(ctx.db, merchantId, baseSlug);
+
+        // Generate new SKU if exists
+        let newSku = null;
+        if (original.sku) {
+          const skuCopyNumber = await ctx.db.product.count({
+            where: {
+              merchantId,
+              sku: {
+                startsWith: original.sku,
+                contains: '-copy'
+              }
+            }
+          });
+          
+          newSku = skuCopyNumber > 0
+            ? `${original.sku}-copy-${skuCopyNumber + 1}`
+            : `${original.sku}-copy`;
+        }
+
+        // Create the duplicated product in a transaction
+        const duplicatedProduct = await ctx.db.$transaction(async (tx) => {
+          // Create the new product
+          const newProduct = await tx.product.create({
+            data: {
+              merchantId,
+              name: newName,
+              slug: newSlug,
+              description: original.description,
+              sku: newSku,
+              categoryId: original.categoryId,
+              images: original.images,
+              
+              // Pricing
+              price: original.price,
+              compareAtPrice: original.compareAtPrice,
+              cost: original.cost,
+              profitMargin: original.profitMargin,
+              
+              // Inventory
+              trackInventory: original.trackInventory,
+              inventory: original.inventory,
+              lowStockThreshold: original.lowStockThreshold,
+              allowBackorder: original.allowBackorder,
+              
+              // Status - set to DRAFT so merchant can review
+              status: 'DRAFT',
+              featured: false, // Don't auto-feature duplicates
+              sortOrder: original.sortOrder,
+              
+              // Food specific
+              allergens: original.allergens,
+              dietaryInfo: original.dietaryInfo,
+              spiceLevel: original.spiceLevel,
+              servingSize: original.servingSize,
+              calories: original.calories,
+              ingredients: original.ingredients,
+              
+              // Preparation & Storage
+              preparationTime: original.preparationTime,
+              preparationMethod: original.preparationMethod,
+              shelfLife: original.shelfLife,
+              storageInstructions: original.storageInstructions,
+              reheatingInstructions: original.reheatingInstructions,
+              
+              // Scheduling
+              availableDays: original.availableDays,
+              blackoutDates: original.blackoutDates,
+              maxDailyQuantity: original.maxDailyQuantity,
+              maxPerOrder: original.maxPerOrder,
+              minPerOrder: original.minPerOrder,
+              requirePreorder: original.requirePreorder,
+              preorderDays: original.preorderDays,
+              
+              // SEO
+              metaTitle: original.metaTitle ? `${original.metaTitle} (Copy)` : null,
+              metaDescription: original.metaDescription,
+              
+              // Other metadata
+              tags: original.tags,
+            }
+          });
+
+          // Duplicate variants if they exist
+          if (original.variants && original.variants.length > 0) {
+            await tx.productVariant.createMany({
+              data: original.variants.map(variant => ({
+                productId: newProduct.id,
+                sku: variant.sku ? `${variant.sku}-copy` : null,
+                name: variant.name,
+                options: variant.options ?? Prisma.JsonNull,
+                priceAdjustment: variant.priceAdjustment,
+                inventory: variant.inventory,
+                isDefault: variant.isDefault,
+                sortOrder: variant.sortOrder,
+                imageUrl: variant.imageUrl,
+              }))
+            });
+          }
+
+          // Duplicate modifier groups and modifiers if requested
+          if (input.includeModifiers && original.modifierGroups.length > 0) {
+            for (const group of original.modifierGroups) {
+              const newGroup = await tx.productModifierGroup.create({
+                data: {
+                  productId: newProduct.id,
+                  merchantId: merchantId,
+                  name: group.name,
+                  description: group.description,
+                  type: group.type,
+                  required: group.required,
+                  minSelect: group.minSelect,
+                  maxSelect: group.maxSelect,
+                  sortOrder: group.sortOrder,
+                  isActive: group.isActive,
+                }
+              });
+
+              // Create modifiers for this group
+              if (group.modifiers && group.modifiers.length > 0) {
+                await tx.productModifier.createMany({
+                  data: group.modifiers.map(modifier => ({
+                    groupId: newGroup.id,
+                    name: modifier.name,
+                    description: modifier.description,
+                    priceAdjustment: modifier.priceAdjustment,
+                    priceType: modifier.priceType,
+                    variantPricing: modifier.variantPricing as any,
+                    trackInventory: modifier.trackInventory,
+                    inventory: modifier.inventory,
+                    maxPerOrder: modifier.maxPerOrder,
+                    caloriesAdjustment: modifier.caloriesAdjustment,
+                    imageUrl: modifier.imageUrl,
+                    sortOrder: modifier.sortOrder,
+                    isDefault: modifier.isDefault,
+                    isAvailable: modifier.isAvailable,
+                    isHidden: modifier.isHidden,
+                    incompatibleWith: modifier.incompatibleWith || [],
+                    requiredWith: modifier.requiredWith || [],
+                  }))
+                });
+              }
+            }
+          }
+
+          return newProduct;
+        });
+
+        // Track the duplication event for analytics
+        await ctx.db.analytics.create({
+          data: {
+            merchantId,
+            event: 'product_duplicated',
+            category: 'product_management',
+            properties: {
+              originalProductId: original.id,
+              originalProductName: original.name,
+              duplicatedProductId: duplicatedProduct.id,
+              duplicatedProductName: duplicatedProduct.name,
+              includeModifiers: input.includeModifiers,
+            },
+          }
+        }).catch(() => {}); // Don't fail if analytics fails
+
+        return duplicatedProduct;
+      } catch (error) {
+        handleDatabaseError(error);
+      }
+    }),
 })
