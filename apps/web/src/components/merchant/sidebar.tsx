@@ -6,7 +6,6 @@ import { cn } from "../../lib/utils"
 import { LayoutDashboard, ShoppingBag, Package, BarChart3, Settings, HelpCircle, Store, DollarSign } from "lucide-react"
 import { RouterOutputs } from "../../lib/trpc/types"
 
-
 type MerchantDashboardData = RouterOutputs["merchant"]["getDashboard"]
 
 interface MerchantSidebarProps {
@@ -52,7 +51,7 @@ export function MerchantSidebar({ dashboardData, className }: MerchantSidebarPro
     },
   ]
 
-    // Helper function to check if route is active
+  // Helper function to check if route is active
   const isRouteActive = (item: typeof navigation[0]) => {
     // For exact matches (like Dashboard)
     if (item.exact) {
@@ -65,7 +64,10 @@ export function MerchantSidebar({ dashboardData, className }: MerchantSidebarPro
   }
 
   return (
-    <aside className={cn("flex h-full flex-col bg-white shadow-lg", className)}>
+    <aside 
+      className={cn("flex h-full flex-col bg-white shadow-lg", className)}
+      data-tour="sidebar"  // ← Added this for onboarding tour
+    >
       {/* Logo */}
       <div className="flex h-16 items-center justify-between border-b px-4">
         <Link href="/dashboard" className="flex items-center gap-2">

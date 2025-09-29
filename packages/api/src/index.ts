@@ -13,6 +13,7 @@ import { notificationRouter } from './trpc/routers/notification'
 import { adminRouter } from './trpc/routers/admin'
 import { storageRouter } from './trpc/routers/storage'
 import { productModifiersRouter } from './trpc/routers/productModifiers'
+import { onboardingRouter } from './trpc/routers/onboarding'
 
 export { createTRPCContext } from './trpc/context'
 export type { TRPCContext } from './trpc/context'
@@ -35,7 +36,8 @@ export const appRouter = router({
   notification: notificationRouter,
   admin: adminRouter,
   storage: storageRouter,
-  productModifiers: productModifiersRouter
+  productModifiers: productModifiersRouter,
+  onboarding: onboardingRouter,
 })
 
 export * from "./services/search/index"

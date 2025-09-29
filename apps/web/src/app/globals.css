@@ -229,3 +229,13 @@
 [data-slot="switch"][data-state="unchecked"] [data-slot="switch-thumb"] {
   transform: translateX(0) !important;
 }
+
+.onboarding-highlight {
+  position: relative !important;
+  z-index: 10000 !important;
+  transition: all 0.3s ease;
+}
+
+.onboarding-highlight * {
+  pointer-events: all !important;
+}

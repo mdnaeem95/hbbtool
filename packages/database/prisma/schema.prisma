@@ -147,6 +147,18 @@ enum ModifierScope {
 
 // ==================== MODELS ====================
 
+model OnboardingEvent {
+  id         String   @id @default(cuid())
+  merchantId String
+  eventType  String   
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  
+  @@index([merchantId, createdAt])
+}
+
 model Merchant {
   supabaseId   String?  @unique
   id           String  @id @default(cuid())
@@ -271,6 +283,12 @@ model Merchant {
   tags             String[] // For categorization
   searchVector     Unsupported("vector(1536)")? // For semantic search
 
+  onboardingCompleted Boolean   @default(false)
+  onboardingStep      Int       @default(0)
+  firstLoginAt        DateTime?
+  tourCompleted       Boolean   @default(false)
+  checklistProgress   Json      @default("{}")
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -291,6 +309,7 @@ model Merchant {
   customerLoyalty   CustomerLoyalty[]
   promotions        Promotion[]
   auditLogs         AuditLog[]
+  onboardingEvents OnboardingEvent[]
   merchantSettings  MerchantSettings?
 
   @@index([status, deletedAt])
