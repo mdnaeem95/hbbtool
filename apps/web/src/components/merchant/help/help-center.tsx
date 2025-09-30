@@ -213,24 +213,22 @@ export function MerchantHelpCenter() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {quickActions.map((action, idx) => (
                   action.available ? (
-                    <Button
-                      key={idx}
-                      variant="outline"
-                      className="h-auto p-4 justify-start hover:border-orange-300"
-                      asChild
-                    >
-                      <Link href={action.link}>
+                    <Link href={action.link} className="block">
+                      <Button
+                        variant="outline"
+                        className="h-auto p-4 justify-start hover:border-orange-300 w-full"
+                      >
                         <div className="flex items-start space-x-3 w-full">
                           <div className="p-2 bg-orange-100 rounded-lg text-orange-600 group-hover:bg-orange-200 transition-colors">
                             {action.icon}
                           </div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-gray-900 text-sm text-left">{action.label}</h3>
-                            <p className="text-xs text-gray-500 mt-1 text-left">{action.time}</p>
+                          <div className="flex-1 text-left">
+                            <h3 className="font-semibold text-gray-900 text-sm">{action.label}</h3>
+                            <p className="text-xs text-gray-500 mt-1">{action.time}</p>
                           </div>
                         </div>
-                      </Link>
-                    </Button>
+                      </Button>
+                    </Link>
                   ) : (
                     <Button
                       key={idx}
