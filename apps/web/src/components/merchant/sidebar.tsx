@@ -49,6 +49,11 @@ export function MerchantSidebar({ dashboardData, className }: MerchantSidebarPro
       href: "/dashboard/settings",
       icon: Settings,
     },
+    {
+      name: "Help & Support",
+      href: "/dashboard/help",
+      icon: HelpCircle,
+    }
   ]
 
   // Helper function to check if route is active
@@ -121,17 +126,6 @@ export function MerchantSidebar({ dashboardData, className }: MerchantSidebarPro
           )
         })}
       </nav>
-
-      {/* Bottom section */}
-      <div className="border-t p-4">
-        <Link
-          href="/dashboard/help"
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-        >
-          <HelpCircle className="h-5 w-5" />
-          <span>Help & Support</span>
-        </Link>
-      </div>
     </aside>
   )
 }
