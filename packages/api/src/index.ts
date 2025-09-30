@@ -14,6 +14,7 @@ import { adminRouter } from './trpc/routers/admin'
 import { storageRouter } from './trpc/routers/storage'
 import { productModifiersRouter } from './trpc/routers/productModifiers'
 import { onboardingRouter } from './trpc/routers/onboarding'
+import { productVariantsRouter } from './trpc/routers/productVariants'
 
 export { createTRPCContext } from './trpc/context'
 export type { TRPCContext } from './trpc/context'
@@ -37,6 +38,7 @@ export const appRouter = router({
   admin: adminRouter,
   storage: storageRouter,
   productModifiers: productModifiersRouter,
+  productVariants: productVariantsRouter,
   onboarding: onboardingRouter,
 })
 
