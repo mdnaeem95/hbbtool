@@ -128,7 +128,7 @@ const faqData = [
 
 // Quick action links
 const quickActions = [
-  { icon: <BookOpen className="w-5 h-5" />, label: "Setup Guide", time: "5 min read", link: "dashboard/help/setup-guide", available: true },
+  { icon: <BookOpen className="w-5 h-5" />, label: "Setup Guide", time: "5 min read", link: "/help/setup-guide", available: true },
   { icon: <PlayCircle className="w-5 h-5" />, label: "Video Tutorials", time: "Watch now", link: "#", available: false },
   { icon: <Users className="w-5 h-5" />, label: "Join Community", time: "500+ merchants", link: "#", available: false }
 ]
