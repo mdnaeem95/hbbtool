@@ -2,23 +2,12 @@ import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 
 // Types
-export interface CartItem {
-  id: string // Unique cart item ID
-  productId: string
-  merchantId: string
-  merchantName: string
+export interface CartItemVariant {
+  id: string
   name: string
-  price: number
-  quantity: number
-  image?: string
-  variant?: {
-    label?: string;      // e.g. "Large, Spicy"
-    options?: Record<string, string>; // { size: "L", spice: "Hot" }
-  } | null;
-  customizations?: CartItemCustomization[] // Add this
-  customizationPrice?: number // Total price adjustment from customizations
-  maxQuantity?: number
-  notes?: string
+  priceAdjustment: number
+  sku?: string
+  options?: Record<string, any>  // e.g., { size: "L", spiceLevel: "Hot" }
 }
 
 export interface CartItemCustomization {
@@ -33,6 +22,23 @@ export interface CartItemCustomization {
   }>
 }
 
+export interface CartItem {
+  id: string // Unique cart item ID
+  productId: string
+  merchantId: string
+  merchantName: string
+  name: string
+  price: number // Base price
+  quantity: number
+  image?: string
+  variant?: CartItemVariant | null
+  customizations?: CartItemCustomization[]
+  variantPrice?: number // Price adjustment from variant
+  customizationPrice?: number // Total price adjustment from customizations
+  maxQuantity?: number
+  notes?: string
+}
+
 export interface CartStore {
   // State
   items: CartItem[]
@@ -40,7 +46,7 @@ export interface CartStore {
   merchantName: string | null
   
   // Actions
-  addItem: (item: Omit<CartItem, 'id' | 'quantity'> & { quantity?: number }) => void
+  addItem: (item: Omit<CartItem, 'id' | 'quantity' | 'variantPrice' | 'customizationPrice'> & { quantity?: number }) => void
   updateQuantity: (itemId: string, quantity: number) => void
   removeItem: (itemId: string) => void
   clearCart: () => void
@@ -53,32 +59,44 @@ export interface CartStore {
   getCartByMerchant: () => Map<string, CartItem[]>
   canAddItem: (merchantId: string) => boolean
   findItem: (productId: string) => CartItem | undefined
-  findSimilarItem: (productId: string, customizations?: CartItemCustomization[]) => CartItem | undefined
+  findSimilarItem: (
+    productId: string, 
+    variant?: CartItemVariant | null, 
+    customizations?: CartItemCustomization[]
+  ) => CartItem | undefined
 }
 
 // Helper to generate unique cart item IDs
 const generateCartItemId = () => `cart-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
-// Helper to generate a hash for customization combinations
-const generateCustomizationHash = (customizations?: CartItemCustomization[]): string => {
-  if (!customizations || customizations.length === 0) {
-    return 'no-customization'
-  }
+// Helper to generate a hash for variant + customization combinations
+const generateItemHash = (
+  variant?: CartItemVariant | null,
+  customizations?: CartItemCustomization[]
+): string => {
+  const variantHash = variant ? `v:${variant.id}` : 'no-variant'
   
-  // Sort and stringify customizations for consistent hashing
-  const sorted = customizations
-    .map(group => ({
-      groupId: group.groupId,
-      selections: group.selections
-        .map(s => `${s.modifierId}:${s.quantity}`)
-        .sort()
-        .join(',')
-    }))
-    .sort((a, b) => a.groupId.localeCompare(b.groupId))
-    .map(g => `${g.groupId}:${g.selections}`)
-    .join('|')
+  const customizationHash = !customizations || customizations.length === 0
+    ? 'no-customization'
+    : customizations
+        .map(group => ({
+          groupId: group.groupId,
+          selections: group.selections
+            .map(s => `${s.modifierId}:${s.quantity}`)
+            .sort()
+            .join(',')
+        }))
+        .sort((a, b) => a.groupId.localeCompare(b.groupId))
+        .map(g => `${g.groupId}:${g.selections}`)
+        .join('|')
   
-  return sorted
+  return `${variantHash}::${customizationHash}`
+}
+
+// Calculate variant price adjustment
+const calculateVariantPrice = (variant?: CartItemVariant | null): number => {
+  if (!variant) return 0
+  return variant.priceAdjustment || 0
 }
 
 // Calculate total customization price
@@ -124,18 +142,29 @@ export const useCartStore = create<CartStore>()(
           throw new Error('Cannot add items from different merchants')
         }
 
-        // Calculate customization price
+        // Calculate price adjustments
+        const variantPrice = calculateVariantPrice(newItem.variant)
         const customizationPrice = calculateCustomizationPrice(
-          newItem.price, 
+          newItem.price + variantPrice, // Customization percentages apply to base + variant price
           newItem.customizations
         )
         
-        // Check if item already exists
-        const existingItem = state.findSimilarItem(newItem.productId, newItem.customizations)
+        // Check if identical item already exists (same product, variant, and customizations)
+        const existingItem = state.findSimilarItem(
+          newItem.productId, 
+          newItem.variant,
+          newItem.customizations
+        )
         
         if (existingItem) {
           // Update quantity of existing item
           const newQuantity = existingItem.quantity + (newItem.quantity || 1)
+          
+          // Check max quantity if set
+          if (existingItem.maxQuantity && newQuantity > existingItem.maxQuantity) {
+            throw new Error(`Cannot add more than ${existingItem.maxQuantity} of this item`)
+          }
+          
           state.updateQuantity(existingItem.id, newQuantity)
           return
         }
@@ -148,6 +177,7 @@ export const useCartStore = create<CartStore>()(
               ...newItem,
               id: generateCartItemId(),
               quantity: newItem.quantity || 1,
+              variantPrice,
               customizationPrice,
             },
           ],
@@ -164,16 +194,16 @@ export const useCartStore = create<CartStore>()(
         }
         
         set((state) => ({
-          items: state.items.map((item) =>
-            item.id === itemId
-              ? { 
-                  ...item, 
-                  quantity: item.maxQuantity 
-                    ? Math.min(quantity, item.maxQuantity) 
-                    : quantity 
-                }
-              : item
-          ),
+          items: state.items.map((item) => {
+            if (item.id === itemId) {
+              // Check max quantity if set
+              if (item.maxQuantity && quantity > item.maxQuantity) {
+                return { ...item, quantity: item.maxQuantity }
+              }
+              return { ...item, quantity }
+            }
+            return item
+          })
         }))
       },
       
@@ -204,25 +234,30 @@ export const useCartStore = create<CartStore>()(
         })
       },
       
+      // Set merchant info
+      setMerchantInfo: (merchantId, merchantName) => {
+        set({ merchantId, merchantName })
+      },
+      
       // Get total item count
       getItemCount: () => {
         return get().items.reduce((total, item) => total + item.quantity, 0)
       },
       
-      // Calculate subtotal (including customizations)
+      // Calculate subtotal (including variants and customizations)
       getSubtotal: () => {
-        return get().items.reduce(
-          (total, item) => {
-            const itemTotal = get().getTotalItemPrice(item) * item.quantity
-            return total + itemTotal
-          },
-          0
-        )
+        return get().items.reduce((total, item) => {
+          return total + get().getTotalItemPrice(item)
+        }, 0)
       },
-
-      // Get total price for a single item (including customizations)
+      
+      // Get total price for a single cart item
       getTotalItemPrice: (item) => {
-        return item.price + (item.customizationPrice || 0)
+        const basePrice = item.price
+        const variantAdjustment = item.variantPrice || 0
+        const customizationAdjustment = item.customizationPrice || 0
+        const unitPrice = basePrice + variantAdjustment + customizationAdjustment
+        return unitPrice * item.quantity
       },
       
       // Group items by merchant (for future multi-merchant support)
@@ -245,27 +280,21 @@ export const useCartStore = create<CartStore>()(
         return state.items.length === 0 || state.merchantId === merchantId
       },
       
-      // Find item by product ID
+      // Find item by product ID (any variant/customization)
       findItem: (productId) => {
         return get().items.find((item) => item.productId === productId)
       },
-
-      // Find item with same product and customizations
-      findSimilarItem: (productId, customizations) => {
-        const hash = generateCustomizationHash(customizations)
-        return get().items.find((item) => {
-          const itemHash = generateCustomizationHash(item.customizations)
-          return item.productId === productId && itemHash === hash
+      
+      // Find item with same product, variant, and customizations
+      findSimilarItem: (productId, variant, customizations) => {
+        const hash = generateItemHash(variant, customizations)
+        
+        return get().items.find(item => {
+          if (item.productId !== productId) return false
+          
+          const itemHash = generateItemHash(item.variant, item.customizations)
+          return itemHash === hash
         })
-      },
-
-      // set merchant info
-      setMerchantInfo: (merchantId: string, merchantName: string) => {
-        set((state) => ({
-          ...state,
-          merchantId,
-          merchantName,
-        }))
       },
     }),
     {
@@ -331,6 +360,13 @@ export const useCartItemQuantity = (productId: string) => {
   })
 }
 
+// Format variant for display
+export const formatVariant = (variant?: CartItemVariant | null): string => {
+  if (!variant) return ''
+  return variant.name
+}
+
+// Format customizations for display
 export const formatCustomizations = (customizations?: CartItemCustomization[]): string => {
   if (!customizations || customizations.length === 0) {
     return ''
@@ -348,4 +384,25 @@ export const formatCustomizations = (customizations?: CartItemCustomization[]): 
   })
   
   return parts.join(' • ')
+}
+
+// Format complete item details for display
+export const formatItemDetails = (item: CartItem): string => {
+  const parts: string[] = []
+  
+  if (item.variant) {
+    parts.push(formatVariant(item.variant))
+  }
+  
+  const customizations = formatCustomizations(item.customizations)
+  if (customizations) {
+    parts.push(customizations)
+  }
+  
+  return parts.join(' • ')
+}
+
+// Get unit price for display (base + adjustments)
+export const getItemUnitPrice = (item: CartItem): number => {
+  return item.price + (item.variantPrice || 0) + (item.customizationPrice || 0)
 }

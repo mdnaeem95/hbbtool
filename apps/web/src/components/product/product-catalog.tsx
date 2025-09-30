@@ -228,7 +228,7 @@ export function ProductCatalog({
         merchantId: merchantId,
         merchantName: merchantName,
         name: product.name,
-        price: product.effectivePrice || product.price,
+        price: product.price,
         image: product.images?.[0],
         quantity,
       })

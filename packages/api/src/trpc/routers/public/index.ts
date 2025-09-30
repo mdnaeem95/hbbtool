@@ -30,7 +30,7 @@ const sortSchema = z.enum([
 const productFilterSchema = z.object({
   merchantSlug: z.string(),
   categoryId: z.string().optional(),
-  categoryIds: z.array(z.string()).optional(), // Support multiple categories
+  categoryIds: z.array(z.string()).optional(),
   search: z.string().optional(),
   minPrice: z.number().optional(),
   maxPrice: z.number().optional(),
@@ -72,7 +72,7 @@ export const publicRouter = router({
       return merchant
     }),
 
-  // Get single product by merchant slug + product id
+  // Get single product by merchant slug + product id (WITH VARIANTS)
   getProduct: publicProcedure
     .input(z.object({
       merchantSlug: z.string(),
@@ -81,7 +81,7 @@ export const publicRouter = router({
     .query(async ({ ctx, input }) => {
       const merchant = await ctx.db.merchant.findFirst({
         where: { slug: input.merchantSlug, status: 'ACTIVE', deletedAt: null },
-        select: { id: true },
+        select: { id: true, businessName: true },
       })
       if (!merchant) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Merchant not found' })
@@ -96,7 +96,13 @@ export const publicRouter = router({
         },
         include: {
           category: true,
-          variants: { orderBy: { isDefault: 'desc' } },
+          // Include variants sorted by default first, then sortOrder
+          variants: { 
+            orderBy: [
+              { isDefault: 'desc' },
+              { sortOrder: 'asc' }
+            ]
+          },
           modifierGroups: {
             where: {
               isActive: true,
@@ -105,6 +111,7 @@ export const publicRouter = router({
               modifiers: {
                 where: {
                   isAvailable: true,
+                  isHidden: false, // Don't show hidden modifiers to customers
                 },
                 orderBy: {
                   sortOrder: 'asc',
@@ -135,10 +142,14 @@ export const publicRouter = router({
         },
       }).catch(() => {})
 
-      return product
+      // Add merchant info to the response
+      return {
+        ...product,
+        merchant,
+      }
     }),
 
-  // Enhanced product listing with proper filtering and sorting
+  // Enhanced product listing with proper filtering, sorting, and VARIANTS
   listProducts: publicProcedure
     .input(productFilterSchema)
     .query(async ({ ctx, input }) => {
@@ -203,7 +214,7 @@ export const publicRouter = router({
         where.featured = input.featured
       }
 
-      // In stock filter
+      // In stock filter - now considering variants
       if (input.inStock === true) {
         where.OR = [
           { trackInventory: false },
@@ -211,6 +222,19 @@ export const publicRouter = router({
             AND: [
               { trackInventory: true },
               { inventory: { gt: 0 } }
+            ]
+          },
+          // Also consider products with in-stock variants
+          {
+            AND: [
+              { trackInventory: true },
+              {
+                variants: {
+                  some: {
+                    inventory: { gt: 0 }
+                  }
+                }
+              }
             ]
           }
         ]
@@ -236,7 +260,6 @@ export const publicRouter = router({
           orderBy = { name: 'desc' }
           break
         case 'popular':
-          // Sort by order count (requires aggregation)
           orderBy = [
             { orderItems: { _count: 'desc' } },
             { viewCount: 'desc' },
@@ -244,16 +267,14 @@ export const publicRouter = router({
           ]
           break
         case 'rating':
-          // Sort by average rating
           orderBy = [
-            { reviews: { _count: 'desc' } },  // Use reviews relation count
+            { reviews: { _count: 'desc' } },
             { viewCount: 'desc' },
             { createdAt: 'desc' }
           ]
           break
         case 'featured':
         default:
-          // Featured first, then by popularity/recency
           orderBy = [
             { featured: 'desc' },
             { orderItems: { _count: 'desc' } },
@@ -270,7 +291,7 @@ export const publicRouter = router({
       const page = input.page || 1
       const skip = (page - 1) * limit
 
-      // Fetch products with all related data
+      // Fetch products with all related data including VARIANTS
       const products = await ctx.db.product.findMany({
         where,
         orderBy,
@@ -283,6 +304,17 @@ export const publicRouter = router({
               name: true,
               slug: true,
             }
+          },
+          // Include variants for price range calculation
+          variants: {
+            orderBy: { sortOrder: 'asc' },
+            select: {
+              id: true,
+              name: true,
+              priceAdjustment: true,
+              inventory: true,
+              isDefault: true,
+            },
           },
           modifierGroups: {
             where: {
@@ -306,28 +338,53 @@ export const publicRouter = router({
             select: {
               orderItems: true,
               reviews: true,
+              modifierGroups: {
+                where: { isActive: true }
+              },
             }
           },
         },
       })
 
-      // Transform products to include computed fields
-      const transformedProducts = products.map(product => ({
-        ...product,
-        // Convert Decimal to number for frontend
-        price: asNumber(product.price),
-        compareAtPrice: product.compareAtPrice ? asNumber(product.compareAtPrice) : null,
-        // Add effective price (considering variants)
-        effectivePrice: asNumber(product.price),
-        // Add computed fields
-        isOnSale: product.compareAtPrice && product.compareAtPrice > product.price,
-        discountPercentage: product.compareAtPrice && product.compareAtPrice > product.price
-          ? Math.round(((asNumber(product.compareAtPrice) - asNumber(product.price)) / asNumber(product.compareAtPrice)) * 100)
-          : null,
-        // Stock status
-        inStock: !product.trackInventory || product.inventory > 0,
-        lowStock: product.trackInventory && product.inventory > 0 && product.inventory <= 5,
-      }))
+      // Transform products to include computed fields and price ranges
+      const transformedProducts = products.map(product => {
+        // Calculate price range if product has variants
+        let minPrice = asNumber(product.price)
+        let maxPrice = asNumber(product.price)
+        
+        if (product.variants && product.variants.length > 0) {
+          const prices = product.variants.map(v => 
+            asNumber(product.price) + asNumber(v.priceAdjustment)
+          )
+          minPrice = Math.min(...prices)
+          maxPrice = Math.max(...prices)
+        }
+        
+        return {
+          ...product,
+          // Convert Decimal to number for frontend
+          price: asNumber(product.price),
+          compareAtPrice: product.compareAtPrice ? asNumber(product.compareAtPrice) : null,
+          // Add price range for variants
+          priceRange: {
+            min: minPrice,
+            max: maxPrice,
+            hasVariants: product.variants.length > 0,
+          },
+          // Add computed fields
+          isOnSale: product.compareAtPrice && product.compareAtPrice > product.price,
+          discountPercentage: product.compareAtPrice && product.compareAtPrice > product.price
+            ? Math.round(((asNumber(product.compareAtPrice) - asNumber(product.price)) / asNumber(product.compareAtPrice)) * 100)
+            : null,
+          // Stock status (consider variants)
+          inStock: !product.trackInventory || 
+                   product.inventory > 0 || 
+                   (product.variants && product.variants.some(v => v.inventory > 0)),
+          lowStock: product.trackInventory && product.inventory > 0 && product.inventory <= 5,
+          // Add customization indicator
+          hasCustomizations: product._count.modifierGroups > 0,
+        }
+      })
 
       // Return paginated response
       return {
@@ -384,14 +441,87 @@ export const publicRouter = router({
       }
     }),
 
-  // Create checkout session (public)
+  // Check variant availability (NEW ENDPOINT)
+  checkVariantAvailability: publicProcedure
+    .input(z.object({
+      productId: z.string().cuid(),
+      variantId: z.string().cuid().optional(),
+      quantity: z.number().positive(),
+    }))
+    .query(async ({ ctx, input }) => {
+      // If variant specified, check variant inventory
+      if (input.variantId) {
+        const variant = await ctx.db.productVariant.findUnique({
+          where: { id: input.variantId },
+          select: {
+            inventory: true,
+            product: {
+              select: {
+                trackInventory: true,
+                status: true,
+              },
+            },
+          },
+        })
+
+        if (!variant || variant.product.status !== 'ACTIVE') {
+          return { available: false, message: 'Product variant not found' }
+        }
+
+        // If product doesn't track inventory, always available
+        if (!variant.product.trackInventory) {
+          return { available: true }
+        }
+
+        if (variant.inventory < input.quantity) {
+          return {
+            available: false,
+            message: `Only ${variant.inventory} available`,
+            maxQuantity: variant.inventory,
+          }
+        }
+
+        return { available: true }
+      }
+
+      // Check product-level inventory
+      const product = await ctx.db.product.findUnique({
+        where: { id: input.productId },
+        select: {
+          trackInventory: true,
+          inventory: true,
+          status: true,
+        },
+      })
+
+      if (!product || product.status !== 'ACTIVE') {
+        return { available: false, message: 'Product not found' }
+      }
+
+      if (!product.trackInventory) {
+        return { available: true }
+      }
+
+      if (product.inventory < input.quantity) {
+        return {
+          available: false,
+          message: `Only ${product.inventory} available`,
+          maxQuantity: product.inventory,
+        }
+      }
+
+      return { available: true }
+    }),
+
+  // Create checkout session (WITH VARIANT SUPPORT)
   createCheckout: publicProcedure
     .input(z.object({
       merchantId: z.string().uuid(),
       items: z.array(z.object({
         productId: z.string().cuid(),
         quantity: z.number().int().positive(),
-        variantId: z.string().optional(),
+        variantId: z.string().cuid().optional(), // Add variant support
+        customizations: z.any().optional(), // Add customizations support
         notes: z.string().optional(),
       })).min(1),
       deliveryMethod: z.nativeEnum(DeliveryMethod),
@@ -433,43 +563,124 @@ export const publicRouter = router({
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Pickup not available' })
       }
 
-      // Validate products & compute totals (lock current prices)
-      const products = await ctx.db.product.findMany({
-        where: {
-          id: { in: input.items.map(i => i.productId) },
-          merchantId: input.merchantId,
-          status: 'ACTIVE',
-          deletedAt: null,
-        },
-        select: { id: true, name: true, price: true },
-      })
-      const byId = new Map(products.map(p => [p.id, p]))
+      // Validate products & variants, compute totals
+      const productIds = input.items.map(i => i.productId)
+      const variantIds = input.items
+        .filter(i => i.variantId)
+        .map(i => i.variantId!)
+
+      // Fetch products and variants
+      const [products, variants] = await Promise.all([
+        ctx.db.product.findMany({
+          where: {
+            id: { in: productIds },
+            merchantId: input.merchantId,
+            status: 'ACTIVE',
+            deletedAt: null,
+          },
+          select: { 
+            id: true, 
+            name: true, 
+            price: true,
+            trackInventory: true,
+            inventory: true,
+          },
+        }),
+        variantIds.length > 0
+          ? ctx.db.productVariant.findMany({
+              where: { id: { in: variantIds } },
+              select: {
+                id: true,
+                productId: true,
+                name: true,
+                priceAdjustment: true,
+                inventory: true,
+              },
+            })
+          : Promise.resolve([]),
+      ])
+
+      const productMap = new Map(products.map(p => [p.id, p]))
+      const variantMap = new Map(variants.map(v => [v.id, v]))
+
       let subtotal = 0
-      const orderItems = input.items.map(it => {
-        const p = byId.get(it.productId)
-        if (!p) {
-          throw new TRPCError({ code: 'BAD_REQUEST', message: `Product ${it.productId} not available` })
+      const orderItems = []
+
+      for (const item of input.items) {
+        const product = productMap.get(item.productId)
+        if (!product) {
+          throw new TRPCError({ 
+            code: 'BAD_REQUEST', 
+            message: `Product ${item.productId} not available` 
+          })
         }
-        const unit = asNumber(p.price)
-        const line = Math.round(unit * it.quantity * 100) / 100
-        subtotal += line
-        return {
-          productId: it.productId,
-          productName: p.name,
-          productPrice: unit,
-          quantity: it.quantity,
-          price: unit,
-          total: line,
-          notes: it.notes,
-          variantId: it.variantId,
+
+        let unitPrice = asNumber(product.price)
+        let variantName = ''
+        
+        // Add variant price adjustment if variant selected
+        if (item.variantId) {
+          const variant = variantMap.get(item.variantId)
+          if (!variant || variant.productId !== product.id) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: `Invalid variant ${item.variantId} for product ${item.productId}`
+            })
+          }
+          
+          // Check variant inventory
+          if (product.trackInventory && variant.inventory < item.quantity) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: `Insufficient stock for ${product.name} - ${variant.name}`
+            })
+          }
+          
+          unitPrice += asNumber(variant.priceAdjustment)
+          variantName = variant.name
+        } else {
+          // Check product inventory if no variant
+          if (product.trackInventory && product.inventory < item.quantity) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: `Insufficient stock for ${product.name}`
+            })
+          }
         }
-      })
+        
+        // Calculate customization price if any
+        let customizationPrice = 0
+        if (item.customizations) {
+          // Add logic to calculate customization price based on your needs
+          // This would require fetching modifier groups and calculating prices
+        }
+        
+        unitPrice += customizationPrice
+        const lineTotal = Math.round(unitPrice * item.quantity * 100) / 100
+        subtotal += lineTotal
+        
+        orderItems.push({
+          productId: item.productId,
+          productName: product.name,
+          productPrice: asNumber(product.price),
+          quantity: item.quantity,
+          price: unitPrice,
+          total: lineTotal,
+          notes: item.notes,
+          variant: item.variantId ? {
+            id: item.variantId,
+            name: variantName,
+          } : null,
+          customizations: item.customizations || null,
+        })
+      }
+      
       subtotal = Math.round(subtotal * 100) / 100
 
       const deliveryFee = input.deliveryMethod === 'DELIVERY' ? asNumber(merchant.deliveryFee ?? 0) : 0
       const total = Math.round((subtotal + deliveryFee) * 100) / 100
 
-      // Minimum order check (compare against subtotal or total; here we use total)
+      // Minimum order check
       const minOrder = asNumber(merchant.minimumOrder ?? 0)
       if (total < minOrder) {
         throw new TRPCError({
@@ -478,32 +689,30 @@ export const publicRouter = router({
         })
       }
 
-      // Persist checkout session (30 mins)
+      // Persist checkout session
       const sessionId = nanoid(32)
       await ctx.db.checkoutSession.create({
         data: {
           sessionId,
           merchantId: input.merchantId,
-          items: orderItems as unknown as any,          // JSON column
-          deliveryAddress: input.deliveryAddress as unknown as any, // JSON column
-          // Persist public-only bits here (schema has no dedicated fields)
+          items: orderItems as unknown as any,
+          deliveryAddress: input.deliveryAddress as unknown as any,
           contactInfo: {
             ...input.customer,
-            deliveryMethod: input.deliveryMethod,       // ← stored inside JSON
-            scheduledFor: input.scheduledFor ?? null,   // ← stored inside JSON
+            deliveryMethod: input.deliveryMethod,
+            scheduledFor: input.scheduledFor ?? null,
           } as unknown as any,
           subtotal,
           deliveryFee,
           total,
-          promotionCodes: [],                            // ← required array field
+          promotionCodes: [],
           ipAddress: ctx.req.headers.get('x-forwarded-for') ?? ctx.req.headers.get('x-real-ip') ?? ctx.ip,
           userAgent: ctx.req.headers.get('user-agent'),
-          // expiresAt has no default; createdAt has a default; updatedAt is @updatedAt
           expiresAt: new Date(Date.now() + 30 * 60 * 1000),
         },
       })
 
-      // Normalize payment methods (derive from merchant PayNow fields)
+      // Normalize payment methods
       const paymentMethods = merchant.paynowNumber
         ? [{
             method: 'PAYNOW' as const,
@@ -521,7 +730,7 @@ export const publicRouter = router({
       }
     }),
 
-  // Public order tracker
+  // Public order tracker (unchanged)
   trackOrder: publicProcedure
     .input(z.object({
       orderNumber: z.string().min(3),

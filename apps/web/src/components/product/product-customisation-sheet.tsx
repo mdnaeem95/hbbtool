@@ -1,34 +1,59 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { 
-  Sheet, 
-  SheetContent, 
-  Button, 
-  ScrollArea 
-} from "@homejiak/ui"
-import { Plus, Minus, ShoppingCart } from "lucide-react"
+import { Sheet, SheetContent, Button, ScrollArea } from "@homejiak/ui"
+import { Plus, Minus, ShoppingCart, AlertCircle } from "lucide-react"
 import { useCart } from "../../stores/cart-store"
-import { formatPrice } from "../../lib/utils"
+import { formatPrice, cn } from "../../lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
+import { api } from "../../lib/trpc/client"
 
 interface ProductCustomizationSheetProps {
   product: any
   isOpen: boolean
   onClose: () => void
+  initialQuantity?: number
+  initialVariantId?: string
+  merchantSlug?: string
 }
 
 export function ProductCustomizationSheet({
   product,
   isOpen,
-  onClose
+  onClose,
+  initialQuantity = 1,
+  initialVariantId,
+  merchantSlug
 }: ProductCustomizationSheetProps) {
-  const [quantity, setQuantity] = useState(1)
+  const [quantity, setQuantity] = useState(initialQuantity)
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(initialVariantId || null)
   const [selectedModifiers, setSelectedModifiers] = useState<Record<string, any>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
   const { addItem } = useCart()
 
-  // Initialize default selections
+  // Check availability if merchantSlug is provided
+  const { data: availability } = api.public.checkVariantAvailability.useQuery(
+    {
+      productId: product?.id,
+      variantId: selectedVariantId || undefined,
+      quantity,
+    },
+    {
+      enabled: !!product?.id && !!merchantSlug,
+    }
+  )
+
+  // Set default variant on load
+  useEffect(() => {
+    if (product?.variants && product.variants.length > 0 && !selectedVariantId) {
+      const defaultVariant = product.variants.find((v: any) => v.isDefault) || product.variants[0]
+      if (defaultVariant) {
+        setSelectedVariantId(defaultVariant.id)
+      }
+    }
+  }, [product, selectedVariantId])
+
+  // Initialize default modifier selections
   useEffect(() => {
     if (!product?.modifierGroups) return
     
@@ -49,8 +74,16 @@ export function ProductCustomizationSheet({
     setSelectedModifiers(defaults)
   }, [product])
 
+  // Get selected variant
+  const selectedVariant = product?.variants?.find((v: any) => v.id === selectedVariantId)
+
+  // Calculate available inventory
+  const availableInventory = product?.trackInventory 
+    ? (selectedVariant ? selectedVariant.inventory : product.inventory)
+    : null
+
   const calculateTotalPrice = () => {
-    // Start with base price, default to 0 if not available
+    // Start with base price
     let price = product?.price || 0
     
     // Ensure we have a valid number
@@ -58,12 +91,18 @@ export function ProductCustomizationSheet({
       price = 0
     }
     
+    // Add variant price adjustment
+    if (selectedVariant?.priceAdjustment) {
+      const variantAdjustment = parseFloat(selectedVariant.priceAdjustment) || 0
+      price += variantAdjustment
+    }
+    
     // Add modifier prices
     product?.modifierGroups?.forEach((group: any) => {
       if (group.type === "SINGLE_SELECT") {
         const selectedId = selectedModifiers[group.id]
         const modifier = group.modifiers.find((m: any) => m.id === selectedId)
-        if (modifier && modifier.priceAdjustment) {
+        if (modifier?.priceAdjustment) {
           const adjustment = parseFloat(modifier.priceAdjustment) || 0
           price += adjustment
         }
@@ -71,7 +110,7 @@ export function ProductCustomizationSheet({
         const selectedIds = selectedModifiers[group.id] || []
         selectedIds.forEach((id: string) => {
           const modifier = group.modifiers.find((m: any) => m.id === id)
-          if (modifier && modifier.priceAdjustment) {
+          if (modifier?.priceAdjustment) {
             const adjustment = parseFloat(modifier.priceAdjustment) || 0
             price += adjustment
           }
@@ -80,6 +119,17 @@ export function ProductCustomizationSheet({
     })
     
     return price * quantity
+  }
+
+  const handleVariantSelect = (variantId: string) => {
+    setSelectedVariantId(variantId)
+    // Reset quantity to 1 when changing variants
+    setQuantity(1)
+    setErrors(prev => {
+      const newErrors = { ...prev }
+      delete newErrors.variant
+      return newErrors
+    })
   }
 
   const handleSingleSelect = (groupId: string, modifierId: string) => {
@@ -117,6 +167,12 @@ export function ProductCustomizationSheet({
   const validateSelections = () => {
     const newErrors: Record<string, string> = {}
     
+    // Validate variant selection if variants exist
+    if (product?.variants && product.variants.length > 0 && !selectedVariantId) {
+      newErrors.variant = "Please select an option"
+    }
+    
+    // Validate modifier selections
     product?.modifierGroups?.forEach((group: any) => {
       if (group.required) {
         if (group.type === "SINGLE_SELECT") {
@@ -150,6 +206,7 @@ export function ProductCustomizationSheet({
       return
     }
     
+    // Build customizations array
     const customizations = product?.modifierGroups?.map((group: any) => {
       const selections = []
       
@@ -190,6 +247,15 @@ export function ProductCustomizationSheet({
       }
     }).filter((g: any) => g.selections.length > 0)
     
+    // Build variant info
+    const variantInfo = selectedVariant ? {
+      id: selectedVariant.id,
+      name: selectedVariant.name,
+      priceAdjustment: selectedVariant.priceAdjustment || 0,
+      sku: selectedVariant.sku,
+      options: selectedVariant.options || {}
+    } : null
+    
     addItem({
       productId: product.id,
       merchantId: product.merchantId,
@@ -198,12 +264,25 @@ export function ProductCustomizationSheet({
       price: product.price || 0,
       image: product.images?.[0],
       quantity,
-      customizations: customizations.length > 0 ? customizations : undefined
+      variant: variantInfo,
+      customizations: customizations.length > 0 ? customizations : undefined,
+      maxQuantity: availableInventory || undefined,
     })
     
     onClose()
     setQuantity(1)
     setErrors({})
+  }
+
+  const incrementQuantity = () => {
+    if (availableInventory !== null && quantity >= availableInventory) return
+    if (availability?.maxQuantity !== undefined && quantity >= availability.maxQuantity) return
+    setQuantity(q => q + 1)
+  }
+
+  const decrementQuantity = () => {
+    if (quantity <= 1) return
+    setQuantity(q => q - 1)
   }
 
   return (
@@ -212,7 +291,7 @@ export function ProductCustomizationSheet({
         side="bottom" 
         className="h-screen max-h-screen w-full rounded-t-3xl p-0 flex flex-col bg-white border-t shadow-xl"
       >
-        {/* Header with Product Info - removed X button since Sheet has one */}
+        {/* Header with Product Info */}
         <div className="px-6 pt-6 pb-4 border-b bg-white">
           <div>
             <h2 className="text-xl font-semibold text-gray-900">
@@ -227,13 +306,112 @@ export function ProductCustomizationSheet({
         {/* Scrollable Content */}
         <ScrollArea className="flex-1 overflow-y-auto">
           <div className="px-6 py-4 space-y-6">
+            {/* Variant Selection */}
+            {product?.variants && product.variants.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-3"
+              >
+                <h3 className="font-medium text-gray-900">
+                  Select Option
+                  <span className="text-red-500 ml-1 text-sm">*</span>
+                </h3>
+                <div className="space-y-2">
+                  {product.variants.map((variant: any) => {
+                    const isSelected = variant.id === selectedVariantId
+                    const isOutOfStock = product.trackInventory && variant.inventory === 0
+                    
+                    return (
+                      <div
+                        key={variant.id}
+                        className={cn(
+                          "flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-200",
+                          isSelected 
+                            ? "border-orange-500 bg-orange-50" 
+                            : isOutOfStock
+                            ? "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60"
+                            : "border-gray-200 hover:border-gray-300 bg-white cursor-pointer"
+                        )}
+                        onClick={() => !isOutOfStock && handleVariantSelect(variant.id)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="relative flex items-center justify-center">
+                            <input
+                              type="radio"
+                              id={`variant-${variant.id}`}
+                              name="variant-selection"
+                              checked={isSelected}
+                              onChange={() => handleVariantSelect(variant.id)}
+                              disabled={isOutOfStock}
+                              className="sr-only"
+                            />
+                            <div className={cn(
+                              "w-5 h-5 rounded-full border-2 transition-all flex items-center justify-center",
+                              isSelected 
+                                ? "border-orange-500" 
+                                : "border-gray-300"
+                            )}>
+                              {isSelected && (
+                                <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <label 
+                              htmlFor={`variant-${variant.id}`}
+                              className={cn(
+                                "font-medium cursor-pointer",
+                                isOutOfStock ? "text-gray-400" : "text-gray-900"
+                              )}
+                            >
+                              {variant.name}
+                            </label>
+                            {product.trackInventory && variant.inventory <= 5 && variant.inventory > 0 && (
+                              <p className="text-xs text-orange-600 mt-0.5">
+                                Only {variant.inventory} left
+                              </p>
+                            )}
+                            {isOutOfStock && (
+                              <p className="text-xs text-red-600 mt-0.5">Out of stock</p>
+                            )}
+                          </div>
+                        </div>
+                        {variant.priceAdjustment !== 0 && (
+                          <span className={cn(
+                            "text-sm font-semibold",
+                            variant.priceAdjustment > 0 ? "text-gray-700" : "text-green-600"
+                          )}>
+                            {variant.priceAdjustment > 0 ? "+" : ""}
+                            {formatPrice(variant.priceAdjustment || 0)}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+                <AnimatePresence>
+                  {errors.variant && (
+                    <motion.p
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="text-sm text-red-500 pl-2"
+                    >
+                      {errors.variant}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            )}
+
             {/* Modifier Groups */}
             {product?.modifierGroups?.map((group: any, index: number) => (
               <motion.div
                 key={group.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
+                transition={{ delay: (index + 1) * 0.05 }}
                 className="space-y-3"
               >
                 <div className="flex items-center justify-between">
@@ -254,18 +432,20 @@ export function ProductCustomizationSheet({
                   <div className="space-y-2">
                     {group.modifiers.map((modifier: any) => {
                       const isSelected = selectedModifiers[group.id] === modifier.id
+                      const isOutOfStock = modifier.trackInventory && modifier.inventory === 0
+                      
                       return (
                         <div
                           key={modifier.id}
-                          className={`
-                            flex items-center justify-between p-4 rounded-2xl border-2 
-                            cursor-pointer transition-all duration-200
-                            ${isSelected 
-                              ? 'border-orange-500 bg-orange-50' 
-                              : 'border-gray-200 hover:border-gray-300 bg-white'
-                            }
-                          `}
-                          onClick={() => handleSingleSelect(group.id, modifier.id)}
+                          className={cn(
+                            "flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-200",
+                            isSelected 
+                              ? "border-orange-500 bg-orange-50" 
+                              : isOutOfStock
+                              ? "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60"
+                              : "border-gray-200 hover:border-gray-300 bg-white cursor-pointer"
+                          )}
+                          onClick={() => !isOutOfStock && handleSingleSelect(group.id, modifier.id)}
                         >
                           <div className="flex items-center gap-3">
                             <div className="relative flex items-center justify-center">
@@ -275,26 +455,42 @@ export function ProductCustomizationSheet({
                                 name={`radio-group-${group.id}`}
                                 checked={isSelected}
                                 onChange={() => handleSingleSelect(group.id, modifier.id)}
+                                disabled={isOutOfStock}
                                 className="sr-only"
                               />
-                              <div className={`
-                                w-5 h-5 rounded-full border-2 transition-all flex items-center justify-center
-                                ${isSelected 
-                                  ? 'border-orange-500' 
-                                  : 'border-gray-300'
-                                }
-                              `}>
+                              <div className={cn(
+                                "w-5 h-5 rounded-full border-2 transition-all flex items-center justify-center",
+                                isSelected 
+                                  ? "border-orange-500" 
+                                  : "border-gray-300"
+                              )}>
                                 {isSelected && (
                                   <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
                                 )}
                               </div>
                             </div>
-                            <label 
-                              htmlFor={`radio-${modifier.id}`}
-                              className="text-gray-900 font-medium cursor-pointer"
-                            >
-                              {modifier.name}
-                            </label>
+                            <div className="flex-1">
+                              <label 
+                                htmlFor={`radio-${modifier.id}`}
+                                className={cn(
+                                  "font-medium cursor-pointer",
+                                  isOutOfStock ? "text-gray-400" : "text-gray-900"
+                                )}
+                              >
+                                {modifier.name}
+                              </label>
+                              {modifier.description && (
+                                <p className="text-xs text-gray-500 mt-0.5">{modifier.description}</p>
+                              )}
+                              {modifier.trackInventory && modifier.inventory <= 5 && modifier.inventory > 0 && (
+                                <p className="text-xs text-orange-600 mt-0.5">
+                                  Only {modifier.inventory} left
+                                </p>
+                              )}
+                              {isOutOfStock && (
+                                <p className="text-xs text-red-600 mt-0.5">Unavailable</p>
+                              )}
+                            </div>
                           </div>
                           {modifier.priceAdjustment !== 0 && (
                             <span className="text-sm font-semibold text-gray-700">
@@ -310,18 +506,20 @@ export function ProductCustomizationSheet({
                   <div className="space-y-2">
                     {group.modifiers.map((modifier: any) => {
                       const isChecked = (selectedModifiers[group.id] || []).includes(modifier.id)
+                      const isOutOfStock = modifier.trackInventory && modifier.inventory === 0
+                      
                       return (
                         <div
                           key={modifier.id}
-                          className={`
-                            flex items-center justify-between p-4 rounded-2xl border-2 
-                            cursor-pointer transition-all duration-200
-                            ${isChecked 
-                              ? 'border-orange-500 bg-orange-50' 
-                              : 'border-gray-200 hover:border-gray-300 bg-white'
-                            }
-                          `}
-                          onClick={() => handleMultiSelect(group.id, modifier.id, !isChecked)}
+                          className={cn(
+                            "flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-200",
+                            isChecked 
+                              ? "border-orange-500 bg-orange-50" 
+                              : isOutOfStock
+                              ? "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60"
+                              : "border-gray-200 hover:border-gray-300 bg-white cursor-pointer"
+                          )}
+                          onClick={() => !isOutOfStock && handleMultiSelect(group.id, modifier.id, !isChecked)}
                         >
                           <div className="flex items-center gap-3">
                             <div className="relative flex items-center justify-center">
@@ -330,15 +528,15 @@ export function ProductCustomizationSheet({
                                 id={`check-${modifier.id}`}
                                 checked={isChecked}
                                 onChange={(e) => handleMultiSelect(group.id, modifier.id, e.target.checked)}
+                                disabled={isOutOfStock}
                                 className="sr-only"
                               />
-                              <div className={`
-                                w-5 h-5 rounded border-2 transition-all flex items-center justify-center
-                                ${isChecked 
-                                  ? 'bg-orange-500 border-orange-500' 
-                                  : 'bg-white border-gray-300'
-                                }
-                              `}>
+                              <div className={cn(
+                                "w-5 h-5 rounded border-2 transition-all flex items-center justify-center",
+                                isChecked 
+                                  ? "bg-orange-500 border-orange-500" 
+                                  : "bg-white border-gray-300"
+                              )}>
                                 {isChecked && (
                                   <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
                                     <path d="M10 3L4.5 8.5L2 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -346,12 +544,28 @@ export function ProductCustomizationSheet({
                                 )}
                               </div>
                             </div>
-                            <label 
-                              htmlFor={`check-${modifier.id}`}
-                              className="text-gray-900 font-medium cursor-pointer"
-                            >
-                              {modifier.name}
-                            </label>
+                            <div className="flex-1">
+                              <label 
+                                htmlFor={`check-${modifier.id}`}
+                                className={cn(
+                                  "font-medium cursor-pointer",
+                                  isOutOfStock ? "text-gray-400" : "text-gray-900"
+                                )}
+                              >
+                                {modifier.name}
+                              </label>
+                              {modifier.description && (
+                                <p className="text-xs text-gray-500 mt-0.5">{modifier.description}</p>
+                              )}
+                              {modifier.trackInventory && modifier.inventory <= 5 && modifier.inventory > 0 && (
+                                <p className="text-xs text-orange-600 mt-0.5">
+                                  Only {modifier.inventory} left
+                                </p>
+                              )}
+                              {isOutOfStock && (
+                                <p className="text-xs text-red-600 mt-0.5">Unavailable</p>
+                              )}
+                            </div>
                           </div>
                           {modifier.priceAdjustment !== 0 && (
                             <span className="text-sm font-semibold text-gray-700">
@@ -392,7 +606,7 @@ export function ProductCustomizationSheet({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  onClick={decrementQuantity}
                   className="rounded-xl h-12 w-12 hover:bg-white transition-colors"
                   disabled={quantity <= 1}
                 >
@@ -404,13 +618,32 @@ export function ProductCustomizationSheet({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => setQuantity(quantity + 1)}
+                  onClick={incrementQuantity}
                   className="rounded-xl h-12 w-12 hover:bg-white transition-colors"
+                  disabled={
+                    (availableInventory !== null && quantity >= availableInventory) ||
+                    (availability?.maxQuantity !== undefined && quantity >= availability.maxQuantity)
+                  }
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
+              
+              {availableInventory !== null && availableInventory > 0 && availableInventory <= 10 && (
+                <p className="text-sm text-orange-600 font-medium flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" />
+                  Only {availableInventory} left in stock!
+                </p>
+              )}
             </motion.div>
+
+            {/* Availability Warning */}
+            {availability && !availability.available && (
+              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700 flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <p>{availability.message}</p>
+              </div>
+            )}
           </div>
         </ScrollArea>
 
@@ -429,8 +662,12 @@ export function ProductCustomizationSheet({
           </div>
           
           <Button
-            className="w-full h-14 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-semibold text-lg shadow-lg shadow-orange-500/25 transition-all duration-200 hover:shadow-xl hover:shadow-orange-500/30"
+            className="w-full h-14 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-semibold text-lg shadow-lg shadow-orange-500/25 transition-all duration-200 hover:shadow-xl hover:shadow-orange-500/30 disabled:bg-gray-300 disabled:shadow-none"
             onClick={handleAddToCart}
+            disabled={
+              (availability && !availability.available) ||
+              (product?.variants && product.variants.length > 0 && !selectedVariantId)
+            }
           >
             <ShoppingCart className="mr-2 h-5 w-5" />
             Add to Cart
