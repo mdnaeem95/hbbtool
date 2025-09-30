@@ -15,6 +15,7 @@ import { ChevronLeft, Save, X, Plus } from "lucide-react"
 import { ProductStatus } from "@homejiak/database/types"
 import { ProductImageManager } from "./image-manager"
 import { ProductModifiersManager } from "./product-modifier-manager"
+import { ProductVariantManager } from "./product-variant-manager"
 
 // ---------- Schema & Types ----------
 const productFormSchema = z.object({
@@ -91,7 +92,7 @@ interface ProductFormProps {
 }
 
 export function ProductForm({ product }: ProductFormProps) {
-  const productId = product?.id!
+  const productId = product?.id || ''
   const router = useRouter()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
@@ -100,7 +101,13 @@ export function ProductForm({ product }: ProductFormProps) {
   // Fetch modifier groups if editing existing product
   const { data: modifierGroups } = api.productModifiers.getByProduct.useQuery(
     { productId },
-    { enabled: !!productId }
+    { enabled: !!productId && productId !== '' }
+  )
+
+  // Fetch product with variants if editing existing product
+  const { data: productWithVariants } = api.productVariants.getProductWithVariants.useQuery(
+    { productId },
+    { enabled: !!productId && productId !== '' }
   )
 
   const form = useForm<ProductFormValues>({
@@ -200,8 +207,11 @@ export function ProductForm({ product }: ProductFormProps) {
   }
 
   type SimpleCategory = { id: string; name: string }
-    const categories =
-  ((categoriesData as any)?.merchant?.categories as SimpleCategory[] | undefined) ?? []
+  const categories =
+    ((categoriesData as any)?.merchant?.categories as SimpleCategory[] | undefined) ?? []
+
+  // Get variants from the fetched data or fallback to props
+  const variants = productWithVariants?.variants || product?.variants || []
 
   return (
     <div className="flex-1 space-y-6 p-6">
@@ -239,7 +249,7 @@ export function ProductForm({ product }: ProductFormProps) {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="basic">
-            <TabsList className="settings-tabslist grid w-full grid-cols-4">
+            <TabsList className="settings-tabslist grid w-full grid-cols-6">
               <TabsTrigger 
                 value="basic"
                 className={cn(
@@ -268,11 +278,24 @@ export function ProductForm({ product }: ProductFormProps) {
                 Media
               </TabsTrigger>
               <TabsTrigger 
+                value="variants"
+                className={cn(
+                  "settings-tabtrigger gap-2",
+                  activeTab === "variants" && "settings-tabtrigger-active",
+                  !productId && "opacity-50 cursor-not-allowed"
+                )}
+                disabled={!productId}
+              >
+                Variants
+              </TabsTrigger>
+              <TabsTrigger 
                 value="customization"
                 className={cn(
                   "settings-tabtrigger gap-2",
-                  activeTab === "customization" && "settings-tabtrigger-active"
+                  activeTab === "customization" && "settings-tabtrigger-active",
+                  !productId && "opacity-50 cursor-not-allowed"
                 )}
+                disabled={!productId}
               >
                 Customization
               </TabsTrigger>
@@ -503,12 +526,47 @@ export function ProductForm({ product }: ProductFormProps) {
               />
             </TabsContent>
 
+            {/* Variants */}
+            <TabsContent value="variants" className="space-y-6">
+              {productId ? (
+                <ProductVariantManager
+                  variants={variants}
+                  onChange={(updatedVariants) => {
+                    // You could either:
+                    // 1. Store in local state and save with the product
+                    // 2. Call a mutation directly to update variants
+                    console.log('Variants updated:', updatedVariants)
+                  }}
+                  basePrice={Number(form.watch("price")) || 0}
+                  trackInventory={form.watch("trackInventory")}
+                />
+              ) : (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <p className="text-muted-foreground text-center">
+                      Save the product first to add variants
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
             {/* Customization */}
             <TabsContent value="customization">
-              <ProductModifiersManager
-                productId={productId}
-                existingGroups={modifierGroups || []}
-              />
+              {productId ? (
+                <ProductModifiersManager
+                  productId={productId}
+                  existingGroups={modifierGroups || []}
+                />
+              ) : (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <p className="text-muted-foreground text-center">
+                      Save the product first to add customization options
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             {/* Details */}
