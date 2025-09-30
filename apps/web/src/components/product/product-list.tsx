@@ -31,6 +31,7 @@ interface ProductListProps {
 
 export function ProductList({ searchParams }: ProductListProps) {
   const router = useRouter()
+  const utils = api.useUtils()
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set())
   const [localSearch, setLocalSearch] = useState(searchParams.search || "")
 
@@ -39,32 +40,128 @@ export function ProductList({ searchParams }: ProductListProps) {
   const page = Number(searchParams.page) || 1
   const limit = 10
 
-  const { data, isLoading } = api.product.list.useQuery({
+  // Build query key for cache operations
+  const queryKey = {
     page,
     limit,
-    search: debouncedSearch  || undefined,
+    search: debouncedSearch || undefined,
     status: searchParams.status && searchParams.status !== 'all' ? searchParams.status as ProductStatus : undefined,
     categoryId: searchParams.category || undefined,
-  })
+  }
 
+  const { data, isLoading } = api.product.list.useQuery(queryKey)
+
+  // Delete mutation with optimistic updates
   const { mutate: deleteProduct } = api.product.delete.useMutation({
-    onSuccess: () => {
-      toast({
-        title: "Product deleted",
-        description: "The product has been deleted successfully.",
+    onMutate: async ({ id }) => {
+      // Cancel any outgoing refetches
+      await utils.product.list.cancel()
+      
+      // Snapshot the previous value
+      const previousData = utils.product.list.getData(queryKey)
+      
+      // Optimistically remove the product from the list
+      if (previousData) {
+        utils.product.list.setData(queryKey, {
+          ...previousData,
+          items: previousData.items.filter((p: any) => p.id !== id),
+          pagination: {
+            ...previousData.pagination,
+            total: Math.max(0, previousData.pagination.total - 1),
+          }
+        })
+      }
+      
+      // Also remove from selected products if it was selected
+      setSelectedProducts(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(id)
+        return newSet
       })
-      router.refresh()
+      
+      // Return context with snapshot for potential rollback
+      return { previousData }
     },
-    onError: () => {
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        console.log('Rolling back optimistic update due to error:', err, variables)
+        utils.product.list.setData(queryKey, context.previousData)
+      }
+      
       toast({
         title: "Error",
         description: "Failed to delete product. Please try again.",
         variant: "destructive",
       })
     },
+    onSettled: async () => {
+      // Always refetch after error or success to ensure consistency
+      await utils.product.list.invalidate()
+    },
+    onSuccess: () => {
+      toast({
+        title: "Product deleted",
+        description: "The product has been deleted successfully.",
+      })
+    },
   })
 
+  // Duplicate mutation with optimistic updates
   const { mutate: duplicateProduct, isPending: isDuplicating } = api.product.duplicate.useMutation({
+    onMutate: async ({ id }) => {
+      // Cancel any outgoing refetches
+      await utils.product.list.cancel()
+      
+      // Snapshot the previous value
+      const previousData = utils.product.list.getData(queryKey)
+      
+      // Find the product being duplicated
+      const productToDuplicate = previousData?.items.find((p: any) => p.id === id)
+      
+      if (productToDuplicate && previousData) {
+        // Create optimistic duplicated product
+        const tempDuplicatedProduct = {
+          ...productToDuplicate,
+          id: `temp-${Date.now()}`, // Temporary ID
+          name: `${productToDuplicate.name} (Copy)`,
+          status: 'DRAFT' as ProductStatus,
+          featured: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }
+        
+        // Add to the beginning of the list (most recent first)
+        utils.product.list.setData(queryKey, {
+          ...previousData,
+          items: [tempDuplicatedProduct, ...previousData.items],
+          pagination: {
+            ...previousData.pagination,
+            total: previousData.pagination.total + 1,
+          }
+        })
+      }
+      
+      // Return context with snapshot
+      return { previousData }
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        console.log('Rolling back optimistic update due to error:', err, variables)
+        utils.product.list.setData(queryKey, context.previousData)
+      }
+      
+      toast({
+        title: "Error",
+        description: err.message || "Failed to duplicate product. Please try again.",
+        variant: "destructive",
+      })
+    },
+    onSettled: async () => {
+      // Always refetch after error or success to get the real data
+      await utils.product.list.invalidate()
+    },
     onSuccess: (data) => {
       toast({
         title: "Product duplicated",
@@ -79,13 +176,59 @@ export function ProductList({ searchParams }: ProductListProps) {
           </Button>
         )
       })
-      router.refresh()
     },
-    onError: (error) => {
+  })
+
+  // Bulk delete mutation with optimistic updates
+  const { mutate: bulkDeleteProducts } = api.product.bulkUpdate.useMutation({
+    onMutate: async ({ ids, action }) => {
+      if (action !== 'delete') return
+      
+      // Cancel any outgoing refetches
+      await utils.product.list.cancel()
+      
+      // Snapshot the previous value
+      const previousData = utils.product.list.getData(queryKey)
+      
+      // Optimistically remove the products from the list
+      if (previousData) {
+        utils.product.list.setData(queryKey, {
+          ...previousData,
+          items: previousData.items.filter((p: any) => !ids.includes(p.id)),
+          pagination: {
+            ...previousData.pagination,
+            total: Math.max(0, previousData.pagination.total - ids.length),
+          }
+        })
+      }
+      
+      // Clear selected products
+      setSelectedProducts(new Set())
+      
+      // Return context with snapshot
+      return { previousData }
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      if (context?.previousData) {
+        console.log('Rolling back optimistic update due to error:', err, variables)
+        utils.product.list.setData(queryKey, context.previousData)
+      }
+      
       toast({
         title: "Error",
-        description: error.message || "Failed to duplicate product. Please try again.",
+        description: "Failed to delete products. Please try again.",
         variant: "destructive",
+      })
+    },
+    onSettled: async () => {
+      // Always refetch after error or success
+      await utils.product.list.invalidate()
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Products deleted",
+        description: `Successfully deleted ${data.count} products.`,
       })
     },
   })
@@ -132,6 +275,17 @@ export function ProductList({ searchParams }: ProductListProps) {
     setSelectedProducts(newSelected)
   }
 
+  const handleBulkDelete = () => {
+    if (selectedProducts.size === 0) return
+    
+    if (confirm(`Are you sure you want to delete ${selectedProducts.size} product${selectedProducts.size > 1 ? 's' : ''}?`)) {
+      bulkDeleteProducts({
+        ids: Array.from(selectedProducts),
+        action: 'delete'
+      })
+    }
+  }
+
   // Update other params (not search) immediately
   const updateSearchParam = useCallback((key: string, value: string | null) => {
     if (key === 'search') {
@@ -150,7 +304,7 @@ export function ProductList({ searchParams }: ProductListProps) {
     router.push(`/dashboard/products?${params.toString()}`)
   }, [router])
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return <ProductListSkeleton />
   }
 
@@ -166,8 +320,8 @@ export function ProductList({ searchParams }: ProductListProps) {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search products..."
-              defaultValue={searchParams.search}
-              onChange={(e: any) => setLocalSearch(e.target.value)}
+              value={localSearch}
+              onChange={(e) => setLocalSearch(e.target.value)}
               className="pl-9"
             />
           </div>
@@ -196,13 +350,7 @@ export function ProductList({ searchParams }: ProductListProps) {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                // Implement bulk delete
-                toast({
-                  title: "Bulk actions",
-                  description: "Bulk actions coming soon!",
-                })
-              }}
+              onClick={handleBulkDelete}
             >
               <Trash className="mr-2 h-4 w-4" />
               Delete
@@ -236,7 +384,9 @@ export function ProductList({ searchParams }: ProductListProps) {
                 <TableCell colSpan={7} className="h-24 text-center">
                   <div className="flex flex-col items-center gap-2">
                     <Package className="h-8 w-8 text-muted-foreground" />
-                    <p className="text-muted-foreground">No products found</p>
+                    <p className="text-muted-foreground">
+                      {debouncedSearch ? `No products found for "${debouncedSearch}"` : "No products found"}
+                    </p>
                     <Button size="sm" asChild>
                       <Link href="/dashboard/products/new">Add Product</Link>
                     </Button>
@@ -245,18 +395,19 @@ export function ProductList({ searchParams }: ProductListProps) {
               </TableRow>
             ) : (
               products.map((product: any) => (
-                <TableRow key={product.id}>
+                <TableRow key={product.id} className={product.id.startsWith('temp-') ? 'opacity-60' : ''}>
                   <TableCell>
                     <Checkbox
                       checked={selectedProducts.has(product.id)}
                       onCheckedChange={(checked: any) => 
                         handleSelectProduct(product.id, checked as boolean)
                       }
+                      disabled={product.id.startsWith('temp-')}
                     />
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      {product.images[0] ? (
+                      {product.images?.[0] ? (
                         <img
                           src={product.images[0]}
                           alt={product.name}
@@ -268,7 +419,12 @@ export function ProductList({ searchParams }: ProductListProps) {
                         </div>
                       )}
                       <div>
-                        <p className="font-medium">{product.name}</p>
+                        <p className="font-medium">
+                          {product.name}
+                          {product.id.startsWith('temp-') && (
+                            <span className="ml-2 text-xs text-muted-foreground">(Creating...)</span>
+                          )}
+                        </p>
                         {product.category && (
                           <p className="text-sm text-muted-foreground">
                             {product.category.name}
@@ -312,7 +468,7 @@ export function ProductList({ searchParams }: ProductListProps) {
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" disabled={product.id.startsWith('temp-')}>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -329,7 +485,7 @@ export function ProductList({ searchParams }: ProductListProps) {
                           className="hover:bg-gray-100 cursor-pointer focus:bg-gray-100"
                         >
                           <Copy className="mr-2 h-4 w-4" />
-                          Duplicate
+                          {isDuplicating ? "Duplicating..." : "Duplicate"}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-red-600 hover:bg-red-50 hover:text-red-700 cursor-pointer focus:bg-red-50 focus:text-red-700"
