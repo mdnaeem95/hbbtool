@@ -213,11 +213,13 @@ export function MerchantHelpCenter() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {quickActions.map((action, idx) => (
                   action.available ? (
-                    <Link key={idx} href={action.link}>
-                      <Button
-                        variant="outline"
-                        className="h-auto p-4 justify-start hover:border-orange-300 w-full"
-                      >
+                    <Button
+                      key={idx}
+                      variant="outline"
+                      className="h-auto p-4 justify-start hover:border-orange-300"
+                      asChild
+                    >
+                      <Link href={action.link}>
                         <div className="flex items-start space-x-3 w-full">
                           <div className="p-2 bg-orange-100 rounded-lg text-orange-600 group-hover:bg-orange-200 transition-colors">
                             {action.icon}
@@ -227,8 +229,8 @@ export function MerchantHelpCenter() {
                             <p className="text-xs text-gray-500 mt-1 text-left">{action.time}</p>
                           </div>
                         </div>
-                      </Button>
-                    </Link>
+                      </Link>
+                    </Button>
                   ) : (
                     <Button
                       key={idx}
