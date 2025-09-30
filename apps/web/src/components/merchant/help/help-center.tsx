@@ -3,8 +3,9 @@
 import { useState, useMemo } from 'react'
 import { Search, Phone, Mail, MessageCircle, Clock, ChevronDown, ChevronRight, 
   ExternalLink, BookOpen, PlayCircle, Users, HelpCircle, Zap, CreditCard, Package, 
-  TrendingUp, Shield, Smartphone } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, Input, Button, Badge, Alert, AlertDescription, cn } from '@homejiak/ui'
+  TrendingUp, Shield, 
+  Link} from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle, Input, Button, Badge, Alert, AlertDescription, cn, toast } from '@homejiak/ui'
 
 // FAQ Data structured by categories
 const faqData = [
@@ -127,9 +128,9 @@ const faqData = [
 
 // Quick action links
 const quickActions = [
-  { icon: <BookOpen className="w-5 h-5" />, label: "Setup Guide", time: "5 min read", link: "/guide/setup" },
-  { icon: <PlayCircle className="w-5 h-5" />, label: "Video Tutorials", time: "Watch now", link: "/tutorials" },
-  { icon: <Users className="w-5 h-5" />, label: "Join Community", time: "500+ merchants", link: "/community" }
+  { icon: <BookOpen className="w-5 h-5" />, label: "Setup Guide", time: "5 min read", link: "/help/setup-guide", available: true },
+  { icon: <PlayCircle className="w-5 h-5" />, label: "Video Tutorials", time: "Watch now", link: "#", available: false },
+  { icon: <Users className="w-5 h-5" />, label: "Join Community", time: "500+ merchants", link: "#", available: false }
 ]
 
 export function MerchantHelpCenter() {
@@ -211,13 +212,35 @@ export function MerchantHelpCenter() {
             {!searchQuery && (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {quickActions.map((action, idx) => (
-                  <Button
-                    key={idx}
-                    variant="outline"
-                    className="h-auto p-4 justify-start hover:border-orange-300"
-                    asChild
-                  >
-                    <a href={action.link}>
+                  action.available ? (
+                    <Link key={idx} href={action.link}>
+                      <Button
+                        variant="outline"
+                        className="h-auto p-4 justify-start hover:border-orange-300 w-full"
+                      >
+                        <div className="flex items-start space-x-3 w-full">
+                          <div className="p-2 bg-orange-100 rounded-lg text-orange-600 group-hover:bg-orange-200 transition-colors">
+                            {action.icon}
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-900 text-sm text-left">{action.label}</h3>
+                            <p className="text-xs text-gray-500 mt-1 text-left">{action.time}</p>
+                          </div>
+                        </div>
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button
+                      key={idx}
+                      variant="outline"
+                      className="h-auto p-4 justify-start hover:border-orange-300"
+                      onClick={() => {
+                        toast({
+                          title: "Coming Soon! 🚀",
+                          description: `${action.label} will be available soon. We're working hard to bring you the best experience.`,
+                        })
+                      }}
+                    >
                       <div className="flex items-start space-x-3 w-full">
                         <div className="p-2 bg-orange-100 rounded-lg text-orange-600 group-hover:bg-orange-200 transition-colors">
                           {action.icon}
@@ -227,8 +250,8 @@ export function MerchantHelpCenter() {
                           <p className="text-xs text-gray-500 mt-1 text-left">{action.time}</p>
                         </div>
                       </div>
-                    </a>
-                  </Button>
+                    </Button>
+                  )
                 ))}
               </div>
             )}
@@ -423,27 +446,6 @@ export function MerchantHelpCenter() {
                   <span>View detailed status</span>
                   <ExternalLink className="w-3 h-3" />
                 </a>
-              </CardContent>
-            </Card>
-
-            {/* Mobile App Promo */}
-            <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-0">
-              <CardContent className="pt-6">
-                <div className="flex items-center space-x-2 mb-3">
-                  <Smartphone className="w-5 h-5" />
-                  <h3 className="font-semibold">Mobile App</h3>
-                </div>
-                <p className="text-sm text-orange-100 mb-4">
-                  Manage your business on the go with our mobile app
-                </p>
-                <div className="space-y-2">
-                  <Button className="w-full bg-white/20 backdrop-blur text-white hover:bg-white/30">
-                    Download for iOS
-                  </Button>
-                  <Button className="w-full bg-white/20 backdrop-blur text-white hover:bg-white/30">
-                    Download for Android
-                  </Button>
-                </div>
               </CardContent>
             </Card>
           </div>
