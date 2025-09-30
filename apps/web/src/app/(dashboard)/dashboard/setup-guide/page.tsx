@@ -1,6 +1,6 @@
 import { Metadata } from "next"
 import { redirect } from "next/navigation"
-import { SetupGuide } from "../../../../../components/merchant/guide/setup-guide"
+import { SetupGuide } from "../../../../components/merchant/guide/setup-guide"
 import { getMerchantSession } from "@homejiak/auth/server"
 
 export const dynamic = 'force-dynamic'
