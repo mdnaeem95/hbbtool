@@ -3,9 +3,9 @@
 import { useState, useMemo } from 'react'
 import { Search, Phone, Mail, MessageCircle, Clock, ChevronDown, ChevronRight, 
   ExternalLink, BookOpen, PlayCircle, Users, HelpCircle, Zap, CreditCard, Package, 
-  TrendingUp, Shield, 
-  Link} from 'lucide-react'
+  TrendingUp, Shield } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, Input, Button, Badge, Alert, AlertDescription, cn, toast } from '@homejiak/ui'
+import { useRouter } from 'next/navigation'
 
 // FAQ Data structured by categories
 const faqData = [
@@ -134,6 +134,7 @@ const quickActions = [
 ]
 
 export function MerchantHelpCenter() {
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedCategories, setExpandedCategories] = useState(new Set(['Getting Started']))
   const [expandedQuestions, setExpandedQuestions] = useState(new Set())
@@ -212,47 +213,31 @@ export function MerchantHelpCenter() {
             {!searchQuery && (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {quickActions.map((action, idx) => (
-                  <div key={idx}>
-                    {action.available ? (
-                      <Link href={action.link} className="block">
-                        <Button
-                          variant="outline"
-                          className="h-auto p-4 justify-start hover:border-orange-300 w-full"
-                        >
-                          <div className="flex items-start space-x-3 w-full">
-                            <div className="p-2 bg-orange-100 rounded-lg text-orange-600 group-hover:bg-orange-200 transition-colors">
-                              {action.icon}
-                            </div>
-                            <div className="flex-1 text-left">
-                              <h3 className="font-semibold text-gray-900 text-sm">{action.label}</h3>
-                              <p className="text-xs text-gray-500 mt-1">{action.time}</p>
-                            </div>
-                          </div>
-                        </Button>
-                      </Link>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        className="h-auto p-4 justify-start hover:border-orange-300 w-full"
-                        onClick={() => {
-                          toast({
-                            title: "Coming Soon! 🚀",
-                            description: `${action.label} will be available soon. We're working hard to bring you the best experience.`,
-                          })
-                        }}
-                      >
-                        <div className="flex items-start space-x-3 w-full">
-                          <div className="p-2 bg-orange-100 rounded-lg text-orange-600 group-hover:bg-orange-200 transition-colors">
-                            {action.icon}
-                          </div>
-                          <div className="flex-1 text-left">
-                            <h3 className="font-semibold text-gray-900 text-sm">{action.label}</h3>
-                            <p className="text-xs text-gray-500 mt-1">{action.time}</p>
-                          </div>
-                        </div>
-                      </Button>
-                    )}
-                  </div>
+                  <Button
+                    key={idx}
+                    variant="outline"
+                    className="h-auto p-4 justify-start hover:border-orange-300"
+                    onClick={() => {
+                      if (action.available) {
+                        router.push(action.link)
+                      } else {
+                        toast({
+                          title: "Coming Soon! 🚀",
+                          description: `${action.label} will be available soon. We're working hard to bring you the best experience.`,
+                        })
+                      }
+                    }}
+                  >
+                    <div className="flex items-start space-x-3 w-full">
+                      <div className="p-2 bg-orange-100 rounded-lg text-orange-600">
+                        {action.icon}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <h3 className="font-semibold text-gray-900 text-sm">{action.label}</h3>
+                        <p className="text-xs text-gray-500 mt-1">{action.time}</p>
+                      </div>
+                    </div>
+                  </Button>
                 ))}
               </div>
             )}
