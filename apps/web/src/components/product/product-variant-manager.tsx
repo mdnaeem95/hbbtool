@@ -125,7 +125,7 @@ export function ProductVariantManager({
 
   // Calculate effective price for display
   const getEffectivePrice = (variant: ProductVariant) => {
-    return basePrice + variant.priceAdjustment
+    return Number(basePrice + variant.priceAdjustment)
   }
 
   return (
