@@ -1,5 +1,4 @@
 import { db, Prisma } from "@homejiak/database"
-import { sql } from "@homejiak/database/postgres" 
 import { cacheTTL, edgeCache } from "../../utils/edge-cache"
 
 export interface NearbyMerchant {
@@ -321,36 +320,6 @@ export class SearchService {
 
       return merchants
     }, cacheTTL.merchant)
-  }
-
-  static async rawNearbyMerchants(params: {
-    latitude: number
-    longitude: number
-    radiusMeters: number
-    limit: number
-  }) {
-    const { latitude, longitude, radiusMeters, limit } = params
-
-    return sql/*sql*/`
-      SELECT id, "businessName", slug,
-             latitude, longitude, halal,
-             "deliveryEnabled", "pickupEnabled",
-             "averageRating", verified,
-             ST_Distance(
-               location,
-               ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography
-             ) AS distance
-      FROM "Merchant"
-      WHERE status = 'ACTIVE'
-        AND "deletedAt" IS NULL
-        AND ST_DWithin(
-              location,
-              ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326)::geography,
-              ${radiusMeters}
-            )
-      ORDER BY verified DESC, distance ASC, "averageRating" DESC NULLS LAST
-      LIMIT ${limit};
-    `
   }
 
   static async getSuggestions(params: {

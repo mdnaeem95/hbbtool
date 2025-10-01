@@ -3,10 +3,10 @@
 import { useState } from "react"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { cn } from "../../lib/utils"
+import { cn } from "../../../lib/utils"
 import { Menu, LayoutDashboard, ShoppingBag, Package, BarChart3, Settings, HelpCircle, Store } from "lucide-react"
 import { Sheet, SheetContent, SheetTrigger, Button } from "@homejiak/ui"
-import { RouterOutputs } from "../../lib/trpc/types"
+import { RouterOutputs } from "../../../lib/trpc/types"
 
 type MerchantDashboardData = RouterOutputs["merchant"]["getDashboard"]
 
