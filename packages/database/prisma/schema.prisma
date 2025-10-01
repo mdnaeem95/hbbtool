@@ -145,22 +145,653 @@ enum ModifierScope {
   MERCHANT // Applies to all products from merchant
 }
 
+enum MeasurementUnit {
+  // Weight
+  GRAMS
+  KG
+  OUNCES
+  POUNDS
+
+  // Volume
+  ML
+  LITERS
+  TSP
+  TBSP
+  CUPS
+
+  // Count
+  PIECES
+  SERVINGS
+  BATCHES
+  DOZEN
+}
+
+enum IngredientCategory {
+  FLOUR_GRAINS
+  DAIRY_EGGS
+  SWEETENERS
+  FATS_OILS
+  LEAVENING
+  CHOCOLATE_COCOA
+  NUTS_SEEDS
+  FRUITS
+  VEGETABLES
+  MEAT_SEAFOOD
+  SPICES_HERBS
+  FLAVORINGS_EXTRACTS
+  BEVERAGES
+  PACKAGING
+  SUPPLIES
+  OTHER
+}
+
+enum RecipeCategory {
+  BAKED_GOODS
+  PASTRIES
+  CAKES
+  COOKIES
+  BREADS
+  DESSERTS
+  MAINS
+  APPETIZERS
+  SIDES
+  BEVERAGES
+  SAUCES_CONDIMENTS
+  MEAL_PREP
+  CATERING
+  SNACKS
+  OTHER
+}
+
+enum BatchStatus {
+  PLANNED
+  IN_PROGRESS
+  COOLING
+  DECORATING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum TransactionType {
+  PURCHASE // Bought new stock
+  PRODUCTION_USE // Used in recipe/batch
+  ADJUSTMENT // Manual count correction
+  WASTE // Spoiled/expired
+  RETURN // Returned to supplier
+  DONATION // Given away
+  SAMPLE // Used for samples/testing
+}
+
+enum CostConfidence {
+  HIGH // All prices updated within 7 days
+  MEDIUM // Prices updated within 30 days
+  LOW // Prices older than 30 days
+  UNKNOWN // Missing price data
+}
+
+// ==================== GLOBAL INGREDIENT LIBRARY ====================
+// Shared by ALL merchants - seeded once for the platform
+
+model Ingredient {
+  id String @id @default(cuid())
+
+  // Basic Info
+  name        String             @unique // Must be unique globally
+  description String?
+  category    IngredientCategory
+
+  // Standard Purchase Info
+  purchaseUnit     MeasurementUnit
+  unitSize         Decimal         @default(1) @db.Decimal(10, 3)
+  alternativeNames String[]        @default([])
+
+  // Reference Pricing (Singapore average - for reference only)
+  referencePrice     Decimal  @db.Decimal(10, 4)
+  referencePriceDate DateTime @default(now())
+
+  // Common Stores (suggestions)
+  commonStores String[] @default([])
+
+  // Storage & Shelf Life (guidelines)
+  storageLocation     String?
+  shelfLifeDays       Int?
+  openedShelfLifeDays Int?
+
+  // Nutrition (per 100g/100ml)
+  caloriesPer100g Decimal? @db.Decimal(8, 2)
+  proteinPer100g  Decimal? @db.Decimal(6, 2)
+  carbsPer100g    Decimal? @db.Decimal(6, 2)
+  fatPer100g      Decimal? @db.Decimal(6, 2)
+  fiberPer100g    Decimal? @db.Decimal(6, 2)
+  sugarPer100g    Decimal? @db.Decimal(6, 2)
+  sodiumPer100g   Decimal? @db.Decimal(6, 2)
+
+  // Allergens & Dietary
+  allergens      String[] @default([])
+  certifications String[] @default([])
+  dietaryFlags   String[] @default([])
+
+  // Conversion & Yield
+  conversionNotes String?
+  yieldPercentage Decimal? @db.Decimal(5, 2)
+
+  // Metadata
+  imageUrl String?
+  barcode  String?
+  isActive Boolean  @default(true)
+  tags     String[] @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  recipeUsages     RecipeIngredient[]
+  merchantPricing  MerchantIngredientPrice[]
+  merchantSettings MerchantIngredientSettings[]
+
+  @@index([category, isActive])
+  @@index([name])
+}
+
+// ==================== MERCHANT-SPECIFIC PRICING ====================
+// Each merchant tracks their own prices
+
+model MerchantIngredientPrice {
+  id           String @id @default(cuid())
+  merchantId   String
+  ingredientId String
+
+  // Current Price
+  currentPricePerUnit Decimal  @db.Decimal(10, 4)
+  currentPriceDate    DateTime @default(now())
+
+  // Where They Buy
+  preferredStore    String?
+  alternativeStores String[] @default([])
+  brandPreference   String?
+
+  // Inventory
+  currentStock    Decimal  @default(0) @db.Decimal(10, 3)
+  reorderPoint    Decimal? @db.Decimal(10, 3)
+  reorderQuantity Decimal? @db.Decimal(10, 3)
+
+  // Cost Analysis
+  lastPurchasePrice Decimal?  @db.Decimal(10, 4)
+  lastPurchaseDate  DateTime?
+  averageCost       Decimal?  @db.Decimal(10, 4)
+  lowestCost        Decimal?  @db.Decimal(10, 4)
+  highestCost       Decimal?  @db.Decimal(10, 4)
+
+  // Usage Stats
+  totalUsed      Decimal   @default(0) @db.Decimal(10, 3)
+  usageFrequency Int       @default(0)
+  lastUsedAt     DateTime?
+
+  // Notes
+  notes      String? @db.Text
+  isFavorite Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  merchant     Merchant                 @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient               @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  priceHistory IngredientPriceHistory[]
+  transactions IngredientTransaction[]
+
+  @@unique([merchantId, ingredientId])
+  @@index([merchantId, currentStock])
+}
+
+// ==================== PRICE HISTORY ====================
+
+model IngredientPriceHistory {
+  id                String @id @default(cuid())
+  merchantPricingId String
+
+  // Price Details
+  pricePerUnit     Decimal @db.Decimal(10, 4)
+  purchaseQuantity Decimal @db.Decimal(10, 3)
+  totalPaid        Decimal @db.Decimal(10, 2)
+  currency         String  @default("SGD")
+
+  // Purchase Context
+  store            String?
+  location         String?
+  onSale           Boolean @default(false)
+  promotionDetails String?
+  brand            String?
+
+  // Price Change
+  priceChange        Decimal? @db.Decimal(10, 4)
+  priceChangePercent Decimal? @db.Decimal(6, 2)
+
+  // Quality
+  quality     Int?
+  batchNumber String?
+  notes       String? @db.Text
+
+  // Metadata
+  purchaseDate DateTime @default(now())
+  recordedBy   String?
+  receiptUrl   String?
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  merchantPricing MerchantIngredientPrice @relation(fields: [merchantPricingId], references: [id], onDelete: Cascade)
+
+  @@index([merchantPricingId, purchaseDate])
+}
+
+// ==================== MERCHANT CUSTOM INGREDIENTS ====================
+// For ingredients NOT in global library
+
+model CustomIngredient {
+  id         String @id @default(cuid())
+  merchantId String
+
+  // Basic Info (same structure as Ingredient)
+  name        String
+  description String?
+  category    IngredientCategory
+
+  // Purchase Info
+  purchaseUnit MeasurementUnit
+  unitSize     Decimal         @default(1) @db.Decimal(10, 3)
+
+  // Current Price
+  currentPricePerUnit Decimal  @db.Decimal(10, 4)
+  currentPriceDate    DateTime @default(now())
+
+  // Storage & Inventory
+  preferredStore  String?
+  storageLocation String?
+  shelfLifeDays   Int?
+  currentStock    Decimal  @default(0) @db.Decimal(10, 3)
+  reorderPoint    Decimal? @db.Decimal(10, 3)
+
+  // Allergens & Dietary
+  allergens    String[] @default([])
+  dietaryFlags String[] @default([])
+
+  // Metadata
+  imageUrl String?
+  notes    String? @db.Text
+  isActive Boolean @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // Relations
+  merchant     Merchant                       @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  recipeUsages RecipeIngredient[]
+  priceHistory CustomIngredientPriceHistory[]
+  transactions IngredientTransaction[]
+
+  @@unique([merchantId, name])
+  @@index([merchantId, isActive])
+}
+
+model CustomIngredientPriceHistory {
+  id                 String @id @default(cuid())
+  customIngredientId String
+
+  pricePerUnit     Decimal @db.Decimal(10, 4)
+  purchaseQuantity Decimal @db.Decimal(10, 3)
+  totalPaid        Decimal @db.Decimal(10, 2)
+
+  store        String?
+  onSale       Boolean  @default(false)
+  notes        String?
+  purchaseDate DateTime @default(now())
+  receiptUrl   String?
+
+  createdAt DateTime @default(now())
+
+  customIngredient CustomIngredient @relation(fields: [customIngredientId], references: [id], onDelete: Cascade)
+
+  @@index([customIngredientId, purchaseDate])
+}
+
+// ==================== OPTIONAL: MERCHANT SETTINGS ====================
+
+model MerchantIngredientSettings {
+  id           String @id @default(cuid())
+  merchantId   String
+  ingredientId String
+
+  // Custom Overrides
+  customName           String?
+  customStorageNote    String?
+  customShelfLife      Int?
+  customConversionNote String?
+
+  // Visibility
+  isHidden Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  merchant   Merchant   @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@unique([merchantId, ingredientId])
+}
+
+// ==================== RECIPE MANAGEMENT ====================
+
+model Recipe {
+  id         String @id @default(cuid())
+  merchantId String
+
+  // Basic Info
+  name        String
+  description String?        @db.Text
+  category    RecipeCategory @default(BAKED_GOODS)
+  imageUrl    String?
+  images      String[]       @default([])
+
+  // Production Details
+  baseYield      Decimal         @db.Decimal(10, 2)
+  yieldUnit      MeasurementUnit
+  prepTime       Int // minutes
+  cookTime       Int
+  coolingTime    Int             @default(0)
+  decorationTime Int             @default(0)
+  totalTime      Int // calculated
+
+  // Difficulty
+  difficulty String @default("MEDIUM")
+  skillLevel Int    @default(3)
+
+  // Storage
+  shelfLifeDays         Int?
+  storageInstructions   String? @db.Text
+  reheatingInstructions String? @db.Text
+
+  // Costing
+  laborCostPerHour Decimal @default(15.00) @db.Decimal(6, 2)
+  overheadRate     Decimal @default(0.15) @db.Decimal(4, 2)
+  packagingCost    Decimal @default(0) @db.Decimal(10, 2)
+
+  // Calculated Costs (cached)
+  ingredientCost     Decimal?        @db.Decimal(10, 2)
+  laborCost          Decimal?        @db.Decimal(10, 2)
+  overheadCost       Decimal?        @db.Decimal(10, 2)
+  totalCost          Decimal?        @db.Decimal(10, 2)
+  costPerUnit        Decimal?        @db.Decimal(10, 4)
+  costConfidence     CostConfidence? @default(UNKNOWN)
+  lastCostCalculated DateTime?
+
+  // Version Control
+  version        Int     @default(1)
+  isActive       Boolean @default(true)
+  parentRecipeId String?
+  versionNotes   String? @db.Text
+
+  // Instructions
+  instructions Json?
+  notes        String?  @db.Text
+  tips         String[] @default([])
+  warnings     String[] @default([])
+
+  // Equipment
+  equipmentNeeded String[] @default([])
+
+  // Nutrition
+  caloriesPerServing Decimal? @db.Decimal(8, 2)
+  servingSize        String?
+  nutritionFacts     Json?
+
+  // Tags
+  tags       String[] @default([])
+  isPublic   Boolean  @default(false)
+  isFeatured Boolean  @default(false)
+
+  // Stats
+  timesProduced  Int       @default(0)
+  lastProducedAt DateTime?
+  averageRating  Decimal?  @db.Decimal(2, 1)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // Relations
+  merchant      Merchant             @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  parentRecipe  Recipe?              @relation("RecipeVersions", fields: [parentRecipeId], references: [id], onDelete: SetNull)
+  childVersions Recipe[]             @relation("RecipeVersions")
+  ingredients   RecipeIngredient[]
+  products      Product[]
+  batches       ProductionBatch[]
+  costSnapshots RecipeCostSnapshot[]
+
+  @@unique([merchantId, name, version])
+  @@index([merchantId, isActive, category])
+  @@index([merchantId, isActive, deletedAt])
+  @@index([parentRecipeId])
+}
+
+model RecipeIngredient {
+  id       String @id @default(cuid())
+  recipeId String
+
+  // Link to EITHER global OR custom ingredient
+  ingredientId       String?
+  customIngredientId String?
+
+  // Quantity
+  quantity Decimal         @db.Decimal(10, 3)
+  unit     MeasurementUnit
+
+  // Preparation
+  prepNotes       String?
+  substituteNotes String?
+  isOptional      Boolean @default(false)
+  isForGarnish    Boolean @default(false)
+
+  // Grouping
+  groupName String?
+  sortOrder Int     @default(0)
+
+  // Cost Cache
+  lastKnownCostPerUnit Decimal?  @db.Decimal(10, 4)
+  lastKnownTotalCost   Decimal?  @db.Decimal(10, 2)
+  lastCostUpdate       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  recipe           Recipe            @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  ingredient       Ingredient?       @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  customIngredient CustomIngredient? @relation(fields: [customIngredientId], references: [id], onDelete: Restrict)
+
+  @@index([recipeId, sortOrder])
+  @@index([ingredientId])
+  @@index([customIngredientId])
+}
+
+// ==================== PRODUCTION BATCHES ====================
+
+model ProductionBatch {
+  id         String @id @default(cuid())
+  merchantId String
+  recipeId   String
+
+  // Batch Details
+  batchNumber     String
+  batchMultiplier Decimal  @db.Decimal(6, 2)
+  targetYield     Decimal  @db.Decimal(10, 2)
+  actualYield     Decimal? @db.Decimal(10, 2)
+
+  // Linked Orders
+  linkedOrderIds String[] @default([])
+
+  // Scheduling
+  scheduledStart DateTime
+  scheduledEnd   DateTime
+  actualStart    DateTime?
+  actualEnd      DateTime?
+
+  // Production Phases
+  prepStartedAt       DateTime?
+  cookStartedAt       DateTime?
+  coolingStartedAt    DateTime?
+  decorationStartedAt DateTime?
+
+  // Status
+  status   BatchStatus @default(PLANNED)
+  priority Int         @default(0)
+
+  // Cost Snapshot
+  ingredientCost Decimal @db.Decimal(10, 2)
+  laborCost      Decimal @db.Decimal(10, 2)
+  overheadCost   Decimal @db.Decimal(10, 2)
+  packagingCost  Decimal @db.Decimal(10, 2)
+  totalCost      Decimal @db.Decimal(10, 2)
+  costPerUnit    Decimal @db.Decimal(10, 4)
+
+  // Quality
+  qualityRating Int?
+  qualityNotes  String? @db.Text
+  issues        Json?
+
+  // Notes
+  productionNotes String? @db.Text
+  deviations      Json?
+
+  // Waste
+  wasteQuantity Decimal? @db.Decimal(10, 2)
+  wasteReason   String?
+  wasteValue    Decimal? @db.Decimal(10, 2)
+
+  // Assignment
+  assignedTo String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  merchant     Merchant                @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  recipe       Recipe                  @relation(fields: [recipeId], references: [id], onDelete: Restrict)
+  transactions IngredientTransaction[]
+
+  @@unique([merchantId, batchNumber])
+  @@index([merchantId, status, scheduledStart])
+  @@index([merchantId, recipeId, scheduledStart])
+  @@index([status, scheduledStart])
+}
+
+// ==================== INVENTORY TRANSACTIONS ====================
+
+model IngredientTransaction {
+  id         String @id @default(cuid())
+  merchantId String
+
+  // Link to ingredient (global OR custom)
+  merchantIngredientPricingId String? // For global ingredients
+  customIngredientId          String? // For custom ingredients
+
+  // Transaction
+  type     TransactionType
+  quantity Decimal         @db.Decimal(10, 3)
+  unit     MeasurementUnit
+
+  // Cost
+  unitCost  Decimal? @db.Decimal(10, 4)
+  totalCost Decimal? @db.Decimal(10, 2)
+
+  // References
+  batchId String?
+  orderId String?
+
+  // Purchase Context
+  store      String?
+  receiptUrl String?
+
+  // Stock Levels
+  previousStock Decimal @db.Decimal(10, 3)
+  newStock      Decimal @db.Decimal(10, 3)
+
+  // Context
+  reason String?
+  notes  String? @db.Text
+
+  // Metadata
+  transactionDate DateTime @default(now())
+  recordedBy      String?
+  verifiedBy      String?
+  verified        Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  merchant                  Merchant                 @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  merchantIngredientPricing MerchantIngredientPrice? @relation(fields: [merchantIngredientPricingId], references: [id], onDelete: SetNull)
+  customIngredient          CustomIngredient?        @relation(fields: [customIngredientId], references: [id], onDelete: SetNull)
+  batch                     ProductionBatch?         @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  @@index([merchantId, transactionDate])
+  @@index([type, transactionDate])
+  @@index([batchId])
+}
+
+// ==================== COST TRACKING ====================
+
+model RecipeCostSnapshot {
+  id         String @id @default(cuid())
+  recipeId   String
+  merchantId String
+
+  // Cost Breakdown
+  ingredientCost Decimal @db.Decimal(10, 2)
+  laborCost      Decimal @db.Decimal(10, 2)
+  overheadCost   Decimal @db.Decimal(10, 2)
+  packagingCost  Decimal @db.Decimal(10, 2)
+  totalCost      Decimal @db.Decimal(10, 2)
+  costPerUnit    Decimal @db.Decimal(10, 4)
+
+  // Context
+  batchMultiplier Decimal        @default(1) @db.Decimal(6, 2)
+  confidence      CostConfidence
+  calculationNote String?
+
+  // Ingredient Details
+  ingredientBreakdown Json
+
+  // Metadata
+  calculatedAt DateTime @default(now())
+  calculatedBy String?
+
+  // Relations
+  recipe   Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([recipeId, calculatedAt])
+  @@index([merchantId, calculatedAt])
+}
+
 // ==================== MODELS ====================
 
 model OnboardingEvent {
   id         String   @id @default(cuid())
   merchantId String
-  eventType  String   
+  eventType  String
   metadata   Json?
   createdAt  DateTime @default(now())
-  
+
   merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  
+
   @@index([merchantId, createdAt])
 }
 
 model Merchant {
-  supabaseId   String?  @unique
+  supabaseId   String? @unique
   id           String  @id @default(cuid())
   email        String  @unique
   phone        String  @unique
@@ -206,8 +837,8 @@ model Merchant {
   longitude         Float?  @db.DoublePrecision
   showExactLocation Boolean @default(false)
 
-  location    Unsupported("geography")?  // PostGIS geography type
-  metadata    Json?                       
+  location Unsupported("geography")? // PostGIS geography type
+  metadata Json?
 
   // Operating Hours (JSON)
   operatingHours Json? // { monday: { open: "09:00", close: "18:00" }, ... }
@@ -293,24 +924,35 @@ model Merchant {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
+  defaultLaborCost        Decimal @default(15.00) @db.Decimal(6, 2)
+  defaultOverheadRate     Decimal @default(0.15) @db.Decimal(4, 2)
+  costCalculationSchedule String  @default("DAILY") // REALTIME, DAILY, WEEKLY
+
   // Relations
-  categories        Category[]
-  products          Product[]
-  modifierGroups    ProductModifierGroup[]
-  orders            Order[]
-  reviews           Review[]
-  sessions          Session[]
-  notifications     Notification[]
-  analytics         Analytics[]
-  checkoutSessions  CheckoutSession[]
-  subscription      Subscription?
-  whatsappTemplates WhatsAppTemplate[]
-  loyaltyProgram    LoyaltyProgram?
-  customerLoyalty   CustomerLoyalty[]
-  promotions        Promotion[]
-  auditLogs         AuditLog[]
-  onboardingEvents OnboardingEvent[]
-  merchantSettings  MerchantSettings?
+  categories                 Category[]
+  products                   Product[]
+  modifierGroups             ProductModifierGroup[]
+  orders                     Order[]
+  reviews                    Review[]
+  sessions                   Session[]
+  notifications              Notification[]
+  analytics                  Analytics[]
+  checkoutSessions           CheckoutSession[]
+  subscription               Subscription?
+  whatsappTemplates          WhatsAppTemplate[]
+  loyaltyProgram             LoyaltyProgram?
+  customerLoyalty            CustomerLoyalty[]
+  promotions                 Promotion[]
+  auditLogs                  AuditLog[]
+  onboardingEvents           OnboardingEvent[]
+  merchantSettings           MerchantSettings?
+  recipes                    Recipe[]
+  merchantIngredientPrices   MerchantIngredientPrice[]
+  merchantIngredientSettings MerchantIngredientSettings[]
+  customIngredients          CustomIngredient[]
+  batches                    ProductionBatch[]
+  ingredientTransactions     IngredientTransaction[]
+  recipeCostSnapshots        RecipeCostSnapshot[]
 
   @@index([status, deletedAt])
   @@index([slug])
@@ -446,6 +1088,14 @@ model Product {
   deletedAt     DateTime?
   availableFrom DateTime?
   availableTo   DateTime?
+
+  // Recipe
+  recipeId     String?
+  recipe       Recipe?  @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  recipeCost   Decimal? @db.Decimal(10, 2) // From recipe
+  targetMargin Decimal? @db.Decimal(5, 2) // Target profit margin %
+  actualMargin Decimal? @db.Decimal(5, 2) // Actual margin based on sales
+  marginStatus String? // "HEALTHY", "LOW", "NEGATIVE"
 
   // Relations
   merchant       Merchant               @relation(fields: [merchantId], references: [id], onDelete: Cascade)

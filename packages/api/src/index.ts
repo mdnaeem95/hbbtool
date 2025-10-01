@@ -15,6 +15,8 @@ import { storageRouter } from './trpc/routers/storage'
 import { productModifiersRouter } from './trpc/routers/productModifiers'
 import { onboardingRouter } from './trpc/routers/onboarding'
 import { productVariantsRouter } from './trpc/routers/productVariants'
+import { ingredientRouter } from './trpc/routers/ingredient'
+import { recipeRouter } from './trpc/routers/recipe'
 
 export { createTRPCContext } from './trpc/context'
 export type { TRPCContext } from './trpc/context'
@@ -40,6 +42,8 @@ export const appRouter = router({
   productModifiers: productModifiersRouter,
   productVariants: productVariantsRouter,
   onboarding: onboardingRouter,
+  ingredients: ingredientRouter, 
+  recipe: recipeRouter
 })
 
 export * from "./services/search/index"

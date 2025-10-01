@@ -50,4 +50,5 @@ export type {
   Notification,
   ProductVariant,
   ProductView,
+  RecipeCategory
 } from "@prisma/client"

@@ -64,6 +64,24 @@ export enum NotificationPriority {
   URGENT = "URGENT",
 }
 
+export enum RecipeCategory {
+  BAKED_GOODS,
+  PASTRIES,
+  CAKES,
+  COOKIES,
+  BREADS,
+  DESSERTS,
+  MAINS,
+  APPETIZERS,
+  SIDES,
+  BEVERAGES,
+  SAUCES_CONDIMENTS,
+  MEAL_PREP,
+  CATERING,
+  SNACKS,
+  OTHER,
+}
+
 // Export type definitions (these are just TypeScript interfaces, no Prisma code)
 export interface Merchant {
   id: string
