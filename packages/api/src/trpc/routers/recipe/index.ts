@@ -2,6 +2,19 @@ import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { Prisma  } from "@homejiak/database"
 import { router, merchantProcedure } from "../../core"
+import { CostConfidence, MeasurementUnit as ApiMeasurementUnit } from "../../../types"
+
+// Helper: Decimal|string|number|undefined|null -> number (0 fallback)
+const n = (v: unknown): number => {
+  if (typeof v === "number") return v
+  if (v && typeof v === "object" && "toNumber" in (v as any)) return (v as any).toNumber()
+  const parsed = Number(v)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+const toUICostConfidence = (
+  v: CostConfidence | null
+): CostConfidence | null => (v === "UNKNOWN" ? null : v)
 
 export enum RecipeCategory {
   BAKED_GOODS = "BAKED_GOODS",
@@ -85,38 +98,74 @@ export const recipeRouter = router({
         deletedAt: null,
         ...(input.search && {
           OR: [
-            { name: { contains: input.search, mode: 'insensitive' } },
-            { description: { contains: input.search, mode: 'insensitive' } },
+            { name: { contains: input.search, mode: "insensitive" } },
+            { description: { contains: input.search, mode: "insensitive" } },
           ],
         }),
         ...(input.category && { category: input.category }),
       }
 
-      const [recipes, total] = await Promise.all([
+      const [rows, total] = await Promise.all([
         ctx.db.recipe.findMany({
           where,
           skip,
           take: input.limit,
-          include: {
+          orderBy: { updatedAt: "desc" },
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            costConfidence: true,
+            baseYield: true,          // Decimal (kept as-is)
+            yieldUnit: true,
+            prepTime: true,
+            cookTime: true,
+            coolingTime: true,
+            decorationTime: true,
+            costPerUnit: true,        // Decimal | null
+            totalCost: true,          // Decimal | null
             products: {
               select: {
                 id: true,
                 name: true,
-                sku: true,
-                price: true,
+                sku: true,            // not used by UI, but harmless
+                price: true,          // Decimal | number | string (kept as-is)
               },
             },
             ingredients: {
-              include: {
-                ingredient: true,
-                customIngredient: true,
+              select: {
+                id: true,
+                ingredient: { select: { name: true } },
+                customIngredient: { select: { name: true } },
               },
             },
           },
-          orderBy: { updatedAt: 'desc' },
         }),
         ctx.db.recipe.count({ where }),
       ])
+
+      // Normalize to UIRecipeListItem[]
+      const recipes = rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        description: r.description ?? null,
+        costConfidence: toUICostConfidence(r.costConfidence as CostConfidence | null),
+        baseYield: r.baseYield, // keep Decimal to match your UI type
+        yieldUnit: r.yieldUnit as unknown as ApiMeasurementUnit,
+        totalTime: n(r.prepTime) + n(r.cookTime) + n(r.coolingTime) + n(r.decorationTime),
+        costPerUnit: r.costPerUnit == null ? null : n(r.costPerUnit as any),
+        totalCost: r.totalCost == null ? null : n(r.totalCost as any),
+        products: r.products.map((p) => ({
+          id: p.id,
+          name: p.name,
+          price: p.price as any, // UI tolerates number | string | { toNumber(): number }
+        })),
+        ingredients: r.ingredients.map((ing) => ({
+          id: ing.id,
+          ingredient: ing.ingredient ? { name: ing.ingredient.name } : null,
+          customIngredient: ing.customIngredient ? { name: ing.customIngredient.name } : null,
+        })),
+      }))
 
       return {
         recipes,

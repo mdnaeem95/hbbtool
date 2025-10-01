@@ -200,3 +200,23 @@ export type GlobalIngredientDto = {
 
 // Return type is a discriminated union by `isCustom`
 export type IngredientByIdDto = CustomIngredientDto | GlobalIngredientDto
+
+export enum RecipeCategory {
+  BAKED_GOODS = "BAKED_GOODS",
+  PASTRIES = "PASTRIES",
+  CAKES = "CAKES",
+  COOKIES = "COOKIES",
+  BREADS = "BREADS",
+  DESSERTS = "DESSERTS",
+  MAINS = "MAINS",
+  APPETIZERS = "APPETIZERS",
+  SIDES = "SIDES",
+  BEVERAGES = "BEVERAGES",
+  SAUCES_CONDIMENTS = "SAUCES_CONDIMENTS",
+  MEAL_PREP = "MEAL_PREP",
+  CATERING = "CATERING",
+  SNACKS = "SNACKS",
+  OTHER = "OTHER",
+}
+
+export type CostConfidence = "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN"
