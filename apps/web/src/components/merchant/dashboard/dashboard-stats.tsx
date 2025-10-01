@@ -1,5 +1,6 @@
 'use client'
 
+import { formatChange, formatCurrency, toNumber } from "../../../lib/utils"
 import { Card, CardContent } from "@homejiak/ui"
 import { TrendingUp, TrendingDown, ShoppingBag, DollarSign, Clock, Star } from "lucide-react"
 
@@ -27,31 +28,6 @@ interface StatCardProps {
   icon: React.ElementType
   iconColor: string
   iconBgColor: string
-}
-
-// Helper function to convert Prisma Decimal to number
-function toNumber(value: any): number {
-  if (typeof value === 'number') return value
-  if (value && typeof value === 'object' && 'toNumber' in value) {
-    return value.toNumber()
-  }
-  return Number(value || 0)
-}
-
-// Format percentage change
-function formatChange(change: number): string {
-  const sign = change >= 0 ? '+' : ''
-  return `${sign}${Math.abs(change).toFixed(1)}%`
-}
-
-// Format currency
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-SG', {
-    style: 'currency',
-    currency: 'SGD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(amount)
 }
 
 function StatCard({

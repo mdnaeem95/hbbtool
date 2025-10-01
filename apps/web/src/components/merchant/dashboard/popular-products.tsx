@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, Button } from "@homejiak/ui"
 import { ArrowUpRight, Package, TrendingUp } from "lucide-react"
+import { formatCurrency } from "@/lib/utils"
 
 interface PopularProductsProps {
   topProducts: Array<{
@@ -11,16 +12,6 @@ interface PopularProductsProps {
     quantitySold: number
     revenue: number
   }>
-}
-
-// Format currency helper
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-SG', {
-    style: 'currency',
-    currency: 'SGD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(amount)
 }
 
 export function PopularProducts({ topProducts }: PopularProductsProps) {

@@ -3,14 +3,14 @@
 import { useState, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
-import { cn } from "../../lib/utils"
+import { cn } from "../../../lib/utils"
 import { ChevronRight, LogOut, Settings, HelpCircle } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@homejiak/ui"
 import { Avatar, AvatarFallback, AvatarImage, Button } from "@homejiak/ui"
-import { createClient } from "../../lib/supabase/client"
-import { RouterOutputs } from "../../lib/trpc/types"
-import { NotificationBell } from "../notifications/notification-bell"
-import { ConnectionStatusBadge } from "./orders/order-notification"
+import { createClient } from "../../../lib/supabase/client"
+import { RouterOutputs } from "../../../lib/trpc/types"
+import { NotificationBell } from "../../notifications/notification-bell"
+import { ConnectionStatusBadge } from "../orders/order-notification"
 
 type MerchantDashboardData = RouterOutputs["merchant"]["getDashboard"]
 

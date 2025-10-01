@@ -1,4 +1,3 @@
-// scripts/seed-merchants.ts
 import { PrismaClient, MerchantStatus, SubscriptionTier, SubscriptionStatus, PaymentMethod } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import { createClient } from '@supabase/supabase-js'

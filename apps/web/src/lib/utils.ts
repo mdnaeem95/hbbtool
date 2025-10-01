@@ -5,10 +5,19 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrency(amount: number, currency = "SGD") {
-  return new Intl.NumberFormat("en-SG", {
-    style: "currency",
-    currency,
+// Format percentage change
+export function formatChange(change: number): string {
+  const sign = change >= 0 ? '+' : ''
+  return `${sign}${Math.abs(change).toFixed(1)}%`
+}
+
+// Format currency
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-SG', {
+    style: 'currency',
+    currency: 'SGD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
   }).format(amount)
 }
 

@@ -1,20 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { 
-  X, 
-  ChevronRight, 
-  ChevronLeft,
-  Sparkles,
-  CheckCircle,
-  HelpCircle,
-  SkipForward
-} from 'lucide-react'
+import { X, ChevronRight, ChevronLeft, Sparkles, CheckCircle, HelpCircle, SkipForward } from 'lucide-react'
 
 // This component overlays on TOP of your existing dashboard
-const DashboardOnboarding = ({ 
-  onComplete, 
-  onSkip,
-  dashboardData 
-}: {
+export const DashboardOnboarding = ({ onComplete, onSkip, dashboardData }: { 
   onComplete: () => void
   onSkip: () => void
   dashboardData?: any
