@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, ShoppingBag, Package, BarChart3, Settings, HelpCircle, Store, DollarSign } from "lucide-react"
+import { LayoutDashboard, ShoppingBag, Package, BarChart3, Settings, HelpCircle, Store, DollarSign, Apple, ChefHat } from "lucide-react"
 import { cn } from "../../../lib/utils"
 import { RouterOutputs } from "../../../lib/trpc/types"
 
@@ -38,6 +38,16 @@ export function MerchantSidebar({ dashboardData, className }: MerchantSidebarPro
       name: "Products",
       href: "/dashboard/products",
       icon: Package,
+    },
+    {
+      name: "Ingredients",
+      href: "/dashboard/ingredients",
+      icon: Apple,
+    },
+    {
+      name: "Recipes",
+      href: "/dashboard/recipes",
+      icon: ChefHat,
     },
     {
       name: "Analytics",

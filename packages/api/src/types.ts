@@ -112,3 +112,91 @@ export enum IngredientCategory {
   SUPPLIES = "SUPPLIES",
   OTHER = "OTHER",
 }
+
+export enum MeasurementUnit {
+  // Weight
+  GRAMS = "GRAMS",
+  KG = "KG",
+  OUNCES = "OUNCES",
+  POUNDS = "POUNDS",
+
+  // Volume
+  ML = "ML",
+  LITERS = "LITERS",
+  TSP = "TSP",
+  TBSP = "TBSP",
+  CUPS = "CUPS",
+
+  // Count
+  PIECES = "PIECES",
+  SERVINGS = "SERVINGS",
+  BATCHES = "BATCHES",
+  DOZEN = "DOZEN",
+}
+
+// Define DTOs once (can be moved to a shared types file if you like)
+export type CustomIngredientDto = {
+  id: string
+  name: string
+  description: string | null
+  category: IngredientCategory
+  purchaseUnit: MeasurementUnit
+
+  currentPricePerUnit: number
+  currentStock: number
+  preferredStore: string | null
+  reorderPoint: number | null
+  shelfLifeDays: number | null
+  allergens: string[]
+  notes: string | null
+
+  isCustom: true
+  isGlobal: false
+
+  recipeUsages: Array<{
+    id: string
+    recipe: { id: string; name: string }
+    // add other fields you actually use
+  }>
+}
+
+export type GlobalIngredientDto = {
+  id: string
+  name: string
+  description: string | null
+  category: IngredientCategory
+  purchaseUnit: MeasurementUnit
+
+  // value resolved for display
+  pricePerUnit: number
+  currentStock: number
+
+  isCustom: false
+  isGlobal: true
+
+  merchantPricing:
+    | {
+        id: string
+        currentPricePerUnit: number
+        currentStock: number
+        preferredStore: string | null
+        brandPreference: string | null
+        priceHistory: Array<{
+          id: string
+          pricePerUnit: number
+          totalPaid: number
+          purchaseDate: Date
+          store: string | null
+          notes: string | null
+        }>
+      }
+    | undefined
+
+  recipeUsages: Array<{
+    id: string
+    recipe: { id: string; name: string }
+  }>
+}
+
+// Return type is a discriminated union by `isCustom`
+export type IngredientByIdDto = CustomIngredientDto | GlobalIngredientDto

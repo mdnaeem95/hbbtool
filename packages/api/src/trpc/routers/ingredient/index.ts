@@ -5,7 +5,7 @@ import { Prisma } from "@homejiak/database"
 import { MeasurementUnit } from "../recipe"
 import { getMerchantPricingId } from "../../../services/ingredients"
 import { updateAllRecipeCosts, updateRecipeCostsForCustomIngredient, updateRecipeCostsForIngredient } from "../../../services/recipe"
-import { IngredientCategory } from "../../../types"
+import { IngredientByIdDto, IngredientCategory } from "../../../types"
 
 // Validation schemas based on actual schema
 const createCustomIngredientSchema = z.object({
@@ -13,9 +13,9 @@ const createCustomIngredientSchema = z.object({
   description: z.string().optional(),
   category: z.enum(IngredientCategory),
   purchaseUnit: z.enum(MeasurementUnit),
-  pricePerUnit: z.number().positive(),
-  store: z.string().optional(),
-  stockQuantity: z.number().min(0).default(0),
+  currentPricePerUnit: z.number().positive(),
+  preferredStore: z.string().optional(),
+  currentStock: z.number().min(0).default(0),
   reorderPoint: z.number().min(0).optional(),
   shelfLifeDays: z.number().int().positive().optional(),
   allergens: z.array(z.string()).default([]),
@@ -107,6 +107,9 @@ export const ingredientRouter = router({
             ? Number(ing.merchantPricing[0].currentStock.toString())
             : 0,
           preferredStore: ing.merchantPricing[0]?.preferredStore,
+          reorderPoint: ing.merchantPricing[0]?.reorderPoint
+            ? Number(ing.merchantPricing[0]!.reorderPoint!.toString())
+            : null,
           allergens: ing.allergens,
           shelfLifeDays: ing.shelfLifeDays,
         })),
@@ -121,6 +124,7 @@ export const ingredientRouter = router({
           pricePerUnit: Number(ing.currentPricePerUnit.toString()),
           currentStock: Number(ing.currentStock.toString()),
           preferredStore: ing.preferredStore,
+          reorderPoint: ing.reorderPoint ? Number(ing.reorderPoint.toString()) : null,
           allergens: ing.allergens || [],
           shelfLifeDays: ing.shelfLifeDays,
         })),
@@ -144,99 +148,115 @@ export const ingredientRouter = router({
 
   // Get single ingredient (global or custom)
   getById: merchantProcedure
-    .input(z.object({ 
+    .input(z.object({
       id: z.string(),
       isCustom: z.boolean().default(false),
     }))
-    .query(async ({ ctx, input }) => {
+    .query(async ({ ctx, input }): Promise<IngredientByIdDto> => {
       const merchantId = ctx.merchant.id
 
       if (input.isCustom) {
-        // Get custom ingredient
         const ingredient = await ctx.db.customIngredient.findFirst({
-          where: {
-            id: input.id,
-            merchantId,
-          },
+          where: { id: input.id, merchantId },
           include: {
             recipeUsages: {
-              include: {
-                recipe: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                },
-              },
+              include: { recipe: { select: { id: true, name: true } } },
               take: 10,
             },
           },
         })
 
         if (!ingredient) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Custom ingredient not found',
-          })
+          throw new TRPCError({ code: "NOT_FOUND", message: "Custom ingredient not found" })
         }
 
         return {
-          ...ingredient,
-          pricePerUnit: Number(ingredient.currentPricePerUnit.toString()),
-          stockQuantity: Number(ingredient.currentStock.toString()),
-          isCustom: true,
-          isGlobal: false,
+          id: ingredient.id,
+          name: ingredient.name,
+          description: ingredient.description ?? null,
+          category: ingredient.category as IngredientCategory,
+          purchaseUnit: ingredient.purchaseUnit as MeasurementUnit,
+
+          currentPricePerUnit: Number(ingredient.currentPricePerUnit.toString()),
+          currentStock: Number(ingredient.currentStock.toString()),
+          preferredStore: ingredient.preferredStore ?? null,
+          reorderPoint: ingredient.reorderPoint ? Number(ingredient.reorderPoint.toString()) : null,
+          shelfLifeDays: ingredient.shelfLifeDays ?? null,
+          allergens: ingredient.allergens ?? [],
+          notes: ingredient.notes ?? null,
+
+          isCustom: true as const,
+          isGlobal: false as const,
+
+          recipeUsages: ingredient.recipeUsages.map((u) => ({
+            id: u.id,
+            recipe: { id: u.recipe.id, name: u.recipe.name },
+          })),
         }
-      } else {
-        // Get global ingredient with merchant pricing
-        const ingredient = await ctx.db.ingredient.findUnique({
-          where: { id: input.id },
-          include: {
-            merchantPricing: {
-              where: { merchantId },
-              include: {
-                priceHistory: {
-                  orderBy: { purchaseDate: 'desc' },
-                  take: 10,
-                },
-              },
+      }
+
+      // Global ingredient branch
+      const ingredient = await ctx.db.ingredient.findUnique({
+        where: { id: input.id },
+        include: {
+          merchantPricing: {
+            where: { merchantId },
+            include: {
+              priceHistory: { orderBy: { purchaseDate: "desc" }, take: 10 },
             },
-            recipeUsages: {
-              where: {
-                recipe: { merchantId },
-              },
-              include: {
-                recipe: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                },
-              },
-              take: 10,
-            },
+            take: 1,
           },
-        })
+          recipeUsages: {
+            where: { recipe: { merchantId } },
+            include: { recipe: { select: { id: true, name: true } } },
+            take: 10,
+          },
+        },
+      })
 
-        if (!ingredient) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Ingredient not found',
-          })
-        }
+      if (!ingredient) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Ingredient not found" })
+      }
 
-        return {
-          ...ingredient,
-          pricePerUnit: ingredient.merchantPricing[0]
-            ? Number(ingredient.merchantPricing[0].currentPricePerUnit.toString())
-            : Number(ingredient.referencePrice.toString()),
-          currentStock: ingredient.merchantPricing[0]
-            ? Number(ingredient.merchantPricing[0].currentStock.toString())
-            : 0,
-          merchantPricing: ingredient.merchantPricing[0],
-          isCustom: false,
-          isGlobal: true,
-        }
+      const mp = ingredient.merchantPricing[0]
+
+      return {
+        id: ingredient.id,
+        name: ingredient.name,
+        description: ingredient.description ?? null,
+        category: ingredient.category as IngredientCategory,
+        purchaseUnit: ingredient.purchaseUnit as MeasurementUnit,
+
+        pricePerUnit: mp
+          ? Number(mp.currentPricePerUnit.toString())
+          : Number(ingredient.referencePrice.toString()),
+        currentStock: mp ? Number(mp.currentStock.toString()) : 0,
+
+        isCustom: false as const,
+        isGlobal: true as const,
+
+        merchantPricing: mp
+          ? {
+              id: mp.id,
+              currentPricePerUnit: Number(mp.currentPricePerUnit.toString()),
+              currentStock: Number(mp.currentStock.toString()),
+              preferredStore: mp.preferredStore ?? null,
+              brandPreference: mp.brandPreference ?? null,
+              priceHistory: mp.priceHistory.map((ph) => ({
+                id: ph.id,
+                pricePerUnit: Number(ph.pricePerUnit.toString()),
+                totalPaid: Number(ph.totalPaid.toString()),
+                purchaseDate: ph.purchaseDate,
+                store: ph.store ?? null,
+                notes: ph.notes ?? null,
+              })),
+            }
+          : undefined,
+
+        recipeUsages: ingredient.recipeUsages.map((u) => ({
+          id: u.id,
+          recipe: { id: u.recipe.id, name: u.recipe.name },
+        })),
       }
     }),
 
@@ -265,8 +285,8 @@ export const ingredientRouter = router({
         data: {
           ...input,
           merchantId,
-          currentPricePerUnit: new Prisma.Decimal(input.pricePerUnit),
-          currentStock: new Prisma.Decimal(input.stockQuantity),
+          currentPricePerUnit: new Prisma.Decimal(input.currentPricePerUnit),
+          currentStock: new Prisma.Decimal(input.currentStock),
           reorderPoint: input.reorderPoint 
             ? new Prisma.Decimal(input.reorderPoint)
             : null,
@@ -275,8 +295,8 @@ export const ingredientRouter = router({
 
       return {
         ...ingredient,
-        pricePerUnit: Number(ingredient.currentPricePerUnit.toString()),
-        stockQuantity: Number(ingredient.currentStock.toString()),
+        currentPricePerUnit: Number(ingredient.currentPricePerUnit.toString()),
+        currentStock: Number(ingredient.currentStock.toString()),
       }
     }),
 
@@ -394,8 +414,8 @@ export const ingredientRouter = router({
         where: { id },
         data: {
           ...updateData,
-          currentPricePerUnit: new Prisma.Decimal(updateData.pricePerUnit),
-          currentStock: new Prisma.Decimal(updateData.stockQuantity),
+          currentPricePerUnit: new Prisma.Decimal(updateData.currentPricePerUnit),
+          currentStock: new Prisma.Decimal(updateData.currentStock),
           reorderPoint: updateData.reorderPoint
             ? new Prisma.Decimal(updateData.reorderPoint)
             : null,
@@ -407,8 +427,8 @@ export const ingredientRouter = router({
 
       return {
         ...ingredient,
-        pricePerUnit: Number(ingredient.currentPricePerUnit.toString()),
-        stockQuantity: Number(ingredient.currentStock.toString()),
+        currentPricePerUnit: Number(ingredient.currentPricePerUnit.toString()),
+        currentStock: Number(ingredient.currentStock.toString()),
       }
     }),
 
