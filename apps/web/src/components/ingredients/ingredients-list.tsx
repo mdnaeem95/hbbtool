@@ -2,7 +2,7 @@ import { Package } from "lucide-react"
 import { IngredientCard } from "./ingredients-card"
 import type { RouterOutputs } from "../../lib/trpc/types"
 
-type Ingredient = RouterOutputs["ingredients"]["getAll"]["ingredients"][number]
+type Ingredient = RouterOutputs["ingredients"]["getMerchantInventory"]["ingredients"][number]
 
 interface IngredientsListProps {
   ingredients: Ingredient[]

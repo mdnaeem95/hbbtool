@@ -5,7 +5,7 @@ import type { RouterOutputs } from "../../lib/trpc/types"
 import { DeleteConfirmDialog } from "./delete-confirm-dialog"
 
 // Use the same type as your list component
-type Ingredient = RouterOutputs["ingredients"]["getAll"]["ingredients"][number]
+type Ingredient = RouterOutputs["ingredients"]["getMerchantInventory"]["ingredients"][number]
 
 interface IngredientCardProps {
   ingredient: Ingredient

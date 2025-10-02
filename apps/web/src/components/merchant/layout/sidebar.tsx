@@ -40,8 +40,8 @@ export function MerchantSidebar({ dashboardData, className }: MerchantSidebarPro
       icon: Package,
     },
     {
-      name: "Ingredients",
-      href: "/dashboard/ingredients",
+      name: "Inventory",
+      href: "/dashboard/inventory",
       icon: Apple,
     },
     {
