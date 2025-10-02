@@ -1,7 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { db } from '@homejiak/database'
-import type { AuthUser, AuthSession } from './types'
+
+import type { AuthUser, AuthSession } from '@homejiak/types'
 
 /**
  * Create server-side Supabase client with cookie handling
@@ -83,11 +84,16 @@ export async function getAuthSession(): Promise<AuthSession | null> {
           const user: AuthUser = {
             id: supabaseUser.id,
             email: supabaseUser.email!,
-            merchant,
+            userType: 'merchant',
+          }
+
+          const session: AuthSession = {
+            user,
+            accessToken: '', // Add if you need to pass tokens
           }
           
           console.log('=== getAuthSession SUCCESS - Merchant ===')
-          return { user }
+          return session
         }
       } else {
         console.log('  Non-merchant user type detected, ignoring')

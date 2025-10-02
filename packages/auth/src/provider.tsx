@@ -2,7 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { createBrowserSupabaseClient } from './client'
-import type { AuthUser, AuthState, AuthContextValue, SignUpParams } from './types'
+import type { AuthUser, AuthState, SignUpParams, AuthSession } from '@homejiak/types'
+import type { AuthContextValue } from './types'
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
@@ -32,12 +33,20 @@ export function AuthProvider({
         if (session?.user && session.user.user_metadata?.userType === 'merchant') {
           const user: AuthUser = {
             id: session.user.id,
-            email: session.user.email!
+            email: session.user.email!,
+            userType: 'merchant'
+          }
+
+          const authSession: AuthSession = {
+            user,
+            accessToken: session.access_token,
+            refreshToken: session.refresh_token,
+            expiresAt: session.expires_at ? new Date(session.expires_at * 1000) : undefined
           }
           
           setState({
             user,
-            session: { user },
+            session: authSession,
             isLoading: false,
             isAuthenticated: true,
             isMerchant: true,
@@ -77,11 +86,19 @@ export function AuthProvider({
           const user: AuthUser = {
             id: session.user.id,
             email: session.user.email!,
+            userType: 'merchant'
+          }
+
+          const authSession: AuthSession = {
+            user,
+            accessToken: session.access_token,
+            refreshToken: session.refresh_token,
+            expiresAt: session.expires_at ? new Date(session.expires_at * 1000) : undefined
           }
           
           setState({
             user,
-            session: { user },
+            session: authSession,
             isLoading: false,
             isAuthenticated: true,
             isMerchant: true,

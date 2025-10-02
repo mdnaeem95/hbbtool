@@ -1,50 +1,47 @@
-import type { Merchant } from '@homejiak/database'
+// packages/auth/src/types.ts
 
-// Auth user type - merchants only
-export interface AuthUser {
-  id: string
-  email: string
-  merchant?: Merchant
-}
+// Import shared types from central package
+import type { 
+  Merchant,
+  AuthUser as BaseAuthUser,
+  AuthSession as BaseAuthSession,
+  AuthState as BaseAuthState,
+  SignUpParams as BaseSignUpParams,
+} from '@homejiak/types'
 
-// Session types
-export interface AuthSession {
-  user: AuthUser
-  expiresAt?: Date
-}
+// Re-export the base types
+export type { 
+  AuthUser,
+  AuthSession,
+  AuthState,
+  SignUpParams,
+  SignInParams 
+} from '@homejiak/types'
 
-// Auth state for hooks
-export interface AuthState {
-  user: AuthUser | null
-  session: AuthSession | null
-  isLoading: boolean
-  isAuthenticated: boolean
-  isMerchant: boolean
-  error: Error | null
-}
+// Re-export helpers and constants
+export { 
+  AUTH_STORAGE_KEYS, 
+  isMerchantUser 
+} from '@homejiak/types'
 
-// Auth context value
-export interface AuthContextValue extends AuthState {
+// Auth-specific extensions (if needed)
+export interface AuthContextValue extends BaseAuthState {
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (params: SignUpParams) => Promise<void>
+  signUp: (params: BaseSignUpParams) => Promise<void>
   signOut: () => Promise<void>
   refresh: () => Promise<void>
 }
 
-// Auth method params
-export type SignUpParams = {
-  email: string
-  password: string
-  businessName: string
-  phone: string
+// Supabase-specific types (keep these here as they're auth-specific)
+export interface SupabaseAuthSession {
+  access_token: string
+  refresh_token?: string
+  expires_at?: number
+  user: {
+    id: string
+    email?: string
+    user_metadata?: Record<string, unknown>
+  }
 }
 
-// Storage keys - if you need any for merchant sessions
-export const AUTH_STORAGE_KEYS = {
-  // Add any merchant-specific storage keys if needed
-} as const
-
-// Helper - simplified since we only have merchants
-export function isMerchantUser(user: AuthUser | null): user is AuthUser {
-  return !!user
-}
+export type { Merchant, BaseAuthUser, BaseAuthSession, BaseAuthState, BaseSignUpParams }

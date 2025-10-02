@@ -28,7 +28,8 @@
       "@homejiak/database": ["./packages/database/src"],
       "@homejiak/api": ["./packages/api/src"],
       "@homejiak/storage": ["./packages/storage/src"],
-      "@homejiak/core": ["./packages/core/src"]
+      "@homejiak/core": ["./packages/core/src"],
+      "@homejiak/types": ["./packages/types/src"]
     }
   },
   "exclude": ["node_modules", "dist", ".next", ".turbo"]

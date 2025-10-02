@@ -1,8 +1,5 @@
 // packages/auth/src/index.ts
 
-// This is the main entry point - it should export server code for server components
-// Client components should import from './client-exports.ts' instead
-
 // Server utilities
 export {
   createServerSupabaseClient,
@@ -12,8 +9,19 @@ export {
   getMerchantById,
 } from './server'
 
-// Types can be exported here as they're safe for both
-export * from './types'
+// Re-export types from centralized package
+export type {
+  AuthUser,
+  AuthSession,
+  AuthState,
+  SignUpParams,
+  SignInParams,
+} from '@homejiak/types'
+
+// Export auth-specific types
+export type { AuthContextValue } from './types'
+
+// Re-export helpers
+export { AUTH_STORAGE_KEYS, isMerchantUser } from '@homejiak/types'
 
 // Note: Client utilities should be imported from '@homejiak/auth/client'
-// to avoid server/client mixing issues

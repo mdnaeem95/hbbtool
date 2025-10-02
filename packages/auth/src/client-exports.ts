@@ -1,16 +1,19 @@
 'use client'
 
-// Export types
+// Import and re-export types from centralized package
 export type {
   AuthUser,
   AuthSession,
   AuthState,
-  AuthContextValue,
   SignUpParams,
-} from './types'
+  SignInParams,
+} from '@homejiak/types'
 
-// Export constants
-export { AUTH_STORAGE_KEYS, isMerchantUser } from './types'
+// Export auth-specific types
+export type { AuthContextValue } from './types'
+
+// Export constants from centralized package
+export { AUTH_STORAGE_KEYS, isMerchantUser } from '@homejiak/types'
 
 // Export React components and hooks
 export { AuthProvider, useAuth } from './provider'

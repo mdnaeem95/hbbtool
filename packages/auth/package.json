@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@homejiak/database": "workspace:*",
+    "@homejiak/types": "workspace:*",
     "@supabase/ssr": "^0.6.1",
     "@types/node": "^24.2.1",
     "@types/react": "19.1.10",

@@ -22,33 +22,4 @@ export * from "./cache"
 export { Prisma, type PrismaClient } from "@prisma/client"
 export { type Decimal } from "@prisma/client/runtime/library.js"
 export type DB = typeof db
-export {
-  ProductStatus,
-  OrderStatus,
-  PaymentStatus,
-  MerchantStatus,
-  DeliveryMethod,
-  PaymentMethod,
-  NotificationType,
-  NotificationPriority
-} from "@prisma/client"
-
-// Re-export generated types for convenience
-export type {
-  Merchant,
-  Product,
-  Category,
-  Order,
-  OrderItem,
-  Customer,
-  Address,
-  Payment,
-  Review,
-  Session,
-  CheckoutSession,
-  Analytics,
-  Notification,
-  ProductVariant,
-  ProductView,
-  RecipeCategory
-} from "@prisma/client"
+export * from '@homejiak/types'
