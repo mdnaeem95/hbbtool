@@ -1,8 +1,8 @@
 import { useState } from "react"
-import { Plus, X, AlertCircle } from "lucide-react"
+import { Plus, X } from "lucide-react"
 import { api } from "../../lib/trpc/client"
 import type { RecipeFormData } from "./create-recipe-modal"
-import { MeasurementUnit } from "@homejiak/types"
+import { MeasurementUnit, IngredientCategory } from "@homejiak/types"
 
 interface IngredientRow {
   id: string
@@ -13,6 +13,139 @@ interface IngredientRow {
   unit: MeasurementUnit
   prepNotes?: string
   isOptional: boolean
+}
+
+interface QuickAddIngredientModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onAdd: (ingredient: { id: string; name: string; isCustom: boolean }) => void
+}
+
+function QuickAddIngredientModal({ isOpen, onClose, onAdd }: QuickAddIngredientModalProps) {
+  const [name, setName] = useState("")
+  const [category, setCategory] = useState<IngredientCategory>("PRODUCE" as IngredientCategory)
+  const [purchaseUnit, setPurchaseUnit] = useState<MeasurementUnit>("GRAMS" as MeasurementUnit)
+  const [pricePerUnit, setPricePerUnit] = useState(0)
+  const [isCreating, setIsCreating] = useState(false)
+
+  const createCustomIngredient = api.ingredients.createCustom.useMutation({
+    onSuccess: (data) => {
+      onAdd({ id: data.id, name: data.name, isCustom: true })
+      onClose()
+      setName("")
+      setPricePerUnit(0)
+    },
+  })
+
+  const handleCreate = async () => {
+    if (!name || pricePerUnit <= 0) {
+      alert("Please fill in all required fields")
+      return
+    }
+
+    setIsCreating(true)
+    await createCustomIngredient.mutate({
+      name,
+      category,
+      purchaseUnit,
+      currentPricePerUnit: pricePerUnit,
+      currentStock: 0, // Will be updated when they purchase
+    })
+    setIsCreating(false)
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <h3 className="text-lg font-semibold mb-4">Add Custom Ingredient</h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Ingredient Name *
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g., Homemade Rendang Paste"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Category *
+            </label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as IngredientCategory)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+            >
+              {Object.values(IngredientCategory).map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Purchase Unit *
+              </label>
+              <select
+                value={purchaseUnit}
+                onChange={(e) => setPurchaseUnit(e.target.value as MeasurementUnit)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+              >
+                {Object.values(MeasurementUnit).map((unit) => (
+                  <option key={unit} value={unit}>
+                    {unit}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Price per Unit ($) *
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={pricePerUnit}
+                onChange={(e) => setPricePerUnit(parseFloat(e.target.value) || 0)}
+                placeholder="0.00"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleCreate}
+            disabled={isCreating}
+            className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50"
+          >
+            {isCreating ? "Creating..." : "Create Ingredient"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 interface RecipeIngredientsStepProps {
@@ -44,17 +177,47 @@ export function RecipeIngredientsStep({
     ]
   )
 
-  // Fetch all ingredients (both global and custom)
-  const { data: ingredientsData, isLoading } = 
+  const [showQuickAdd, setShowQuickAdd] = useState(false)
+  const [quickAddTargetId, setQuickAddTargetId] = useState<string | null>(null)
+
+  // Fetch ALL available ingredients (both in merchant inventory and global library)
+  const { data: allIngredientsData, isLoading: isLoadingAll, refetch: refetchIngredients } = 
     api.ingredients.getAll.useQuery({
       page: 1,
-      limit: 500,
+      limit: 1000,
       includeCustom: true,
       includeGlobal: true,
     })
 
-  // The API already combines both types
-  const allIngredients = ingredientsData?.ingredients || []
+  // Also fetch global library ingredients that aren't in merchant inventory yet
+  const { data: globalLibraryData, isLoading: isLoadingLibrary } = 
+    api.ingredients.searchGlobalLibrary.useQuery({
+      search: "", // Empty search returns all
+      limit: 1000,
+    })
+
+  // Combine all available ingredients
+  const merchantIngredients = allIngredientsData?.ingredients || []
+  const libraryIngredients = globalLibraryData || []
+  
+  // Create a combined list with no duplicates
+  // Track which ingredients are from library (not in inventory yet)
+  const merchantIds = new Set(merchantIngredients.filter(ing => ing.isGlobal).map(ing => ing.id))
+  
+  const allAvailableIngredients = [
+    ...merchantIngredients,
+    ...libraryIngredients
+      .filter(ing => !merchantIds.has(ing.id)) // Only include if not already in merchant inventory
+      .map(ing => ({
+        ...ing,
+        isGlobal: true,
+        isCustom: false,
+        pricePerUnit: ing.referencePrice,
+        currentStock: 0,
+      }))
+  ]
+
+  const isLoading = isLoadingAll || isLoadingLibrary
 
   const addIngredient = () => {
     setIngredients([
@@ -77,6 +240,18 @@ export function RecipeIngredientsStep({
     setIngredients(
       ingredients.map((ing) => (ing.id === id ? { ...ing, ...updates } : ing))
     )
+  }
+
+  const handleQuickAdd = (ingredient: { id: string; name: string; isCustom: boolean }) => {
+    if (quickAddTargetId) {
+      updateIngredient(quickAddTargetId, {
+        isCustom: ingredient.isCustom,
+        customIngredientId: ingredient.isCustom ? ingredient.id : undefined,
+        ingredientId: ingredient.isCustom ? undefined : ingredient.id,
+      })
+    }
+    setQuickAddTargetId(null)
+    refetchIngredients() // Refresh the list to include the new ingredient
   }
 
   const handleNext = () => {
@@ -108,9 +283,6 @@ export function RecipeIngredientsStep({
     onNext({ ingredients: formattedIngredients })
   }
 
-  // Check if there are no ingredients available
-  const hasNoIngredients = !isLoading && allIngredients.length === 0
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -124,22 +296,12 @@ export function RecipeIngredientsStep({
         </button>
       </div>
 
-      {hasNoIngredients && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <div className="flex gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-amber-800">
-                No ingredients available
-              </p>
-              <p className="text-sm text-amber-700 mt-1">
-                You need to add ingredients to your inventory first. Go to the Ingredients 
-                section to add global or custom ingredients, then come back to create your recipe.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <p className="text-sm text-blue-800">
+          💡 <strong>Tip:</strong> All ingredients you select will be automatically added to your 
+          inventory when you save the recipe. You can also create custom ingredients on the fly!
+        </p>
+      </div>
 
       <div className="space-y-3">
         {ingredients.map((ing, idx) => (
@@ -163,74 +325,99 @@ export function RecipeIngredientsStep({
               <label className="block text-sm text-gray-600 mb-1">
                 Select Ingredient *
               </label>
-              <select
-                value={
-                  ing.isCustom
-                    ? `custom-${ing.customIngredientId}`
-                    : ing.ingredientId 
-                      ? `global-${ing.ingredientId}`
-                      : ""
-                }
-                onChange={(e) => {
-                  const value = e.target.value
-                  if (!value) return
-                  
-                  if (value.startsWith("custom-")) {
-                    updateIngredient(ing.id, {
-                      isCustom: true,
-                      customIngredientId: value.replace("custom-", ""),
-                      ingredientId: undefined,
-                    })
-                  } else if (value.startsWith("global-")) {
-                    updateIngredient(ing.id, {
-                      isCustom: false,
-                      ingredientId: value.replace("global-", ""),
-                      customIngredientId: undefined,
-                    })
+              <div className="flex gap-2">
+                <select
+                  value={
+                    ing.isCustom
+                      ? `custom-${ing.customIngredientId}`
+                      : ing.ingredientId 
+                        ? `global-${ing.ingredientId}`
+                        : ""
                   }
-                }}
-                disabled={isLoading || hasNoIngredients}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
-              >
-                <option value="">
-                  {isLoading 
-                    ? "Loading ingredients..." 
-                    : hasNoIngredients 
-                      ? "No ingredients available" 
-                      : "Select an ingredient..."}
-                </option>
-                
-                {/* Separate global and custom ingredients for better UX */}
-                {allIngredients.filter(ing => ing.isGlobal).length > 0 && (
-                  <optgroup label="Global Ingredients">
-                    {allIngredients
-                      .filter(ing => ing.isGlobal)
-                      .map((ingredient) => (
-                        <option
-                          key={`global-${ingredient.id}`}
-                          value={`global-${ingredient.id}`}
-                        >
-                          {ingredient.name}
-                        </option>
-                      ))}
-                  </optgroup>
-                )}
-                
-                {allIngredients.filter(ing => ing.isCustom).length > 0 && (
-                  <optgroup label="Custom Ingredients">
-                    {allIngredients
-                      .filter(ing => ing.isCustom)
-                      .map((ingredient) => (
-                        <option
-                          key={`custom-${ingredient.id}`}
-                          value={`custom-${ingredient.id}`}
-                        >
-                          {ingredient.name}
-                        </option>
-                      ))}
-                  </optgroup>
-                )}
-              </select>
+                  onChange={(e) => {
+                    const value = e.target.value
+                    if (!value) return
+                    
+                    if (value === "create-new") {
+                      setQuickAddTargetId(ing.id)
+                      setShowQuickAdd(true)
+                      return
+                    }
+                    
+                    if (value.startsWith("custom-")) {
+                      updateIngredient(ing.id, {
+                        isCustom: true,
+                        customIngredientId: value.replace("custom-", ""),
+                        ingredientId: undefined,
+                      })
+                    } else if (value.startsWith("global-")) {
+                      updateIngredient(ing.id, {
+                        isCustom: false,
+                        ingredientId: value.replace("global-", ""),
+                        customIngredientId: undefined,
+                      })
+                    }
+                  }}
+                  disabled={isLoading}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
+                >
+                  <option value="">
+                    {isLoading ? "Loading ingredients..." : "Select an ingredient..."}
+                  </option>
+                  
+                  <option value="create-new" className="font-medium text-orange-600">
+                    ➕ Create New Custom Ingredient
+                  </option>
+                  
+                  {/* Your Custom Ingredients */}
+                  {allAvailableIngredients.filter(ing => ing.isCustom).length > 0 && (
+                    <optgroup label="Your Custom Ingredients">
+                      {allAvailableIngredients
+                        .filter(ing => ing.isCustom)
+                        .map((ingredient) => (
+                          <option
+                            key={`custom-${ingredient.id}`}
+                            value={`custom-${ingredient.id}`}
+                          >
+                            {ingredient.name}
+                          </option>
+                        ))}
+                    </optgroup>
+                  )}
+                  
+                  {/* Ingredients in Your Inventory */}
+                  {allAvailableIngredients.filter(ing => ing.isGlobal && merchantIds.has(ing.id)).length > 0 && (
+                    <optgroup label="In Your Inventory">
+                      {allAvailableIngredients
+                        .filter(ing => ing.isGlobal && merchantIds.has(ing.id))
+                        .map((ingredient) => (
+                          <option
+                            key={`global-${ingredient.id}`}
+                            value={`global-${ingredient.id}`}
+                          >
+                            {ingredient.name}
+                          </option>
+                        ))}
+                    </optgroup>
+                  )}
+                  
+                  {/* Available from Global Library */}
+                  {allAvailableIngredients.filter(ing => ing.isGlobal && !merchantIds.has(ing.id)).length > 0 && (
+                    <optgroup label="Available from Library (will be added to your inventory)">
+                      {allAvailableIngredients
+                        .filter(ing => ing.isGlobal && !merchantIds.has(ing.id))
+                        .map((ingredient) => (
+                          <option
+                            key={`global-${ingredient.id}`}
+                            value={`global-${ingredient.id}`}
+                          >
+                            {ingredient.name} (${ingredient.pricePerUnit.toFixed(2)}/{ingredient.purchaseUnit})
+                          </option>
+                        ))}
+                    </optgroup>
+                  )}
+                </select>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -308,12 +495,20 @@ export function RecipeIngredientsStep({
         <button
           type="button"
           onClick={handleNext}
-          disabled={hasNoIngredients}
-          className="flex-1 px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          className="flex-1 px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
         >
           Continue
         </button>
       </div>
+
+      <QuickAddIngredientModal
+        isOpen={showQuickAdd}
+        onClose={() => {
+          setShowQuickAdd(false)
+          setQuickAddTargetId(null)
+        }}
+        onAdd={handleQuickAdd}
+      />
     </div>
   )
 }
