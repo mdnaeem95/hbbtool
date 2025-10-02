@@ -1,28 +1,24 @@
 import { Search, Filter } from "lucide-react"
-import type { IngredientCategory } from "../../types/ingredients"
+import { IngredientCategory } from "@homejiak/types"
 
 const categories: (IngredientCategory | "All Categories")[] = [
   "All Categories",
-  "FLOUR",
-  "DAIRY",
-  "SUGAR",
-  "EGGS",
-  "CHOCOLATE",
-  "NUTS",
-  "FRUITS",
-  "VEGETABLES",
-  "SPICES",
-  "OILS_FATS",
-  "LEAVENING",
-  "EXTRACTS",
-  "MEAT_POULTRY",
-  "SEAFOOD",
-  "GRAINS",
-  "LEGUMES",
-  "SAUCES_CONDIMENTS",
-  "BEVERAGES",
-  "PACKAGING",
-  "OTHER",
+  IngredientCategory.FLOUR_GRAINS,      // Not "FLOUR"
+  IngredientCategory.DAIRY_EGGS,        // Not "DAIRY"
+  IngredientCategory.SWEETENERS,        // Not "SUGAR"  
+  IngredientCategory.CHOCOLATE_COCOA,   // Not "CHOCOLATE"
+  IngredientCategory.NUTS_SEEDS,        // Not "NUTS"
+  IngredientCategory.FRUITS,
+  IngredientCategory.VEGETABLES,
+  IngredientCategory.SPICES_HERBS,      // Not "SPICES"
+  IngredientCategory.FATS_OILS,         // Not "OILS_FATS"
+  IngredientCategory.LEAVENING,
+  IngredientCategory.FLAVORINGS_EXTRACTS, // Not "EXTRACTS"
+  IngredientCategory.MEAT_SEAFOOD,      // Combined category
+  IngredientCategory.BEVERAGES,
+  IngredientCategory.PACKAGING,
+  IngredientCategory.SUPPLIES,
+  IngredientCategory.OTHER,
 ]
 
 interface IngredientsFiltersProps {

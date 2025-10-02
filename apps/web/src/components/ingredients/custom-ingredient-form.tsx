@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { api } from "../../lib/trpc/client"
-import { IngredientCategory, MeasurementUnit } from "../../types/ingredients"
+import { IngredientCategory, MeasurementUnit } from "@homejiak/types"
 
 // Schema aligned with Prisma model
 const customIngredientSchema = z.object({

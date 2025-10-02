@@ -7,7 +7,7 @@ import { MoreHorizontal, Eye, CheckCircle, XCircle, ChefHat, Package, Truck, Pri
 import { useToast } from "@homejiak/ui"
 import { api } from "../../../lib/trpc/client"
 import { RouterOutputs } from "../../../lib/trpc/types"
-import { OrderStatus } from "@homejiak/database/types"
+import { OrderStatus } from "@homejiak/types"
 import Link from "next/link"
 
 type Order = RouterOutputs["order"]["list"]["items"][0]

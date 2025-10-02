@@ -1,4 +1,4 @@
-import { IngredientCategory, MeasurementUnit } from "../../types/ingredients"
+import { IngredientCategory, MeasurementUnit } from "@homejiak/types"
 import { api } from "../../lib/trpc/client"
 import { CustomIngredientForm } from "./custom-ingredient-form"
 

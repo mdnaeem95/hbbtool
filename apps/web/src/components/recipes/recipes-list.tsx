@@ -1,6 +1,6 @@
 import { ChefHat } from "lucide-react"
 import { RecipeCard } from "./recipe-card"
-import { CostConfidence, MeasurementUnit } from "../../lib/trpc/types"
+import { CostConfidence, MeasurementUnit } from "@homejiak/types"
 import { Decimal } from "@homejiak/database"
 
 interface RecipesListProps {

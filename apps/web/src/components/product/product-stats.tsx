@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@homejiak/ui"
 import { Package, PackageCheck, PackageX, TrendingUp } from "lucide-react"
 import { api } from "../../lib/trpc/client"
-import { ProductStatus } from "@homejiak/database/types"
+import { ProductStatus } from "@homejiak/types"
 
 export function ProductStats() {
   // For now, we'll use the list API to calculate stats

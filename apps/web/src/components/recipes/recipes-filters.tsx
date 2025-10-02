@@ -1,4 +1,4 @@
-import { RecipeCategory } from "@homejiak/api"
+import { RecipeCategory } from "@homejiak/types"
 import { Search } from "lucide-react"
 
 const categories: (RecipeCategory | "All Recipes")[] = [

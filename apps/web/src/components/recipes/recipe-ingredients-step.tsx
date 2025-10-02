@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Plus, X } from "lucide-react"
 import { api } from "../../lib/trpc/client"
 import type { RecipeFormData } from "./create-recipe-modal"
-import { MeasurementUnit } from "@homejiak/api"
+import { MeasurementUnit } from "@homejiak/types"
 
 interface IngredientRow {
   id: string

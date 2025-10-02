@@ -14,8 +14,5 @@ export type IngredientListItem = RouterOutputs["ingredients"]["getAll"]["ingredi
 export { 
   RecipeCategory, 
   MeasurementUnit, 
-  IngredientCategory 
-} from "@homejiak/api"
-
-// Enum types
-export type CostConfidence = "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN"
+  IngredientCategory,
+} from "@homejiak/types"

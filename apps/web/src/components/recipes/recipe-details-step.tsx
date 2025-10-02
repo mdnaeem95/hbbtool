@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { api } from "../../lib/trpc/client"
 import type { RecipeFormData } from "./create-recipe-modal"
-import { MeasurementUnit, RecipeCategory } from "@homejiak/api"
+import { MeasurementUnit, RecipeCategory } from "@homejiak/types"
 
 const detailsSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),

@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button, Card, Dialog, DialogTrigger, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast, cn, Alert, AlertDescription } from "@homejiak/ui"
 import { X, Download, Printer, TruckIcon, CheckCircle, AlertTriangle, Loader2 } from "lucide-react"
-import { OrderStatus } from "@homejiak/database/types"
+import { OrderStatus } from "@homejiak/types"
 import { api } from "../../../lib/trpc/client"
 
 interface OrderBulkActionsProps {

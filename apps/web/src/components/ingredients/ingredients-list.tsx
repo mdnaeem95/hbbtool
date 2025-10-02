@@ -1,6 +1,6 @@
 import { Package } from "lucide-react"
 import { IngredientCard } from "./ingredients-card"
-import type { Ingredient } from "../../types/ingredients"
+import type { Ingredient } from "@homejiak/types"
 
 interface IngredientsListProps {
   ingredients: Ingredient[]

@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Edit2, Trash2, AlertCircle } from "lucide-react"
 import { api } from "../../lib/trpc/client"
-import type { Ingredient } from "../../types/ingredients"
+import type { Ingredient } from "@homejiak/types"
 import { DeleteConfirmDialog } from "./delete-confirm-dialog"
 
 interface IngredientCardProps {

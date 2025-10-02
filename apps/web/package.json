@@ -28,6 +28,7 @@
     "@homejiak/database": "workspace:*",
     "@homejiak/storage": "workspace:*",
     "@homejiak/ui": "workspace:*",
+    "@homejiak/types": "workspace:*",
     "@hookform/resolvers": "^5.2.1",
     "@playwright/test": "^1.55.0",
     "@prisma/nextjs-monorepo-workaround-plugin": "^6.16.2",
