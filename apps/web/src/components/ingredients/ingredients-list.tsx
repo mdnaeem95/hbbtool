@@ -7,7 +7,7 @@ type Ingredient = RouterOutputs["ingredients"]["getMerchantInventory"]["ingredie
 interface IngredientsListProps {
   ingredients: Ingredient[]
   isLoading: boolean
-  onEdit: (id: string) => void
+  onEdit: (id: string, isCustom: boolean) => void
   onRefetch: () => void
 }
 
@@ -54,7 +54,7 @@ export function IngredientsList({
         <IngredientCard
           key={ingredient.id}
           ingredient={ingredient}
-          onEdit={onEdit}
+          onEdit={() => onEdit(ingredient.id, ingredient.isCustom)}
           onRefetch={onRefetch}
         />
       ))}

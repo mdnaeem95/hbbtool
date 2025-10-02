@@ -9,7 +9,7 @@ export default function IngredientsPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<IngredientCategory | "All Categories">("All Categories")
   const [showAddModal, setShowAddModal] = useState(false)
-  const [editingIngredient, setEditingIngredient] = useState<string | null>(null)
+  const [editingIngredient, setEditingIngredient] = useState<{ id: string; isCustom: boolean } | null>(null)
   const [showFilters, setShowFilters] = useState(false)
   const [filterLowStock, setFilterLowStock] = useState(false)
   const [filterCustomOnly, setFilterCustomOnly] = useState(false)
@@ -43,6 +43,14 @@ export default function IngredientsPage() {
     0
   )
 
+  const handleEdit = (id: string, isCustom: boolean) => {
+    setEditingIngredient({ id, isCustom })
+  }
+
+  const handleCloseEdit = () => {
+    setEditingIngredient(null)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <IngredientsHeader onAddClick={() => setShowAddModal(true)} />
@@ -72,7 +80,7 @@ export default function IngredientsPage() {
         <IngredientsList
           ingredients={filteredIngredients}
           isLoading={isLoading}
-          onEdit={(id) => setEditingIngredient(id)}
+          onEdit={handleEdit}
           onRefetch={refetch}
         />
       </div>
@@ -89,8 +97,9 @@ export default function IngredientsPage() {
 
       {editingIngredient && (
         <EditIngredientModal
-          ingredientId={editingIngredient}
-          onClose={() => setEditingIngredient(null)}
+          ingredientId={editingIngredient.id}
+          isCustom={editingIngredient.isCustom}
+          onClose={handleCloseEdit}
           onSuccess={() => {
             setEditingIngredient(null)
             refetch()

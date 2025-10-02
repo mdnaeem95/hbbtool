@@ -9,7 +9,7 @@ type Ingredient = RouterOutputs["ingredients"]["getMerchantInventory"]["ingredie
 
 interface IngredientCardProps {
   ingredient: Ingredient
-  onEdit: (id: string) => void
+  onEdit: () => void
   onRefetch: () => void
 }
 
@@ -104,7 +104,7 @@ export function IngredientCard({ ingredient, onEdit, onRefetch }: IngredientCard
 
           <div className="flex items-center gap-2 ml-4">
             <button
-              onClick={() => onEdit(ingredient.id)}
+              onClick={onEdit}
               className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <Edit2 className="w-4 h-4" />

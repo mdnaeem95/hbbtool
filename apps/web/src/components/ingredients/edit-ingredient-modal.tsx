@@ -1,21 +1,24 @@
 import { IngredientCategory, MeasurementUnit } from "@homejiak/types"
 import { api } from "../../lib/trpc/client"
 import { CustomIngredientForm } from "./custom-ingredient-form"
+import { GlobalIngredientForm } from "./global-ingredient-form"
 
 interface EditIngredientModalProps {
   ingredientId: string
+  isCustom: boolean
   onClose: () => void
   onSuccess: () => void
 }
 
 export function EditIngredientModal({
   ingredientId,
+  isCustom,
   onClose,
   onSuccess,
 }: EditIngredientModalProps) {
   const { data: ingredient, isLoading } = api.ingredients.getById.useQuery({
     id: ingredientId,
-    isCustom: true, // still pass this for runtime
+    isCustom, // still pass this for runtime
   })
 
   // tiny helper to coerce strings to enums safely (only needed if your client uses TS enums)
@@ -74,10 +77,12 @@ export function EditIngredientModal({
               }}
             />
           ) : (
-            // Optional: if someone navigates here with a global ingredient by mistake
-            <p className="text-center text-gray-500 py-8">
-              This ingredient is global and cannot be edited here.
-            </p>
+            // Global ingredient form - only edit merchant-specific fields
+            <GlobalIngredientForm
+              onClose={onClose}
+              onSuccess={onSuccess}
+              ingredient={ingredient}
+            />
           )}
         </div>
       </div>
