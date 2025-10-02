@@ -23,7 +23,7 @@ interface QuickAddIngredientModalProps {
 
 function QuickAddIngredientModal({ isOpen, onClose, onAdd }: QuickAddIngredientModalProps) {
   const [name, setName] = useState("")
-  const [category, setCategory] = useState<IngredientCategory>("PRODUCE" as IngredientCategory)
+  const [category, setCategory] = useState<IngredientCategory>("FLOUR_GRAINS" as IngredientCategory)
   const [purchaseUnit, setPurchaseUnit] = useState<MeasurementUnit>("GRAMS" as MeasurementUnit)
   const [pricePerUnit, setPricePerUnit] = useState(0)
   const [isCreating, setIsCreating] = useState(false)
