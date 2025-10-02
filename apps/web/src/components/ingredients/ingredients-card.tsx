@@ -1,8 +1,11 @@
 import { useState } from "react"
 import { Edit2, Trash2, AlertCircle } from "lucide-react"
 import { api } from "../../lib/trpc/client"
-import type { Ingredient } from "@homejiak/types"
+import type { RouterOutputs } from "../../lib/trpc/types"
 import { DeleteConfirmDialog } from "./delete-confirm-dialog"
+
+// Use the same type as your list component
+type Ingredient = RouterOutputs["ingredients"]["getAll"]["ingredients"][number]
 
 interface IngredientCardProps {
   ingredient: Ingredient
