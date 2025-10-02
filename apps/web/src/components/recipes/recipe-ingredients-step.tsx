@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Plus, X } from "lucide-react"
+import { Plus, X, AlertCircle } from "lucide-react"
 import { api } from "../../lib/trpc/client"
 import type { RecipeFormData } from "./create-recipe-modal"
 import { MeasurementUnit } from "@homejiak/types"
@@ -44,11 +44,17 @@ export function RecipeIngredientsStep({
     ]
   )
 
-  // Fetch all available ingredients
-  const { data: ingredientsData } = api.ingredients.getAll.useQuery({
-    page: 1,
-    limit: 200,
-  })
+  // Fetch all ingredients (both global and custom)
+  const { data: ingredientsData, isLoading } = 
+    api.ingredients.getAll.useQuery({
+      page: 1,
+      limit: 500,
+      includeCustom: true,
+      includeGlobal: true,
+    })
+
+  // The API already combines both types
+  const allIngredients = ingredientsData?.ingredients || []
 
   const addIngredient = () => {
     setIngredients([
@@ -102,6 +108,9 @@ export function RecipeIngredientsStep({
     onNext({ ingredients: formattedIngredients })
   }
 
+  // Check if there are no ingredients available
+  const hasNoIngredients = !isLoading && allIngredients.length === 0
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -114,6 +123,23 @@ export function RecipeIngredientsStep({
           Add Ingredient
         </button>
       </div>
+
+      {hasNoIngredients && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div className="flex gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-amber-800">
+                No ingredients available
+              </p>
+              <p className="text-sm text-amber-700 mt-1">
+                You need to add ingredients to your inventory first. Go to the Ingredients 
+                section to add global or custom ingredients, then come back to create your recipe.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3">
         {ingredients.map((ing, idx) => (
@@ -141,17 +167,21 @@ export function RecipeIngredientsStep({
                 value={
                   ing.isCustom
                     ? `custom-${ing.customIngredientId}`
-                    : `global-${ing.ingredientId}`
+                    : ing.ingredientId 
+                      ? `global-${ing.ingredientId}`
+                      : ""
                 }
                 onChange={(e) => {
                   const value = e.target.value
+                  if (!value) return
+                  
                   if (value.startsWith("custom-")) {
                     updateIngredient(ing.id, {
                       isCustom: true,
                       customIngredientId: value.replace("custom-", ""),
                       ingredientId: undefined,
                     })
-                  } else {
+                  } else if (value.startsWith("global-")) {
                     updateIngredient(ing.id, {
                       isCustom: false,
                       ingredientId: value.replace("global-", ""),
@@ -159,21 +189,47 @@ export function RecipeIngredientsStep({
                     })
                   }
                 }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                disabled={isLoading || hasNoIngredients}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500"
               >
-                <option value="">Select an ingredient...</option>
-                {ingredientsData?.ingredients.map((ingredient) => (
-                  <option
-                    key={ingredient.id}
-                    value={
-                      ingredient.isCustom
-                        ? `custom-${ingredient.id}`
-                        : `global-${ingredient.id}`
-                    }
-                  >
-                    {ingredient.name} {ingredient.isCustom && "(Custom)"}
-                  </option>
-                ))}
+                <option value="">
+                  {isLoading 
+                    ? "Loading ingredients..." 
+                    : hasNoIngredients 
+                      ? "No ingredients available" 
+                      : "Select an ingredient..."}
+                </option>
+                
+                {/* Separate global and custom ingredients for better UX */}
+                {allIngredients.filter(ing => ing.isGlobal).length > 0 && (
+                  <optgroup label="Global Ingredients">
+                    {allIngredients
+                      .filter(ing => ing.isGlobal)
+                      .map((ingredient) => (
+                        <option
+                          key={`global-${ingredient.id}`}
+                          value={`global-${ingredient.id}`}
+                        >
+                          {ingredient.name}
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
+                
+                {allIngredients.filter(ing => ing.isCustom).length > 0 && (
+                  <optgroup label="Custom Ingredients">
+                    {allIngredients
+                      .filter(ing => ing.isCustom)
+                      .map((ingredient) => (
+                        <option
+                          key={`custom-${ingredient.id}`}
+                          value={`custom-${ingredient.id}`}
+                        >
+                          {ingredient.name}
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
               </select>
             </div>
 
@@ -182,8 +238,8 @@ export function RecipeIngredientsStep({
                 <label className="block text-sm text-gray-600 mb-1">Quantity *</label>
                 <input
                   type="number"
-                  step="0.1"
-                  placeholder="300"
+                  step="0.001"
+                  placeholder="0"
                   value={ing.quantity || ""}
                   onChange={(e) =>
                     updateIngredient(ing.id, {
@@ -252,7 +308,8 @@ export function RecipeIngredientsStep({
         <button
           type="button"
           onClick={handleNext}
-          className="flex-1 px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+          disabled={hasNoIngredients}
+          className="flex-1 px-6 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
         >
           Continue
         </button>
