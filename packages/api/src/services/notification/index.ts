@@ -1,4 +1,4 @@
-import { db, type NotificationType, NotificationPriority } from '@homejiak/database'
+import { db, NotificationType, NotificationPriority } from '@homejiak/database'
 import { emailProvider } from './provider/email'
 import { smsProvider } from './provider/sms'
 import { whatsappProvider } from './provider/whatsapp'
@@ -368,7 +368,7 @@ export class NotificationService {
     return this.createNotification({
       merchantId: opts.merchantId,
       orderId: opts.orderId,
-      type: 'ORDER_PLACED',
+      type: NotificationType.ORDER_PLACED,
       channels: opts.channels || ['in_app', 'email', 'sms'],
       priority: opts.priority || NotificationPriority.HIGH,
       data: {
@@ -389,7 +389,7 @@ export class NotificationService {
     return this.createNotification({
       customerId: opts.customerId,
       orderId: opts.orderId,
-      type: 'ORDER_READY',
+      type: NotificationType.ORDER_READY,
       channels: opts.channels || ['in_app', 'sms', 'whatsapp'],
       priority: NotificationPriority.HIGH,
       data: {
@@ -410,7 +410,7 @@ export class NotificationService {
       customerId: opts.customerId,
       merchantId: opts.merchantId,
       orderId: opts.orderId,
-      type: 'ORDER_DELIVERED',
+      type: NotificationType.ORDER_DELIVERED,
       channels: opts.channels || ['in_app', 'whatsapp'],
       data: {
         orderNumber: opts.orderNumber,

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { router, publicProcedure, merchantProcedure, protectedProcedure } from '../../core'
 import { TRPCError } from '@trpc/server'
-import { PaymentMethod } from '@homejiak/database'
+import { PaymentMethod } from '@homejiak/types'
 import { generatePayNowQR } from '../../../utils/paynow'
 
 export const paymentRouter = router({
@@ -108,7 +108,7 @@ export const paymentRouter = router({
           status: 'CONFIRMED',
           paymentStatus: 'COMPLETED',
           paymentConfirmedAt: new Date(),
-          paymentConfirmedBy: ctx.session.user.id,
+          paymentConfirmedBy: ctx.session?.user.id,
           confirmedAt: new Date(),
           payment: {
             update: {
@@ -132,7 +132,7 @@ export const paymentRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const order = await ctx.db.order.findFirst({
-        where: { id: input.orderId, merchantId: ctx.session.user.id },
+        where: { id: input.orderId, merchantId: ctx.session?.user.id },
         select: { id: true, status: true },
       })
 
@@ -193,7 +193,7 @@ export const paymentRouter = router({
 
       if (merchant.paynowNumber) {
         methods.push({
-          method: 'PAYNOW',
+          method: PaymentMethod.PAYNOW,
           enabled: true,
           details: {
             number: merchant.paynowNumber,
@@ -213,7 +213,7 @@ export const paymentRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const merchant = await ctx.db.merchant.findUnique({
-        where: { id: ctx.session.user.id },
+        where: { id: ctx.session?.user.id },
         select: { 
           paynowNumber: true, 
           businessName: true 

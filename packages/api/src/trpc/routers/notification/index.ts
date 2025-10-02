@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { TRPCError } from '@trpc/server'
 import { router, protectedProcedure, merchantProcedure } from '../../core'
 import { NotificationService } from '../../../services/notification'
-import { NotificationType, NotificationPriority } from '@homejiak/database'
+import { NotificationType, NotificationPriority } from '@homejiak/types'
 
 export const notificationRouter = router({
   // Get notifications for current user
@@ -49,7 +49,7 @@ export const notificationRouter = router({
     .query(async ({ ctx }) => {
       const { session } = ctx
       
-      return await NotificationService.getUnreadCount(session.user.id)
+      return await NotificationService.getUnreadCount(session?.user.id!)
     }),
 
   // Mark notification as read
@@ -71,7 +71,7 @@ export const notificationRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Notification not found' })
       }
      
-      if (notification.merchantId !== session.user.id) {
+      if (notification.merchantId !== session?.user.id) {
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Not authorized' })
       }
       
@@ -83,7 +83,7 @@ export const notificationRouter = router({
     .mutation(async ({ ctx }) => {
       const { session } = ctx
 
-      return await NotificationService.markAllAsRead(session.user.id)
+      return await NotificationService.markAllAsRead(session?.user.id!)
     }),
 
   // Send test notification (merchant only, for testing)
@@ -91,7 +91,7 @@ export const notificationRouter = router({
     .input(z.object({
       type: z.nativeEnum(NotificationType),
       channels: z.array(z.enum(['in_app', 'email', 'sms', 'whatsapp'])).default(['in_app']),
-      priority: z.nativeEnum(NotificationPriority).default('NORMAL'),
+      priority: z.nativeEnum(NotificationPriority).default(NotificationPriority.NORMAL),
     }))
     .mutation(async ({ ctx, input }) => {
       const { session } = ctx
@@ -103,7 +103,7 @@ export const notificationRouter = router({
       }
       
       return await NotificationService.createNotification({
-        merchantId: session.user.id,
+        merchantId: session?.user.id,
         type,
         channels,
         priority,

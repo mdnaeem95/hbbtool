@@ -2,10 +2,9 @@ import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { router, merchantProcedure } from "../../core"
 import { Prisma } from "@homejiak/database"
-import { MeasurementUnit } from "../recipe"
 import { getMerchantPricingId } from "../../../services/ingredients"
 import { updateAllRecipeCosts, updateRecipeCostsForCustomIngredient, updateRecipeCostsForIngredient } from "../../../services/recipe"
-import { IngredientByIdDto, IngredientCategory } from "../../../types"
+import { IngredientCategory, MeasurementUnit, IngredientByIdDto } from '@homejiak/types'
 
 // Validation schemas based on actual schema
 const createCustomIngredientSchema = z.object({

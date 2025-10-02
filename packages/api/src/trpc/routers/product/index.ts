@@ -46,7 +46,7 @@ const createProductZ = z.object({
   inventory: quantitySchema.optional(),
   quantity: quantitySchema.optional(), // legacy alias
   images: z.array(z.string().url()).default([]),
-  status: z.nativeEnum(ProductStatus).default('DRAFT'),
+  status: z.nativeEnum(ProductStatus).default(ProductStatus.DRAFT),
   featured: z.boolean().optional(),
 })
 

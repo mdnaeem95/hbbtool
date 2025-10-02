@@ -2,7 +2,7 @@ import { z } from "zod"
 import { TRPCError } from "@trpc/server"
 import { Prisma  } from "@homejiak/database"
 import { router, merchantProcedure } from "../../core"
-import { CostConfidence, MeasurementUnit as ApiMeasurementUnit } from "../../../types"
+import { RecipeCategory, MeasurementUnit } from '@homejiak/types'
 
 // Helper: Decimal|string|number|undefined|null -> number (0 fallback)
 const n = (v: unknown): number => {
@@ -10,49 +10,6 @@ const n = (v: unknown): number => {
   if (v && typeof v === "object" && "toNumber" in (v as any)) return (v as any).toNumber()
   const parsed = Number(v)
   return Number.isFinite(parsed) ? parsed : 0
-}
-
-const toUICostConfidence = (
-  v: CostConfidence | null
-): CostConfidence | null => (v === "UNKNOWN" ? null : v)
-
-export enum RecipeCategory {
-  BAKED_GOODS = "BAKED_GOODS",
-  PASTRIES = "PASTRIES",
-  CAKES = "CAKES",
-  COOKIES = "COOKIES",
-  BREADS = "BREADS",
-  DESSERTS = "DESSERTS",
-  MAINS = "MAINS",
-  APPETIZERS = "APPETIZERS",
-  SIDES = "SIDES",
-  BEVERAGES = "BEVERAGES",
-  SAUCES_CONDIMENTS = "SAUCES_CONDIMENTS",
-  MEAL_PREP = "MEAL_PREP",
-  CATERING = "CATERING",
-  SNACKS = "SNACKS",
-  OTHER = "OTHER",
-}
-
-export enum MeasurementUnit {
-  // Weight
-  GRAMS = "GRAMS",
-  KG = "KG",
-  OUNCES = "OUNCES",
-  POUNDS = "POUNDS",
-
-  // Volume
-  ML = "ML",
-  LITERS = "LITERS",
-  TSP = "TSP",
-  TBSP = "TBSP",
-  CUPS = "CUPS",
-
-  // Count
-  PIECES = "PIECES",
-  SERVINGS = "SERVINGS",
-  BATCHES = "BATCHES",
-  DOZEN = "DOZEN",
 }
 
 // Validation schemas based on actual schema
@@ -149,9 +106,9 @@ export const recipeRouter = router({
         id: r.id,
         name: r.name,
         description: r.description ?? null,
-        costConfidence: toUICostConfidence(r.costConfidence as CostConfidence | null),
+        costConfidence: r.costConfidence,
         baseYield: r.baseYield, // keep Decimal to match your UI type
-        yieldUnit: r.yieldUnit as unknown as ApiMeasurementUnit,
+        yieldUnit: r.yieldUnit,
         totalTime: n(r.prepTime) + n(r.cookTime) + n(r.coolingTime) + n(r.decorationTime),
         costPerUnit: r.costPerUnit == null ? null : n(r.costPerUnit as any),
         totalCost: r.totalCost == null ? null : n(r.totalCost as any),

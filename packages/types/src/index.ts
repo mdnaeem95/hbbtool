@@ -54,12 +54,21 @@ export enum DeliveryMethod {
 
 // Notification Enums
 export enum NotificationType {
+  ORDER_PLACED = "ORDER_PLACED",
   ORDER_CONFIRMED = "ORDER_CONFIRMED",
+  ORDER_PREPARING = "ORDER_PREPARING",
   ORDER_READY = "ORDER_READY",
   ORDER_DELIVERED = "ORDER_DELIVERED",
   ORDER_CANCELLED = "ORDER_CANCELLED",
   PAYMENT_RECEIVED = "PAYMENT_RECEIVED",
-  REVIEW_RECEIVED = "REVIEW_RECEIVED"
+  PAYMENT_FAILED = "PAYMENT_FAILED",
+  REVIEW_RECEIVED = "REVIEW_RECEIVED",
+  LOW_STOCK_ALERT = "LOW_STOCK_ALERT",
+  PROMOTION_STARTED = "PROMOTION_STARTED",
+  PROMOTION_ENDING = "PROMOTION_ENDING",
+  SYSTEM_MAINTENANCE = "SYSTEM_MAINTENANCE",
+  ACCOUNT_VERIFICATION = "ACCOUNT_VERIFICATION",
+  PASSWORD_RESET = "PASSWORD_RESET"
 }
 
 export enum NotificationPriority {
@@ -140,7 +149,7 @@ export interface Merchant {
   slug: string
   description: string | null
   logoUrl: string | null
-  coverImageUrl: string | null
+  bannerUrl: string | null
   categories: string[]
   cuisineType: string[]
   operatingHours: any // Consider creating OperatingHours type
@@ -277,6 +286,7 @@ export interface AuthUser {
   id: string
   email: string
   userType: 'merchant' | 'customer'
+  merchant?: Merchant
 }
 
 export interface AuthSession {

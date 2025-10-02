@@ -3,11 +3,11 @@ import { TRPCError } from '@trpc/server'
 import { router, merchantProcedure } from '../../core'
 import { paginationSchema } from '../../../utils/validation'
 import { paginatedResponse } from '../../../utils/pagination'
-import { OrderStatus, orderIncludes, Prisma } from '@homejiak/database'
+import { orderIncludes, Prisma } from '@homejiak/database'
 import { Parser } from 'json2csv'
 import { canUpdateOrderStatus } from '../../../lib/helpers/order'
 import { NotificationService } from '../../../services/notification'
-import { NotificationPriority } from '@homejiak/database'
+import { NotificationPriority, NotificationType, OrderStatus } from '@homejiak/types'
 import { orderSMSTemplates } from '../../../services/notification/templates/order-sms'
 import { smsProvider } from '../../../services/notification/provider/sms'
 
@@ -51,15 +51,15 @@ function buildCreatedAtRange(dateFrom?: Date, dateTo?: Date) {
 
 // Allowed transitions (tweak to your ops flow)
 const ALLOWED_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
-  PENDING:           ['CONFIRMED', 'CANCELLED'],
-  CONFIRMED:         ['PREPARING', 'READY', 'CANCELLED'],
-  PREPARING:         ['READY', 'CANCELLED'],
-  READY:             ['OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED', 'CANCELLED'],
-  OUT_FOR_DELIVERY:  ['DELIVERED', 'CANCELLED'],
-  DELIVERED:         ['COMPLETED', 'REFUNDED'],
-  CANCELLED:         ['REFUNDED'],      // allow refund after a charged cancellation
+  PENDING:           [OrderStatus.PENDING, OrderStatus.CANCELLED],
+  CONFIRMED:         [OrderStatus.PREPARING, OrderStatus.READY, OrderStatus.CANCELLED],
+  PREPARING:         [OrderStatus.READY, OrderStatus.CANCELLED],
+  READY:             [OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED, OrderStatus.COMPLETED, OrderStatus.CANCELLED],
+  OUT_FOR_DELIVERY:  [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
+  DELIVERED:         [OrderStatus.COMPLETED, OrderStatus.REFUNDED],
+  CANCELLED:         [OrderStatus.REFUNDED],      // allow refund after a charged cancellation
   REFUNDED:          [],                // terminal
-  COMPLETED:         ['REFUNDED'],      // optionally allow post-completion refunds
+  COMPLETED:         [OrderStatus.REFUNDED],      // optionally allow post-completion refunds
 } as const
 
 function assertTransition(from: OrderStatus, to: OrderStatus) {
@@ -221,7 +221,7 @@ async function triggerOrderNotification(
         if (order.customerId) {
           await NotificationService.createNotification({
             customerId: order.customerId,
-            type: 'ORDER_CONFIRMED',
+            type: NotificationType.ORDER_CONFIRMED,
             channels,
             priority: NotificationPriority.NORMAL,
             data: {
@@ -238,7 +238,7 @@ async function triggerOrderNotification(
         if (order.customerId) {
           await NotificationService.createNotification({
             customerId: order.customerId,
-            type: 'ORDER_READY',
+            type: NotificationType.ORDER_READY,
             channels,
             priority: NotificationPriority.HIGH,
             data: {
@@ -255,7 +255,7 @@ async function triggerOrderNotification(
         if (order.customerId) {
           await NotificationService.createNotification({
             customerId: order.customerId,
-            type: 'ORDER_DELIVERED',
+            type: NotificationType.ORDER_DELIVERED,
             channels,
             priority: NotificationPriority.NORMAL,
             data: {
@@ -273,7 +273,7 @@ async function triggerOrderNotification(
           await NotificationService.createNotification({
             customerId: order.customerId,
             orderId: order.id,
-            type: 'ORDER_CANCELLED',
+            type: NotificationType.ORDER_CANCELLED,
             channels,
             priority: NotificationPriority.HIGH,
             data: {
@@ -289,7 +289,7 @@ async function triggerOrderNotification(
     if (newStatus === 'PENDING' && oldStatus !== 'PENDING') {
       await NotificationService.createNotification({
         merchantId: order.merchantId,
-        type: 'ORDER_PLACED',
+        type: NotificationType.ORDER_PLACED,
         channels,
         priority: NotificationPriority.HIGH,
         data: {
@@ -386,7 +386,7 @@ export const orderRouter = router({
       }
       
       // Validate status transition
-      assertTransition(currentOrder.status, input.status)
+      assertTransition(currentOrder.status as OrderStatus, input.status)
       
       // Update the order
       const order = await ctx.db.order.update({
@@ -401,7 +401,7 @@ export const orderRouter = router({
       // Trigger SMS notification for the status change
       await triggerOrderNotification(
         order.id,
-        currentOrder.status,  // old status
+        currentOrder.status as OrderStatus,  // old status
         input.status,         // new status
         ctx.db
       )
