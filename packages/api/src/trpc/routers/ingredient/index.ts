@@ -879,4 +879,97 @@ export const ingredientRouter = router({
         shelfLifeDays: ing.shelfLifeDays,
       }))
     }),
+
+  searchIngredients: merchantProcedure
+    .input(z.object({
+      search: z.string(),
+      limit: z.number().int().min(1).max(50).default(20),
+    }))
+    .query(async ({ ctx, input }) => {
+      const merchantId = ctx.merchant.id
+      
+      if (input.search.length === 0) {
+        return []
+      }
+      
+      // Search both custom ingredients and all global ingredients
+      const [customIngredients, globalIngredients, merchantPricing] = await Promise.all([
+        // Search merchant's custom ingredients
+        ctx.db.customIngredient.findMany({
+          where: {
+            merchantId,
+            name: { contains: input.search, mode: 'insensitive' },
+          },
+          take: input.limit,
+        }),
+        
+        // Search ALL global ingredients (not just in inventory)
+        ctx.db.ingredient.findMany({
+          where: {
+            isActive: true,
+            OR: [
+              { name: { contains: input.search, mode: 'insensitive' } },
+              { alternativeNames: { hasSome: [input.search] } },
+            ],
+          },
+          take: input.limit,
+        }),
+        
+        // Get merchant's pricing for global ingredients
+        ctx.db.merchantIngredientPrice.findMany({
+          where: { merchantId },
+          select: { 
+            ingredientId: true,
+            currentPricePerUnit: true,
+          },
+        }),
+      ])
+      
+      // Create a map of merchant pricing
+      const pricingMap = new Map(
+        merchantPricing.map(p => [p.ingredientId, p.currentPricePerUnit])
+      )
+      
+      // Combine and format results
+      const results = [
+        // Custom ingredients first (usually more relevant)
+        ...customIngredients.map(ing => ({
+          id: ing.id,
+          name: ing.name,
+          description: ing.description,
+          category: ing.category,
+          purchaseUnit: ing.purchaseUnit,
+          pricePerUnit: Number(ing.currentPricePerUnit.toString()),
+          isCustom: true,
+          isGlobal: false,
+          inInventory: true,
+        })),
+        
+        // Then global ingredients
+        ...globalIngredients.map(ing => ({
+          id: ing.id,
+          name: ing.name,
+          description: ing.description,
+          category: ing.category,
+          purchaseUnit: ing.purchaseUnit,
+          pricePerUnit: pricingMap.has(ing.id) 
+            ? Number(pricingMap.get(ing.id)!.toString())
+            : Number(ing.referencePrice.toString()),
+          isCustom: false,
+          isGlobal: true,
+          inInventory: pricingMap.has(ing.id),
+        })),
+      ]
+      
+      // Sort by relevance (exact match first, then partial)
+      results.sort((a, b) => {
+        const aExact = a.name.toLowerCase() === input.search.toLowerCase()
+        const bExact = b.name.toLowerCase() === input.search.toLowerCase()
+        if (aExact && !bExact) return -1
+        if (!aExact && bExact) return 1
+        return 0
+      })
+      
+      return results.slice(0, input.limit)
+    }),
 })
