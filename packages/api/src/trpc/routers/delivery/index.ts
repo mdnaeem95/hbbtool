@@ -53,103 +53,95 @@ export const deliveryRouter = router({
           })),
           status: order.status,
           total: Number(order.total),
-          scheduledFor: order.scheduledFor,
-          deliveryPartner: order.deliveryPartner
-        })),
-        unassigned: []
+          scheduledFor: order.scheduledFor
+        }))
       }
     }),
 
-  optimizeRoutes: merchantProcedure
+  optimizeRoute: merchantProcedure
     .input(z.object({
-      orders: z.array(z.object({
-        id: z.string(),
-        customer: z.object({
-          address: z.string(),
-          postalCode: z.string()
-        })
-      })),
-      mode: z.enum(["time", "distance", "fuel"]),
-      constraints: z.object({
-        maxStopsPerRoute: z.number(),
-        maxDurationPerRoute: z.number(),
-        startLocation: z.object({
-          lat: z.number(),
-          lng: z.number()
-        }).optional(),
-        endLocation: z.object({
-          lat: z.number(),
-          lng: z.number()
-        }).optional()
-      })
-    }))
-    .mutation(async ({ input }) => {
-      const groupedByDistrict = input.orders.reduce((acc, order) => {
-        const district = order.customer.postalCode.substring(0, 2)
-        if (!acc[district]) acc[district] = []
-        acc[district].push(order)
-        return acc
-      }, {} as Record<string, typeof input.orders>)
-
-      const routes = Object.entries(groupedByDistrict).map(([district, orders], idx) => {
-        const routeOrders = orders.slice(0, input.constraints.maxStopsPerRoute)
-        
-        return {
-          id: `route-${idx + 1}`,
-          district,
-          stops: routeOrders.map((order, stopIdx) => ({
-            id: order.id,
-            orderId: order.id,
-            coordinates: {
-              // Singapore postal code to approximate coordinates
-              lat: 1.3521 + (parseInt(district) * 0.001),
-              lng: 103.8198 + (parseInt(district) * 0.001)
-            },
-            customer: order.customer,
-            estimatedArrival: new Date(Date.now() + (stopIdx + 1) * 30 * 60000),
-            priority: "normal" as const
-          })),
-          driver: null,
-          estimatedDuration: routeOrders.length * 30,
-          totalDistance: routeOrders.length * 5,
-          estimatedDeliveryCost: routeOrders.length * 3.5,
-          hasTimeConstraints: false,
-          timeConstraintCount: 0
-        }
-      })
-      
-      return { routes }
-    }),
-
-  updateDeliveryStatus: merchantProcedure
-    .input(z.object({
-      orderId: z.string(),
-      status: z.enum(["enroute", "arrived", "delivered", "failed"]),
-      location: z.object({ lat: z.number(), lng: z.number() }).optional(),
-      notes: z.string().optional(),
-      photo: z.string().optional()
+      orderIds: z.array(z.string()),
+      startLocation: z.object({
+        lat: z.number(),
+        lng: z.number()
+      }).optional()
     }))
     .mutation(async ({ ctx, input }) => {
-      const statusMap = {
-        enroute: OrderStatus.OUT_FOR_DELIVERY,
-        arrived: OrderStatus.OUT_FOR_DELIVERY,
-        delivered: OrderStatus.DELIVERED,
-        failed: OrderStatus.CANCELLED
-      }
+      // Group by postal district for efficient routing
+      const orders = await ctx.db.order.findMany({
+        where: { id: { in: input.orderIds } },
+        include: { deliveryAddress: true }
+      })
 
+      const sortedByPostal = orders.sort((a, b) => {
+        const postalA = a.deliveryAddress?.postalCode || ""
+        const postalB = b.deliveryAddress?.postalCode || ""
+        return postalA.localeCompare(postalB)
+      })
+
+      return {
+        optimizedOrder: sortedByPostal.map((order, idx) => ({
+          sequence: idx + 1,
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          address: order.deliveryAddress?.line1 || "",
+          postalCode: order.deliveryAddress?.postalCode || "",
+          estimatedTime: 10 * (idx + 1) // 10 mins per stop
+        })),
+        totalDistance: sortedByPostal.length * 3, // Rough estimate
+        estimatedDuration: sortedByPostal.length * 15, // 15 mins per delivery
+        googleMapsUrl: generateGoogleMapsUrl(sortedByPostal)
+      }
+    }),
+
+  exportToGoogleMaps: merchantProcedure
+    .input(z.object({
+      orderIds: z.array(z.string())
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const orders = await ctx.db.order.findMany({
+        where: { id: { in: input.orderIds } },
+        include: { deliveryAddress: true }
+      })
+
+      const waypoints = orders.map(o => 
+        `${o.deliveryAddress?.line1}, Singapore ${o.deliveryAddress?.postalCode}`
+      ).join('/')
+
+      const googleMapsUrl = `https://www.google.com/maps/dir/${waypoints}`
+      
+      return { url: googleMapsUrl }
+    }),
+
+  markDelivered: merchantProcedure
+    .input(z.object({
+      orderId: z.string(),
+      photo: z.string().optional(),
+      notes: z.string().optional()
+    }))
+    .mutation(async ({ ctx, input }) => {
       const updated = await ctx.db.order.update({
         where: { id: input.orderId },
         data: {
-          status: statusMap[input.status],
+          status: OrderStatus.DELIVERED,
+          deliveredAt: new Date(),
           deliveryNotes: input.notes,
-          deliveredAt: input.status === "delivered" ? new Date() : undefined,
           metadata: {
-            deliveryLocation: input.location,
             deliveryPhoto: input.photo
           }
         }
       })
 
+      // Send notification to customer
+      // await sendDeliveryNotification(updated)
+
       return updated
     })
 })
+
+function generateGoogleMapsUrl(orders: any[]) {
+  const addresses = orders
+    .map(o => `${o.deliveryAddress?.line1}, Singapore ${o.deliveryAddress?.postalCode}`)
+    .join('/')
+  return `https://www.google.com/maps/dir/${addresses}`
+}

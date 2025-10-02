@@ -1,130 +1,187 @@
 "use client"
 
 import { useState } from "react"
-import { DndContext } from "@dnd-kit/core"
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { api } from "../../../lib/trpc/client"
-import { Card, Button } from "@homejiak/ui"
-import { Navigation } from "lucide-react"
-import { DeliveryMap } from "./delivery-map"
-import { RouteCard } from "./route-card"
+import { Card, Button, Checkbox, Badge, Alert, AlertDescription } from "@homejiak/ui"
+import { Navigation, MapPin, Phone, Clock, ExternalLink, Check, Package } from "lucide-react"
+import { cn } from "../../../lib/utils"
+import { OrderStatus } from "@homejiak/types"
 
-export function DeliveryRoutePlanner({ date }: { date: Date }) {
-  const [selectedRoute, setSelectedRoute] = useState<string | null>(null)
-  const [optimizationMode, setOptimizationMode] = useState<"time" | "distance" | "fuel">("time")
+export function DeliveryRoute({ date }: { date: Date }) {
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([])
+  const [optimizedRoute, setOptimizedRoute] = useState<any>(null)
   
-  // Fetch delivery orders for the date
-  const { data: deliveryOrders } = api.delivery.getDeliveryOrders.useQuery({
+  const { data: orders } = api.delivery.getDeliveryOrders.useQuery({
     date,
-    status: ["CONFIRMED", "PREPARING", "READY"]
+    status: [OrderStatus.READY, OrderStatus.OUT_FOR_DELIVERY]
   })
   
-  // Generate optimized routes
-  const { data: routes, mutate: optimizeRoutes } = api.delivery.optimizeRoutes.useMutation()
+  const optimizeRoute = api.delivery.optimizeRoute.useMutation({
+    onSuccess: (data) => setOptimizedRoute(data)
+  })
   
-  const handleOptimizeRoutes = async () => {
-    const result = await optimizeRoutes({
-      orders: deliveryOrders,
-      mode: optimizationMode,
-      constraints: {
-        maxStopsPerRoute: 15,
-        maxDurationPerRoute: 480, // 8 hours
-        startLocation: merchantLocation,
-        endLocation: merchantLocation, // Return to base
-        breakDuration: 30, // 30 min break
-        averageStopDuration: 10,
-        trafficMultiplier: getTrafficMultiplier(date), // Peak hour consideration
-      }
+  const markDelivered = api.delivery.markDelivered.useMutation()
+
+  const handleOptimize = async () => {
+    if (selectedOrders.length === 0) return
+    await optimizeRoute.mutateAsync({
+      orderIds: selectedOrders
     })
-    
-    setSelectedRoute(result.routes[0]?.id)
   }
-  
+
+  const openInGoogleMaps = () => {
+    if (optimizedRoute?.googleMapsUrl) {
+      window.open(optimizedRoute.googleMapsUrl, '_blank')
+    }
+  }
+
+  const toggleOrder = (orderId: string) => {
+    setSelectedOrders(prev => 
+      prev.includes(orderId) 
+        ? prev.filter(id => id !== orderId)
+        : [...prev, orderId]
+    )
+  }
+
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
-      {/* Left Panel - Routes List */}
-      <div className="xl:col-span-1 space-y-4 overflow-y-auto">
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">Delivery Routes</h3>
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Header */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-semibold">Today's Deliveries</h2>
+            <p className="text-sm text-gray-600 mt-1">
+              {orders?.orders.length || 0} orders ready for delivery
+            </p>
+          </div>
+          <div className="flex gap-2">
             <Button 
-              onClick={handleOptimizeRoutes}
+              variant="outline"
+              onClick={() => setSelectedOrders(orders?.orders.map(o => o.id) || [])}
+            >
+              Select All
+            </Button>
+            <Button 
+              onClick={handleOptimize}
+              disabled={selectedOrders.length === 0}
               className="bg-orange-500 hover:bg-orange-600"
             >
               <Navigation className="w-4 h-4 mr-2" />
-              Optimize Routes
+              Plan Route ({selectedOrders.length})
             </Button>
           </div>
-          
-          {/* Optimization Settings */}
-          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-            <label className="text-sm font-medium text-gray-700">Optimize for:</label>
-            <div className="grid grid-cols-3 gap-2 mt-2">
-              {["time", "distance", "fuel"].map((mode) => (
+        </div>
+
+        {/* Order Selection */}
+        <div className="space-y-2">
+          {orders?.orders.map((order) => (
+            <div 
+              key={order.id}
+              className={cn(
+                "flex items-start gap-3 p-3 rounded-lg border transition-all",
+                selectedOrders.includes(order.id) 
+                  ? "border-orange-500 bg-orange-50" 
+                  : "border-gray-200"
+              )}
+            >
+              <Checkbox 
+                checked={selectedOrders.includes(order.id)}
+                onCheckedChange={() => toggleOrder(order.id)}
+              />
+              
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-medium text-sm">#{order.orderId}</span>
+                  <Badge variant="outline" className="text-xs">
+                    {order.customer.postalCode}
+                  </Badge>
+                </div>
+                <p className="text-sm text-gray-600">{order.customer.name}</p>
+                <p className="text-xs text-gray-500">{order.customer.address}</p>
+                {order.customer.unitNumber && (
+                  <p className="text-xs text-gray-500">Unit: {order.customer.unitNumber}</p>
+                )}
+              </div>
+
+              <div className="flex gap-1">
                 <Button
-                  key={mode}
                   size="sm"
-                  variant={optimizationMode === mode ? "default" : "outline"}
-                  onClick={() => setOptimizationMode(mode as any)}
-                  className="capitalize"
+                  variant="ghost"
+                  onClick={() => window.open(`tel:${order.customer.phone}`, '_blank')}
                 >
-                  {mode}
+                  <Phone className="w-4 h-4" />
                 </Button>
-              ))}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    const address = `${order.customer.address}, Singapore ${order.customer.postalCode}`
+                    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, '_blank')
+                  }}
+                >
+                  <MapPin className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Optimized Route */}
+      {optimizedRoute && (
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">Optimized Route</h3>
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-1 text-gray-600">
+                <Navigation className="w-4 h-4" />
+                <span>~{optimizedRoute.totalDistance} km</span>
+              </div>
+              <div className="flex items-center gap-1 text-gray-600">
+                <Clock className="w-4 h-4" />
+                <span>~{optimizedRoute.estimatedDuration} mins</span>
+              </div>
             </div>
           </div>
-          
-          {/* Routes */}
-          <DndContext onDragEnd={handleDragEnd}>
-            <SortableContext 
-              items={routes?.routes || []}
-              strategy={verticalListSortingStrategy}
-            >
-              {routes?.routes.map((route, index) => (
-                <RouteCard
-                  key={route.id}
-                  route={route}
-                  index={index + 1}
-                  isSelected={selectedRoute === route.id}
-                  onClick={() => setSelectedRoute(route.id)}
-                  onAssignDriver={(driverId) => assignDriver(route.id, driverId)}
-                />
-              ))}
-            </SortableContext>
-          </DndContext>
+
+          <div className="space-y-2 mb-4">
+            {optimizedRoute.optimizedOrder.map((stop: any) => (
+              <div key={stop.orderId} className="flex items-center gap-3">
+                <Badge className="w-6 h-6 p-0 flex items-center justify-center">
+                  {stop.sequence}
+                </Badge>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Order #{stop.orderNumber}</p>
+                  <p className="text-xs text-gray-600">{stop.address}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => markDelivered.mutate({ orderId: stop.orderId })}
+                >
+                  <Check className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          <Alert className="mb-4">
+            <Package className="w-4 h-4" />
+            <AlertDescription>
+              Pro tip: Open in Google Maps on your phone for turn-by-turn navigation
+            </AlertDescription>
+          </Alert>
+
+          <Button 
+            onClick={openInGoogleMaps}
+            className="w-full"
+            variant="default"
+          >
+            <ExternalLink className="w-4 h-4 mr-2" />
+            Open Route in Google Maps
+          </Button>
         </Card>
-        
-        {/* Unassigned Orders */}
-        {deliveryOrders?.unassigned?.length > 0 && (
-          <Card className="p-4">
-            <h4 className="font-semibold mb-3 text-red-600">
-              Unassigned Orders ({deliveryOrders.unassigned.length})
-            </h4>
-            <div className="space-y-2">
-              {deliveryOrders.unassigned.map((order) => (
-                <UnassignedOrderCard 
-                  key={order.id} 
-                  order={order}
-                  onAssign={(routeId) => assignToRoute(order.id, routeId)}
-                />
-              ))}
-            </div>
-          </Card>
-        )}
-      </div>
-      
-      {/* Right Panel - Map */}
-      <div className="xl:col-span-2">
-        <Card className="h-full p-0 overflow-hidden">
-          <DeliveryMap
-            routes={routes?.routes || []}
-            selectedRoute={selectedRoute}
-            onMarkerClick={(orderId) => showOrderDetails(orderId)}
-            trafficLayer={true}
-            heatmapLayer={optimizationMode === "time"}
-          />
-        </Card>
-      </div>
+      )}
     </div>
   )
 }
