@@ -1,6 +1,7 @@
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
+import { useEffect } from "react"
 import { api } from "../../lib/trpc/client"
 import type { RecipeFormData } from "./create-recipe-modal"
 import { MeasurementUnit, RecipeCategory } from "@homejiak/types"
@@ -35,6 +36,9 @@ export function RecipeDetailsStep({ initialData, onNext, onCancel }: RecipeDetai
   const {
     register,
     handleSubmit,
+    setValue,
+    control,
+    getValues,
     formState: { errors },
   } = useForm<DetailsFormData>({
     resolver: zodResolver(detailsSchema),
@@ -51,15 +55,84 @@ export function RecipeDetailsStep({ initialData, onNext, onCancel }: RecipeDetai
     limit: 100,
   })
 
+  // Watch the productId field for changes
+  const selectedProductId = useWatch({
+    control,
+    name: "productId",
+  })
+
+  // Auto-populate recipe name when product is selected
+  useEffect(() => {
+    if (selectedProductId && productsData?.items) {
+      const selectedProduct = productsData.items.find(
+        (product: any) => product.id === selectedProductId
+      )
+      
+      if (selectedProduct) {
+        // Only update if the name field is empty or hasn't been manually changed
+        const currentName = getValues("name")
+        
+        // Check if name is empty or is still a default from another product
+        const isNameEmpty = !currentName || currentName === ""
+        const isNameFromAnotherProduct = productsData.items.some(
+          (p: any) => p.name === currentName && p.id !== selectedProductId
+        )
+        
+        if (isNameEmpty || isNameFromAnotherProduct) {
+          setValue("name", selectedProduct.name)
+          
+          // Also set a default description if it's empty
+          if (!getValues("description")) {
+            setValue("description", `Recipe for ${selectedProduct.name}`)
+          }
+        }
+      }
+    }
+  }, [selectedProductId, productsData, setValue, getValues])
+
   const onSubmit = (data: DetailsFormData) => {
     onNext(data)
   }
 
   return (
     <div className="space-y-4">
+      {/* Link to Product - Move to top for better flow */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Link to Product
+          <span className="text-gray-500 font-normal ml-2">
+            (Optional - Select to auto-fill recipe name)
+          </span>
+        </label>
+        <select
+          {...register("productId")}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+        >
+          <option value="">-- Select a product --</option>
+          {productsData?.items.map((product: any) => (
+            <option key={product.id} value={product.id}>
+              {product.name}
+              {product.recipeId && (
+                <span> (⚠️ Has existing recipe)</span>
+              )}
+            </option>
+          ))}
+        </select>
+        {selectedProductId && productsData?.items.find((p: any) => p.id === selectedProductId && p.recipeId) && (
+          <p className="mt-1 text-sm text-amber-600">
+            ⚠️ This product already has a linked recipe. Creating a new recipe will replace it.
+          </p>
+        )}
+      </div>
+
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Recipe Name *
+          {selectedProductId && (
+            <span className="text-gray-500 font-normal ml-2">
+              (Auto-filled from product)
+            </span>
+          )}
         </label>
         <input
           type="text"
@@ -82,37 +155,18 @@ export function RecipeDetailsStep({ initialData, onNext, onCancel }: RecipeDetai
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
-          <select
-            {...register("category")}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-          >
-            {recipeCategoryOptions.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat.replace(/_/g, " ")}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Link to Product
-          </label>
-          <select
-            {...register("productId")}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-          >
-            <option value="">None</option>
-            {productsData?.items.map((product: any) => (
-              <option key={product.id} value={product.id}>
-                {product.name}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+        <select
+          {...register("category")}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+        >
+          {recipeCategoryOptions.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat.replace(/_/g, " ")}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
