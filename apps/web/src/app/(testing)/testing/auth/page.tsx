@@ -32,14 +32,14 @@ const TEST_SUITES = [
         type: 'manual',
         steps: [
           'Navigate to /auth',
-          'Click "Sign Up"',
+          'Click "Create Account"',
           'Enter business name: "Test Bakery"',
           'Enter email: test-{timestamp}@example.com',
           'Enter phone: +65 9123 4567',
           'Enter password: "SecurePass123"',
           'Submit form',
           'Verify success message appears',
-          'Check email for verification link'
+          'Try to login: Should get "Account pending approval" error'
         ]
       },
       {
