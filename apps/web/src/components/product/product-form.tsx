@@ -11,11 +11,12 @@ import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle,
   Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
   Input, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   Switch, Tabs, TabsContent, TabsList, TabsTrigger, useToast, cn } from "@homejiak/ui"
-import { ChevronLeft, Save, X, Plus } from "lucide-react"
+import { ChevronLeft, Save, X, Plus, Eye } from "lucide-react"
 import { ProductStatus } from "@homejiak/database/types"
 import { ProductImageManager } from "./image-manager"
 import { ProductModifiersManager } from "./product-modifier-manager"
 import { ProductVariantManager } from "./product-variant-manager"
+import { ProductPreviewModal } from "./product-preview-modal"
 
 // ---------- Schema & Types ----------
 const productFormSchema = z.object({
@@ -97,6 +98,7 @@ export function ProductForm({ product }: ProductFormProps) {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("basic")
+  const [showPreview, setShowPreview] = useState(false)
 
   // Fetch modifier groups if editing existing product
   const { data: modifierGroups } = api.productModifiers.getByProduct.useQuery(
@@ -213,442 +215,463 @@ export function ProductForm({ product }: ProductFormProps) {
   // Get variants from the fetched data or fallback to props
   const variants = productWithVariants?.variants || product?.variants || []
 
+  // Get current form values for preview
+  const formValues = form.watch()
+
   return (
-    <div className="flex-1 space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/dashboard/products">
-              <ChevronLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              {product ? "Edit Product" : "New Product"}
-            </h1>
-            <p className="text-muted-foreground">
-              {product ? "Update product details" : "Add a new product to your menu"}
-            </p>
+    <>
+      <div className="flex-1 space-y-6 p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" asChild>
+              <Link href="/dashboard/products">
+                <ChevronLeft className="h-4 w-4" />
+              </Link>
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">
+                {product ? "Edit Product" : "New Product"}
+              </h1>
+              <p className="text-muted-foreground">
+                {product ? "Update product details" : "Add a new product to your menu"}
+              </p>
+            </div>
           </div>
+          {product && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              {product._count && (
+                <>
+                  <span>{product._count.orderItems} orders</span>
+                  <span>•</span>
+                  <span>{product._count.reviews} reviews</span>
+                </>
+              )}
+            </div>
+          )}
         </div>
-        {product && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            {product._count && (
-              <>
-                <span>{product._count.orderItems} orders</span>
-                <span>•</span>
-                <span>{product._count.reviews} reviews</span>
-              </>
-            )}
-          </div>
-        )}
-      </div>
 
-      {/* Form */}
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="basic">
-            <TabsList className="settings-tabslist grid w-full grid-cols-6">
-              <TabsTrigger 
-                value="basic"
-                className={cn(
-                  "settings-tabtrigger gap-2",
-                  activeTab === "basic" && "settings-tabtrigger-active"
-                )}
-              >
-                Basic Info
-              </TabsTrigger>
-              <TabsTrigger 
-                value="pricing"
-                className={cn(
-                  "settings-tabtrigger gap-2", 
-                  activeTab === "pricing" && "settings-tabtrigger-active"
-                )}
-              >
-                Pricing & Inventory
-              </TabsTrigger>
-              <TabsTrigger 
-                value="media"
-                className={cn(
-                  "settings-tabtrigger gap-2",
-                  activeTab === "media" && "settings-tabtrigger-active"
-                )}
-              >
-                Media
-              </TabsTrigger>
-              <TabsTrigger 
-                value="variants"
-                className={cn(
-                  "settings-tabtrigger gap-2",
-                  activeTab === "variants" && "settings-tabtrigger-active",
-                  !productId && "opacity-50 cursor-not-allowed"
-                )}
-                disabled={!productId}
-              >
-                Variants
-              </TabsTrigger>
-              <TabsTrigger 
-                value="customization"
-                className={cn(
-                  "settings-tabtrigger gap-2",
-                  activeTab === "customization" && "settings-tabtrigger-active",
-                  !productId && "opacity-50 cursor-not-allowed"
-                )}
-                disabled={!productId}
-              >
-                Customization
-              </TabsTrigger>
-              <TabsTrigger 
-                value="details"
-                className={cn(
-                  "settings-tabtrigger gap-2",
-                  activeTab === "details" && "settings-tabtrigger-active"
-                )}
-              >
-                Details
-              </TabsTrigger>
-            </TabsList>
-
-            {/* Basic Info */}
-            <TabsContent value="basic" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Basic Information</CardTitle>
-                  <CardDescription>Essential details about your product</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Product Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., Chicken Rice" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder="Describe your product..." className="min-h-[100px]" {...field} />
-                        </FormControl>
-                        <FormDescription>
-                          Help customers understand what makes this dish special
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="categoryId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Category</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a category" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {categories.map((category: { id: string; name: string }) => (
-                              <SelectItem key={category.id} value={category.id}>
-                                {category.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Status</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value={ProductStatus.DRAFT}>Draft</SelectItem>
-                            <SelectItem value={ProductStatus.ACTIVE}>Active</SelectItem>
-                            <SelectItem value={ProductStatus.SOLD_OUT}>Sold Out</SelectItem>
-                            <SelectItem value={ProductStatus.DISCONTINUED}>Discontinued</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>Only active products are visible to customers</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="featured"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Featured Product</FormLabel>
-                          <FormDescription>Featured products appear at the top of your menu</FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Pricing & Inventory */}
-            <TabsContent value="pricing" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Pricing & Inventory</CardTitle>
-                  <CardDescription>Set your price and manage stock levels</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <FormField
-                      control={form.control}
-                      name="price"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Price</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2">$</span>
-                              <Input type="number" step="0.01" placeholder="0.00" className="pl-8" {...field} />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="compareAtPrice"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Compare at Price</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <span className="absolute left-3 top-1/2 -translate-y-1/2">$</span>
-                              <Input type="number" step="0.01" placeholder="0.00" className="pl-8" {...field} />
-                            </div>
-                          </FormControl>
-                          <FormDescription>Original price to show discount</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="sku"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>SKU</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., CHKN-001" {...field} />
-                        </FormControl>
-                        <FormDescription>Stock keeping unit for inventory tracking</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="trackInventory"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Track Inventory</FormLabel>
-                          <FormDescription>Automatically track stock levels</FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  {form.watch("trackInventory") && (
-                    <FormField
-                      control={form.control}
-                      name="inventory"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Current Stock</FormLabel>
-                          <FormControl>
-                            <Input type="number" placeholder="0" {...field} />
-                          </FormControl>
-                          <FormDescription>Number of units available for sale</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+        {/* Form */}
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="basic">
+              <TabsList className="settings-tabslist grid w-full grid-cols-6">
+                <TabsTrigger 
+                  value="basic"
+                  className={cn(
+                    "settings-tabtrigger gap-2",
+                    activeTab === "basic" && "settings-tabtrigger-active"
                   )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+                >
+                  Basic Info
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="pricing"
+                  className={cn(
+                    "settings-tabtrigger gap-2", 
+                    activeTab === "pricing" && "settings-tabtrigger-active"
+                  )}
+                >
+                  Pricing & Inventory
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="media"
+                  className={cn(
+                    "settings-tabtrigger gap-2",
+                    activeTab === "media" && "settings-tabtrigger-active"
+                  )}
+                >
+                  Media
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="variants"
+                  className={cn(
+                    "settings-tabtrigger gap-2",
+                    activeTab === "variants" && "settings-tabtrigger-active",
+                    !productId && "opacity-50 cursor-not-allowed"
+                  )}
+                  disabled={!productId}
+                >
+                  Variants
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="customization"
+                  className={cn(
+                    "settings-tabtrigger gap-2",
+                    activeTab === "customization" && "settings-tabtrigger-active",
+                    !productId && "opacity-50 cursor-not-allowed"
+                  )}
+                  disabled={!productId}
+                >
+                  Customization
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="details"
+                  className={cn(
+                    "settings-tabtrigger gap-2",
+                    activeTab === "details" && "settings-tabtrigger-active"
+                  )}
+                >
+                  Details
+                </TabsTrigger>
+              </TabsList>
 
-            {/* Media */}
-            <TabsContent value="media" className="space-y-6">
-              <ProductImageManager 
-                productId={product?.id || 'new'} // Pass 'new' for new products
-                images={product?.images || []}
-                onUpdate={() => {
-                  // Refresh product data if needed
-                  toast({ title: "Images updated" })
-                }}
-              />
-            </TabsContent>
-
-            {/* Variants */}
-            <TabsContent value="variants" className="space-y-6">
-              {productId ? (
-                <ProductVariantManager
-                  variants={variants}
-                  onChange={(updatedVariants) => {
-                    // You could either:
-                    // 1. Store in local state and save with the product
-                    // 2. Call a mutation directly to update variants
-                    console.log('Variants updated:', updatedVariants)
-                  }}
-                  basePrice={Number(form.watch("price")) || 0}
-                  trackInventory={form.watch("trackInventory")}
-                />
-              ) : (
+              {/* Basic Info */}
+              <TabsContent value="basic" className="space-y-6">
                 <Card>
-                  <CardContent className="flex flex-col items-center justify-center py-12">
-                    <p className="text-muted-foreground text-center">
-                      Save the product first to add variants
-                    </p>
+                  <CardHeader>
+                    <CardTitle>Basic Information</CardTitle>
+                    <CardDescription>Essential details about your product</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Product Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., Chicken Rice" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Description</FormLabel>
+                          <FormControl>
+                            <Textarea placeholder="Describe your product..." className="min-h-[100px]" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Help customers understand what makes this dish special
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="categoryId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Category</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a category" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {categories.map((category: { id: string; name: string }) => (
+                                <SelectItem key={category.id} value={category.id}>
+                                  {category.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="status"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Status</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value={ProductStatus.DRAFT}>Draft</SelectItem>
+                              <SelectItem value={ProductStatus.ACTIVE}>Active</SelectItem>
+                              <SelectItem value={ProductStatus.SOLD_OUT}>Sold Out</SelectItem>
+                              <SelectItem value={ProductStatus.DISCONTINUED}>Discontinued</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>Only active products are visible to customers</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="featured"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Featured Product</FormLabel>
+                            <FormDescription>Featured products appear at the top of your menu</FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
                   </CardContent>
                 </Card>
-              )}
-            </TabsContent>
+              </TabsContent>
 
-            {/* Customization */}
-            <TabsContent value="customization">
-              {productId ? (
-                <ProductModifiersManager
-                  productId={productId}
-                  existingGroups={modifierGroups || []}
-                />
-              ) : (
+              {/* Pricing & Inventory */}
+              <TabsContent value="pricing" className="space-y-6">
                 <Card>
-                  <CardContent className="flex flex-col items-center justify-center py-12">
-                    <p className="text-muted-foreground text-center">
-                      Save the product first to add customization options
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
+                  <CardHeader>
+                    <CardTitle>Pricing & Inventory</CardTitle>
+                    <CardDescription>Set your price and manage stock levels</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <FormField
+                        control={form.control}
+                        name="price"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Price</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2">$</span>
+                                <Input type="number" step="0.01" placeholder="0.00" className="pl-8" {...field} />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
-            {/* Details */}
-            <TabsContent value="details" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Additional Details</CardTitle>
-                  <CardDescription>Extra information about your product</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="preparationTime"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Preparation Time</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., 15–20 mins" {...field} />
-                        </FormControl>
-                        <FormDescription>Estimated time to prepare this dish</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="space-y-4">
-                    <div>
-                      <FormLabel>Ingredients</FormLabel>
-                      <FormDescription>List the main ingredients in this dish</FormDescription>
+                      <FormField
+                        control={form.control}
+                        name="compareAtPrice"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Compare at Price</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2">$</span>
+                                <Input type="number" step="0.01" placeholder="0.00" className="pl-8" {...field} />
+                              </div>
+                            </FormControl>
+                            <FormDescription>Original price to show discount</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
 
-                    {ingredientFields.map((field, index) => (
-                      <div key={field.id} className="flex gap-2">
-                        <Input
-                          {...form.register(`ingredients.${index}`)}
-                          placeholder="e.g., Chicken, Rice"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeIngredient(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                    <FormField
+                      control={form.control}
+                      name="sku"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>SKU</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., CHKN-001" {...field} />
+                          </FormControl>
+                          <FormDescription>Stock keeping unit for inventory tracking</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="trackInventory"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Track Inventory</FormLabel>
+                            <FormDescription>Automatically track stock levels</FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    {form.watch("trackInventory") && (
+                      <FormField
+                        control={form.control}
+                        name="inventory"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Current Stock</FormLabel>
+                            <FormControl>
+                              <Input type="number" placeholder="0" {...field} />
+                            </FormControl>
+                            <FormDescription>Number of units available for sale</FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Media */}
+              <TabsContent value="media" className="space-y-6">
+                <ProductImageManager 
+                  productId={product?.id || 'new'} // Pass 'new' for new products
+                  images={product?.images || []}
+                  onUpdate={() => {
+                    // Refresh product data if needed
+                    toast({ title: "Images updated" })
+                  }}
+                />
+              </TabsContent>
+
+              {/* Variants */}
+              <TabsContent value="variants" className="space-y-6">
+                {productId ? (
+                  <ProductVariantManager
+                    variants={variants}
+                    onChange={(updatedVariants) => {
+                      // You could either:
+                      // 1. Store in local state and save with the product
+                      // 2. Call a mutation directly to update variants
+                      console.log('Variants updated:', updatedVariants)
+                    }}
+                    basePrice={Number(form.watch("price")) || 0}
+                    trackInventory={form.watch("trackInventory")}
+                  />
+                ) : (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-12">
+                      <p className="text-muted-foreground text-center">
+                        Save the product first to add variants
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+
+              {/* Customization */}
+              <TabsContent value="customization">
+                {productId ? (
+                  <ProductModifiersManager
+                    productId={productId}
+                    existingGroups={modifierGroups || []}
+                  />
+                ) : (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-12">
+                      <p className="text-muted-foreground text-center">
+                        Save the product first to add customization options
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+
+              {/* Details */}
+              <TabsContent value="details" className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Additional Details</CardTitle>
+                    <CardDescription>Extra information about your product</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="preparationTime"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Preparation Time</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., 15–20 mins" {...field} />
+                          </FormControl>
+                          <FormDescription>Estimated time to prepare this dish</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="space-y-4">
+                      <div>
+                        <FormLabel>Ingredients</FormLabel>
+                        <FormDescription>List the main ingredients in this dish</FormDescription>
                       </div>
-                    ))}
 
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => appendIngredient("")}
-                      className="hover:bg-green-50 hover:border-green-300 hover:text-green-700 hover:shadow-sm transition-all duration-200"
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Ingredient
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                      {ingredientFields.map((field, index) => (
+                        <div key={field.id} className="flex gap-2">
+                          <Input
+                            {...form.register(`ingredients.${index}`)}
+                            placeholder="e.g., Chicken, Rice"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeIngredient(index)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
 
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.push("/dashboard/products")}
-              disabled={isLoading}
-              className="hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm transition-all duration-200"
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading} className="hover:bg-orange-700 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 active:scale-[0.98]">
-              <Save className="mr-2 h-4 w-4" />
-              {isLoading ? "Saving..." : product ? "Update Product" : "Create Product"}
-            </Button>
-          </div>
-        </form>
-      </Form>
-    </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => appendIngredient("")}
+                        className="hover:bg-green-50 hover:border-green-300 hover:text-green-700 hover:shadow-sm transition-all duration-200"
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Ingredient
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push("/dashboard/products")}
+                disabled={isLoading}
+                className="hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm transition-all duration-200"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="button"
+                variant="outline"
+                onClick={() => setShowPreview(true)}
+                className="gap-2"
+              >
+                <Eye className="h-4 w-4" />
+                Preview Changes
+              </Button>
+              <Button type="submit" disabled={isLoading} className="hover:bg-orange-700 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 active:scale-[0.98]">
+                <Save className="mr-2 h-4 w-4" />
+                {isLoading ? "Saving..." : product ? "Update Product" : "Create Product"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </div>
+
+      {/* Preview Modal */}
+      <ProductPreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        formData={formValues}
+      />
+    </>
   )
 }

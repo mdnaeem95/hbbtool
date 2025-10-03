@@ -13,6 +13,7 @@ const productCardVariants = cva(
       variant: {
         default: "hover:shadow-xl hover:-translate-y-1",
         compact: "hover:shadow-lg hover:-translate-y-0.5",
+        preview: "cursor-default",
       },
     },
     defaultVariants: {
@@ -61,6 +62,8 @@ export function ProductCard({
   const [isFavorited, setIsFavorited] = React.useState(false)
   const [isHovered, setIsHovered] = React.useState(false)
 
+  const isPreview = variant === "preview"
+
   if (loading) {
     return <ProductCardSkeleton variant={variant!} />
   }
@@ -81,11 +84,20 @@ export function ProductCard({
       className={cn(productCardVariants({ variant }), "flex flex-col h-full cursor-pointer", className)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={() => onQuickView?.(product.id)}
+      onClick={() => !isPreview && onQuickView?.(product.id)}
       {...props}
     >
       {/* Image Container */}
       <div className="relative aspect-[4/3] overflow-hidden bg-gray-50">
+        {/* Preview Badge - Top Right */}
+        {isPreview && (
+          <div className="absolute right-2 top-2 z-20">
+            <Badge variant="secondary" className="shadow-md">
+              Preview
+            </Badge>
+          </div>
+        )}
+
         {/* Badges */}
         <div className="absolute left-2 top-2 z-10 flex flex-col gap-1">
           {product.featured && (
@@ -109,61 +121,65 @@ export function ProductCard({
           </div>
         )}
 
-        {/* Favorite Button */}
-        <button
-          className={cn(
-            "absolute right-2 top-2 z-10 rounded-full bg-white/90 p-2 backdrop-blur-sm transition-all duration-200",
-            "hover:bg-white hover:shadow-md hover:scale-110",
-            isFavorited && "text-red-500"
-          )}
-          onClick={(e) => {
-            e.stopPropagation()
-            setIsFavorited(!isFavorited)
-          }}
-          aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
-        >
-          <Heart 
+        {/* Favorite Button - Hidden in preview mode */}
+        {!isPreview && (
+          <button
             className={cn(
-              "h-4 w-4 transition-all duration-200",
-              isFavorited && "fill-current"
-            )} 
-          />
-        </button>
+              "absolute right-2 top-2 z-10 rounded-full bg-white/90 p-2 backdrop-blur-sm transition-all duration-200",
+              "hover:bg-white hover:shadow-md hover:scale-110",
+              isFavorited && "text-red-500"
+            )}
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsFavorited(!isFavorited)
+            }}
+            aria-label={isFavorited ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Heart 
+              className={cn(
+                "h-4 w-4 transition-all duration-200",
+                isFavorited && "fill-current"
+              )} 
+            />
+          </button>
+        )}
 
-        {/* Quick Actions Overlay - Appears on Hover */}
-        <div 
-          className={cn(
-            "absolute inset-x-0 bottom-0 z-10 flex gap-2 p-3 transition-all duration-300",
-            "bg-gradient-to-t from-black/70 via-black/50 to-transparent",
-            isHovered ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
-          )}
-        >
-          <Button
-            size="sm"
-            variant="secondary"
-            className="flex-1 bg-white/95 text-gray-900 hover:bg-white hover:scale-[1.02] transition-all duration-200"
-            onClick={(e) => {
-              e.stopPropagation()
-              onQuickView?.(product.id)
-            }}
+        {/* Quick Actions Overlay - Hidden in preview mode */}
+        {!isPreview && (
+          <div 
+            className={cn(
+              "absolute inset-x-0 bottom-0 z-10 flex gap-2 p-3 transition-all duration-300",
+              "bg-gradient-to-t from-black/70 via-black/50 to-transparent",
+              isHovered ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
+            )}
           >
-            <Eye className="mr-1.5 h-3.5 w-3.5" />
-            Quick View
-          </Button>
-          
-          <Button
-            size="sm"
-            className="flex-1 bg-orange-500 hover:bg-orange-600 hover:scale-[1.02] transition-all duration-200 text-white border-0"
-            onClick={(e) => {
-              e.stopPropagation()
-              onAddToCart?.(product.id)
-            }}
-            disabled={!isAvailable}
-          >
-            <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
-            Add
-          </Button>
-        </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="flex-1 bg-white/95 text-gray-900 hover:bg-white hover:scale-[1.02] transition-all duration-200"
+              onClick={(e) => {
+                e.stopPropagation()
+                onQuickView?.(product.id)
+              }}
+            >
+              <Eye className="mr-1.5 h-3.5 w-3.5" />
+              Quick View
+            </Button>
+            
+            <Button
+              size="sm"
+              className="flex-1 bg-orange-500 hover:bg-orange-600 hover:scale-[1.02] transition-all duration-200 text-white border-0"
+              onClick={(e) => {
+                e.stopPropagation()
+                onAddToCart?.(product.id)
+              }}
+              disabled={!isAvailable}
+            >
+              <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
+              Add
+            </Button>
+          </div>
+        )}
 
         {/* Product Image */}
         {imageError ? (
@@ -195,7 +211,7 @@ export function ProductCard({
       </div>
 
       <CardContent className="flex flex-col flex-1 p-4">
-        {/* Product info section - flex-1 to take available space */}
+        {/* Product info section */}
         <div className="flex-1 space-y-1.5">
           <h3 className="font-semibold text-gray-900 line-clamp-1 group-hover:text-orange-600 transition-colors duration-200">
             {product.name}
@@ -247,41 +263,43 @@ export function ProductCard({
         </div>
 
         {/* Desktop: Action buttons at bottom (hidden, shown on hover via overlay) */}
-        {/* Mobile: Always visible buttons */}
-        <div className="mt-3 flex gap-2 sm:hidden">
-          <Button
-            size="sm"
-            variant="outline"
-            className="flex-1"
-            onClick={(e) => {
-              e.stopPropagation()
-              onQuickView?.(product.id)
-            }}
-          >
-            <Eye className="mr-1.5 h-3.5 w-3.5" />
-            View
-          </Button>
-          
-          <Button
-            size="sm"
-            className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
-            onClick={(e) => {
-              e.stopPropagation()
-              onAddToCart?.(product.id)
-            }}
-            disabled={!isAvailable}
-          >
-            <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
-            Add
-          </Button>
-        </div>
+        {/* Mobile: Always visible buttons - Hidden in preview mode */}
+        {!isPreview && (
+          <div className="mt-3 flex gap-2 sm:hidden">
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1"
+              onClick={(e) => {
+                e.stopPropagation()
+                onQuickView?.(product.id)
+              }}
+            >
+              <Eye className="mr-1.5 h-3.5 w-3.5" />
+              View
+            </Button>
+            
+            <Button
+              size="sm"
+              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+              onClick={(e) => {
+                e.stopPropagation()
+                onAddToCart?.(product.id)
+              }}
+              disabled={!isAvailable}
+            >
+              <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
+              Add
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
 }
 
 // Skeleton component for loading state
-function ProductCardSkeleton({ variant }: { variant: "default" | "compact" }) {
+function ProductCardSkeleton({ variant }: { variant: "default" | "compact" | "preview" }) {
   return (
     <Card className="flex flex-col h-full overflow-hidden">
       {/* Image skeleton */}
