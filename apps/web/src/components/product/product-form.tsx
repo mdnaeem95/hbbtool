@@ -652,7 +652,10 @@ export function ProductForm({ product }: ProductFormProps) {
                 type="button"
                 variant="outline"
                 onClick={() => setShowPreview(true)}
-                className="gap-2"
+                  className="gap-2 group relative overflow-hidden 
+                  transition-all duration-200 
+                  hover:scale-105 hover:shadow-md 
+                  hover:border-orange-500 hover:text-orange-600"
               >
                 <Eye className="h-4 w-4" />
                 Preview Changes
