@@ -186,14 +186,12 @@ export const categoryRouter = router({
     }))
     .query(async ({ ctx, input }) => {
       const categories = await ctx.db.category.findMany({
-        where: {
-          usageCount: {
-            gt: 0, // Only show categories that are actually used
-          },
-        },
-        orderBy: {
-          usageCount: "desc",
-        },
+        // Removed the usageCount > 0 filter so all categories show
+        // They'll still be sorted by popularity (most used first)
+        orderBy: [
+          { usageCount: "desc" },
+          { name: "asc" }, // Secondary sort by name for categories with same usage
+        ],
         take: input.limit,
         select: {
           id: true,
@@ -205,7 +203,6 @@ export const categoryRouter = router({
 
       return categories
     }),
-
   // Get category with products (for storefront)
   getWithProducts: publicProcedure
     .input(z.object({
