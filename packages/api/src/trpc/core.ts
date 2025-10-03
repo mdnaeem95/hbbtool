@@ -45,7 +45,6 @@ const isAuthed = t.middleware(async ({ ctx, next }) => {
       email: true,
       phone: true,
       businessName: true,
-      categories: { select: { name: true } },
       slug: true,
       description: true,
       logoUrl: true,
@@ -101,10 +100,6 @@ const isAuthed = t.middleware(async ({ ctx, next }) => {
     description: merchant.description,
     logoUrl: merchant.logoUrl,
     bannerUrl: merchant.bannerUrl,
-
-    // ✅ Convert { name: string }[] → string[]
-    categories: merchant.categories.map(c => c.name),
-
     cuisineType: merchant.cuisineType,
     operatingHours: merchant.operatingHours,
     deliveryEnabled: merchant.deliveryEnabled,

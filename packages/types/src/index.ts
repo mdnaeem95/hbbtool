@@ -150,7 +150,6 @@ export interface Merchant {
   description: string | null
   logoUrl: string | null
   bannerUrl: string | null
-  categories: string[]
   cuisineType: string[]
   operatingHours: any // Consider creating OperatingHours type
   deliveryEnabled: boolean
