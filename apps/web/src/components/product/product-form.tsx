@@ -17,6 +17,7 @@ import { ProductImageManager } from "./image-manager"
 import { ProductModifiersManager } from "./product-modifier-manager"
 import { ProductVariantManager } from "./product-variant-manager"
 import { ProductPreviewModal } from "./product-preview-modal"
+import { CategoryCombobox } from "./category-combobox"
 
 // ---------- Schema & Types ----------
 const productFormSchema = z.object({
@@ -151,9 +152,6 @@ export function ProductForm({ product }: ProductFormProps) {
     name: "ingredients",
   })
 
-  // Fetch categories (assuming dashboard payload includes them)
-  const { data: categoriesData } = api.merchant.getDashboard.useQuery()
-
   // Mutations
   const { mutate: createProduct } = api.product.create.useMutation({
     onSuccess: () => {
@@ -207,10 +205,6 @@ export function ProductForm({ product }: ProductFormProps) {
       createProduct(data)
     }
   }
-
-  type SimpleCategory = { id: string; name: string }
-  const categories =
-    ((categoriesData as any)?.merchant?.categories as SimpleCategory[] | undefined) ?? []
 
   // Get variants from the fetched data or fallback to props
   const variants = productWithVariants?.variants || product?.variants || []
@@ -361,20 +355,17 @@ export function ProductForm({ product }: ProductFormProps) {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Category</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a category" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {categories.map((category: { id: string; name: string }) => (
-                                <SelectItem key={category.id} value={category.id}>
-                                  {category.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <FormControl>
+                            <CategoryCombobox
+                              value={field.value}
+                              onChange={field.onChange}
+                              placeholder="Select or type to create..."
+                              disabled={isLoading}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Choose an existing category or create a new one
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}

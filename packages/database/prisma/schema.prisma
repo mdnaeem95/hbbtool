@@ -928,8 +928,6 @@ model Merchant {
   defaultOverheadRate     Decimal @default(0.15) @db.Decimal(4, 2)
   costCalculationSchedule String  @default("DAILY") // REALTIME, DAILY, WEEKLY
 
-  // Relations
-  categories                 Category[]
   products                   Product[]
   modifierGroups             ProductModifierGroup[]
   orders                     Order[]
@@ -991,26 +989,22 @@ model MerchantSettings {
 
 model Category {
   id          String  @id @default(cuid())
-  merchantId  String
-  name        String
-  slug        String
+  name        String  @unique  // Global unique categories
+  slug        String  @unique
   description String?
-  imageUrl    String?
-
-  sortOrder Int     @default(0)
-  isActive  Boolean @default(true)
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-
+  
+  // Usage tracking for popular categories
+  usageCount  Int     @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
   // Relations
-  merchant       Merchant                       @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  products       Product[]
+  products    Product[]
   modifierGroups ProductModifierGroupCategory[]
-
-  @@unique([merchantId, slug])
-  @@index([merchantId, isActive])
+  
+  @@index([usageCount]) // For sorting by popularity
+  @@index([name])
 }
 
 model Product {
