@@ -53,6 +53,118 @@ export const productVariantsRouter = router({
       return product
     }),
 
+  upsertVariants: protectedProcedure
+    .input(z.object({
+      productId: z.string().cuid(),
+      variants: z.array(variantSchema),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const merchantId = ctx.session?.user.id
+      
+      // Verify product ownership
+      const product = await ctx.db.product.findFirst({
+        where: { 
+          id: input.productId,
+          merchantId,
+          deletedAt: null,
+        }
+      })
+      
+      if (!product) {
+        throw new TRPCError({ 
+          code: 'NOT_FOUND',
+          message: 'Product not found or unauthorized'
+        })
+      }
+      
+      // Ensure at least one variant is default
+      const hasDefault = input.variants.some(v => v.isDefault)
+      if (!hasDefault && input.variants.length > 0) {
+        input.variants[0]!.isDefault = true
+      }
+      
+      // Use transaction for data consistency
+      return await ctx.db.$transaction(async (tx) => {
+        // Get existing variants
+        const existingVariants = await tx.productVariant.findMany({
+          where: { productId: input.productId },
+          select: { id: true }
+        })
+        
+        const existingIds = existingVariants.map(v => v.id)
+        const inputIds = input.variants
+          .filter(v => v.id && !v.id.startsWith('new-'))
+          .map(v => v.id!)
+        
+        // Delete variants that are no longer in the list
+        const toDelete = existingIds.filter(id => !inputIds.includes(id))
+        if (toDelete.length > 0) {
+          await tx.productVariant.deleteMany({
+            where: { id: { in: toDelete } }
+          })
+        }
+        
+        // Upsert each variant
+        const results = []
+        for (const variant of input.variants) {
+          const isNew = !variant.id || variant.id.startsWith('new-')
+          
+          if (isNew) {
+            // Create new variant
+            const created = await tx.productVariant.create({
+              data: {
+                productId: input.productId,
+                sku: variant.sku || null,
+                name: variant.name,
+                options: variant.options,
+                priceAdjustment: variant.priceAdjustment,
+                inventory: variant.inventory,
+                isDefault: variant.isDefault,
+                sortOrder: variant.sortOrder,
+                imageUrl: variant.imageUrl || null,
+              }
+            })
+            results.push(created)
+          } else {
+            // Update existing variant
+            const updated = await tx.productVariant.update({
+              where: { id: variant.id },
+              data: {
+                sku: variant.sku || null,
+                name: variant.name,
+                options: variant.options,
+                priceAdjustment: variant.priceAdjustment,
+                inventory: variant.inventory,
+                isDefault: variant.isDefault,
+                sortOrder: variant.sortOrder,
+                imageUrl: variant.imageUrl || null,
+                updatedAt: new Date(),
+              }
+            })
+            results.push(updated)
+          }
+        }
+        
+        // Ensure only one default variant exists
+        if (results.some(v => v.isDefault)) {
+          const defaultVariant = results.find(v => v.isDefault)
+          await tx.productVariant.updateMany({
+            where: {
+              productId: input.productId,
+              id: { not: defaultVariant!.id }
+            },
+            data: { isDefault: false }
+          })
+        }
+        
+        return {
+          success: true,
+          variantCount: results.length,
+          variants: results
+        }
+      })
+    }),
+
   // Create or update product with variants
   upsertProductWithVariants: protectedProcedure
     .input(z.object({

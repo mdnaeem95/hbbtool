@@ -181,9 +181,7 @@ export const categoryRouter = router({
 
   // Get popular categories (for suggestions)
   getPopular: publicProcedure
-    .input(z.object({
-      limit: z.number().int().min(1).max(20).default(10),
-    }))
+    .input(z.object({ limit: z.number().int().min(1).max(20).default(10) }))
     .query(async ({ ctx, input }) => {
       const categories = await ctx.db.category.findMany({
         // Removed the usageCount > 0 filter so all categories show
@@ -203,6 +201,7 @@ export const categoryRouter = router({
 
       return categories
     }),
+
   // Get category with products (for storefront)
   getWithProducts: publicProcedure
     .input(z.object({
@@ -245,4 +244,30 @@ export const categoryRouter = router({
 
       return category
     }),
+
+getByMerchant: merchantProcedure
+  .query(async ({ ctx }) => {
+    const merchantId = ctx.session!.user.id
+        
+    // Get all available categories
+    const allCategories = await ctx.db.category.findMany({
+      orderBy: [
+        { usageCount: "desc" },
+        { name: "asc" }
+      ],
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+      }
+    })
+    
+    // Return in format expected by product form
+    return {
+      merchant: {
+        id: merchantId,
+        categories: allCategories
+      }
+    }
+  }),
 })

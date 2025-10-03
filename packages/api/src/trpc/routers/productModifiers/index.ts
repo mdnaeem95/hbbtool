@@ -203,6 +203,186 @@ export const productModifiersRouter = router({
       return result;
     }),
 
+  bulkUpsertGroups: merchantProcedure
+    .input(z.object({
+      productId: z.string(),
+      groups: z.array(z.object({
+        id: z.string().optional(),
+        name: z.string().min(1),
+        description: z.string().optional(),
+        type: z.enum(["SINGLE_SELECT", "MULTI_SELECT"]),
+        required: z.boolean().default(false),
+        minSelect: z.number().int().min(0).optional(),
+        maxSelect: z.number().int().min(0).optional(),
+        sortOrder: z.number().int().min(0),
+        isActive: z.boolean().default(true),
+        modifiers: z.array(z.object({
+          id: z.string().optional(),
+          name: z.string().min(1),
+          description: z.string().optional(),
+          priceAdjustment: z.number(),
+          priceType: z.enum(["FIXED", "PERCENTAGE"]),
+          sortOrder: z.number().int().min(0),
+          isAvailable: z.boolean().default(true),
+          isDefault: z.boolean().default(false),
+        })),
+      })),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const merchantId = ctx.session!.user.id;
+      
+      // Verify product ownership
+      const product = await ctx.db.product.findFirst({
+        where: { id: input.productId, merchantId }
+      });
+      
+      if (!product) {
+        throw new TRPCError({ 
+          code: 'NOT_FOUND',
+          message: 'Product not found'
+        });
+      }
+      
+      // Validate single-select groups have max 1 default modifier
+      for (const group of input.groups) {
+        if (group.type === "SINGLE_SELECT") {
+          const defaultCount = group.modifiers.filter(m => m.isDefault).length;
+          if (defaultCount > 1) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: `Single-select group "${group.name}" can only have one default modifier`
+            });
+          }
+        }
+      }
+      
+      // Use transaction for data consistency
+      return await ctx.db.$transaction(async (tx) => {
+        // Get existing groups
+        const existingGroups = await tx.productModifierGroup.findMany({
+          where: { productId: input.productId },
+          include: { modifiers: true }
+        });
+        
+        const existingGroupIds = existingGroups.map(g => g.id);
+        const inputGroupIds = input.groups
+          .filter(g => g.id && !g.id.startsWith('temp-'))
+          .map(g => g.id!);
+        
+        // Delete removed groups (modifiers will cascade)
+        const toDelete = existingGroupIds.filter(id => !inputGroupIds.includes(id));
+        if (toDelete.length > 0) {
+          await tx.productModifierGroup.deleteMany({
+            where: { id: { in: toDelete } }
+          });
+        }
+        
+        const results = [];
+        
+        // Upsert groups and modifiers
+        for (const group of input.groups) {
+          const isNewGroup = !group.id || group.id.startsWith('temp-');
+          
+          let savedGroup;
+          if (isNewGroup) {
+            // Create new group
+            savedGroup = await tx.productModifierGroup.create({
+              data: {
+                productId: input.productId,
+                merchantId,
+                name: group.name,
+                description: group.description,
+                type: group.type,
+                required: group.required,
+                minSelect: group.minSelect,
+                maxSelect: group.maxSelect,
+                sortOrder: group.sortOrder,
+                isActive: group.isActive,
+              }
+            });
+          } else {
+            // Update existing group
+            savedGroup = await tx.productModifierGroup.update({
+              where: { id: group.id },
+              data: {
+                name: group.name,
+                description: group.description,
+                type: group.type,
+                required: group.required,
+                minSelect: group.minSelect,
+                maxSelect: group.maxSelect,
+                sortOrder: group.sortOrder,
+                isActive: group.isActive,
+              }
+            });
+            
+            // Delete removed modifiers
+            const existingGroup = existingGroups.find(g => g.id === group.id);
+            if (existingGroup) {
+              const existingModIds = existingGroup.modifiers.map(m => m.id);
+              const inputModIds = group.modifiers
+                .filter(m => m.id && !m.id.startsWith('temp-'))
+                .map(m => m.id!);
+              
+              const modToDelete = existingModIds.filter(id => !inputModIds.includes(id));
+              if (modToDelete.length > 0) {
+                await tx.productModifier.deleteMany({
+                  where: { id: { in: modToDelete } }
+                });
+              }
+            }
+          }
+          
+          // Upsert modifiers
+          const savedModifiers = [];
+          for (const modifier of group.modifiers) {
+            const isNewMod = !modifier.id || modifier.id.startsWith('temp-');
+            
+            if (isNewMod) {
+              const created = await tx.productModifier.create({
+                data: {
+                  groupId: savedGroup.id,
+                  name: modifier.name,
+                  description: modifier.description,
+                  priceAdjustment: modifier.priceAdjustment,
+                  priceType: modifier.priceType,
+                  sortOrder: modifier.sortOrder,
+                  isAvailable: modifier.isAvailable,
+                  isDefault: modifier.isDefault,
+                  trackInventory: false,
+                  inventory: 0,
+                }
+              });
+              savedModifiers.push(created);
+            } else {
+              const updated = await tx.productModifier.update({
+                where: { id: modifier.id },
+                data: {
+                  name: modifier.name,
+                  description: modifier.description,
+                  priceAdjustment: modifier.priceAdjustment,
+                  priceType: modifier.priceType,
+                  sortOrder: modifier.sortOrder,
+                  isAvailable: modifier.isAvailable,
+                  isDefault: modifier.isDefault,
+                }
+              });
+              savedModifiers.push(updated);
+            }
+          }
+          
+          results.push({ group: savedGroup, modifiers: savedModifiers });
+        }
+        
+        return {
+          success: true,
+          groupCount: results.length,
+          modifierCount: results.reduce((sum, r) => sum + r.modifiers.length, 0),
+          results
+        };
+      });
+    }),
+
   // Delete a modifier group
   deleteGroup: merchantProcedure
     .input(z.object({ groupId: z.string() }))

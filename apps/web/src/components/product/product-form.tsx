@@ -1,45 +1,44 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useForm, useFieldArray, Control, FieldValues } from "react-hook-form"
+import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import Link from "next/link"
 import { api } from "../../lib/trpc/client"
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle,
+import { 
+  Button, Card, CardContent, CardDescription, CardHeader, CardTitle,
   Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
   Input, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-  Switch, Tabs, TabsContent, TabsList, TabsTrigger, useToast, cn } from "@homejiak/ui"
-import { ChevronLeft, Save, X, Plus, Eye } from "lucide-react"
-import { ProductStatus } from "@homejiak/database/types"
+  Switch, Tabs, TabsContent, TabsList, TabsTrigger, useToast, cn 
+} from "@homejiak/ui"
+import { ChevronLeft, ImageIcon, Save, Sparkles } from "lucide-react"
+import { ProductStatus } from "@homejiak/types"
 import { ProductImageManager } from "./image-manager"
 import { ProductModifiersManager } from "./product-modifier-manager"
-import { ProductVariantManager } from "./product-variant-manager"
-import { ProductPreviewModal } from "./product-preview-modal"
-import { CategoryCombobox } from "./category-combobox"
+import { LocalModifiersManager } from "./local-modifiers-manager"
+import { ProductVariantManager, type ProductVariant } from "./product-variant-manager"
 
-// ---------- Schema & Types ----------
+// Product form schema
 const productFormSchema = z.object({
   name: z.string().min(1, "Product name is required").max(200),
   description: z.string().default(""),
   categoryId: z.string().optional(),
-
-  price: z
-    .string()
-    .refine((v) => v !== "" && !Number.isNaN(Number(v)) && Number(v) >= 0, "Enter a valid non-negative price"),
-  compareAtPrice: z
-    .string()
-    .default("")
-    .refine((v) => v === "" || (!Number.isNaN(Number(v)) && Number(v) >= 0), "Enter a valid non-negative number"),
-
+  price: z.string().refine(
+    (v) => v !== "" && !Number.isNaN(Number(v)) && Number(v) >= 0, 
+    "Enter a valid non-negative price"
+  ),
+  compareAtPrice: z.string().default("").refine(
+    (v) => v === "" || (!Number.isNaN(Number(v)) && Number(v) >= 0), 
+    "Enter a valid non-negative number"
+  ),
   sku: z.string().default(""),
   trackInventory: z.boolean().default(false),
-  inventory: z
-    .string()
-    .default("0")
-    .refine((v) => v !== "" && Number.isInteger(Number(v)) && Number(v) >= 0, "Enter a valid non-negative integer"),
-
+  inventory: z.string().default("0").refine(
+    (v) => v !== "" && Number.isInteger(Number(v)) && Number(v) >= 0, 
+    "Enter a valid non-negative integer"
+  ),
   images: z.array(z.string().url()).default([]),
   status: z.nativeEnum(ProductStatus).default(ProductStatus.DRAFT),
   featured: z.boolean().default(false),
@@ -48,10 +47,35 @@ const productFormSchema = z.object({
   allergens: z.array(z.string()).default([]),
 })
 
-// IMPORTANT: use the *input* side for RHF (defaults => optional at input)
 type ProductFormValues = z.input<typeof productFormSchema>
 
-// ---------- Local Product type (from your props) ----------
+// Local Modifier types for state management
+export interface LocalModifier {
+  id?: string
+  name: string
+  description?: string
+  priceAdjustment: number
+  priceType: "FIXED" | "PERCENTAGE"
+  sortOrder: number
+  isAvailable: boolean
+  isDefault?: boolean
+  isNew?: boolean
+}
+
+export interface LocalModifierGroup {
+  id?: string
+  name: string
+  description?: string
+  type: "SINGLE_SELECT" | "MULTI_SELECT"
+  required: boolean
+  minSelect?: number
+  maxSelect?: number
+  sortOrder: number
+  isActive: boolean
+  modifiers: LocalModifier[]
+  isNew?: boolean
+}
+
 interface Product {
   id: string
   merchantId: string
@@ -65,30 +89,17 @@ interface Product {
   compareAtPrice: number | { toNumber(): number } | null
   trackInventory: boolean
   inventory: number
-  lowStockThreshold: number | null
-  allowBackorder: boolean
   status: ProductStatus
   featured: boolean
-  sortOrder: number
-  allergens: string[]
-  dietaryInfo: string[]
-  spiceLevel: number | null
-  servingSize: string | null
-  calories: number | null
-  ingredients: string[]
   preparationTime: number | null
-  preparationMethod: string | null
-  shelfLife: string | null
-  storageInstructions: string | null
-  reheatingInstructions: string | null
-  createdAt: Date
-  updatedAt: Date
+  ingredients: string[]
+  allergens: string[]
+  variants?: any[]
 }
 
 interface ProductFormProps {
   product?: Product & {
     category?: { id: string; name: string } | null
-    variants?: any[]
     _count?: { orderItems: number; reviews: number }
   }
 }
@@ -99,19 +110,170 @@ export function ProductForm({ product }: ProductFormProps) {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("basic")
-  const [showPreview, setShowPreview] = useState(false)
 
-  // Fetch modifier groups if editing existing product
+  // LOCAL STATE FOR VARIANTS AND MODIFIERS
+  const [localVariants, setLocalVariants] = useState<ProductVariant[]>(
+    product?.variants || []
+  )
+  const [localModifierGroups, setLocalModifierGroups] = useState<LocalModifierGroup[]>([])
+
+  // Fetch existing data only when editing
   const { data: modifierGroups } = api.productModifiers.getByProduct.useQuery(
     { productId },
-    { enabled: !!productId && productId !== '' }
+    { 
+      enabled: !!productId && productId !== '',
+    }
   )
 
-  // Fetch product with variants if editing existing product
-  const { data: productWithVariants } = api.productVariants.getProductWithVariants.useQuery(
-    { productId },
-    { enabled: !!productId && productId !== '' }
-  )
+  // Handle modifier groups data with useEffect
+  useEffect(() => {
+    if (modifierGroups && !localModifierGroups.length && !product) {
+      // Only set on initial load for edit mode
+      setLocalModifierGroups(modifierGroups as any)
+    }
+  }, [modifierGroups, localModifierGroups.length, product])
+
+  // Get categories for dropdown
+  const { data: categoriesData } = api.category.getPopular.useQuery({ limit: 50 })
+  const categories = (categoriesData || []) as Array<{
+    id: string
+    name: string
+    slug?: string
+  }>
+
+  // Mutations
+  const createProductMutation = api.product.create.useMutation({
+    onSuccess: async (data) => {
+      if (data?.id) {
+        await saveVariantsAndModifiers(data.id)
+      }
+      
+      toast({
+        title: "Success",
+        description: "Product created successfully with all variants and customizations!",
+      })
+      
+      router.push("/dashboard/products")
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create product",
+        variant: "destructive",
+      })
+      setIsLoading(false)
+    },
+  })
+
+  const updateProductMutation = api.product.update.useMutation({
+    onSuccess: async (data) => {
+      if (data?.id) {
+        await saveVariantsAndModifiers(data.id)
+      }
+      
+      toast({
+        title: "Success",
+        description: "Product updated successfully!",
+      })
+      
+      router.push("/dashboard/products")
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update product",
+        variant: "destructive",
+      })
+      setIsLoading(false)
+    },
+  })
+
+  const upsertVariantsMutation = api.productVariants.upsertVariants.useMutation()
+  const bulkUpsertModifiersMutation = api.productModifiers.bulkUpsertGroups.useMutation()
+
+  // Helper function to save variants and modifiers after product creation/update
+  const saveVariantsAndModifiers = async (productId: string) => {
+    const errors: string[] = []
+    
+    try {
+      // Save variants if any exist
+      if (localVariants.length > 0) {
+        const variantsToSave = localVariants
+          .filter(v => !v.isDeleted)
+          .map(v => ({
+            id: v.id?.startsWith('new-') ? undefined : v.id,
+            sku: v.sku,
+            name: v.name,
+            options: v.options,
+            priceAdjustment: v.priceAdjustment,
+            inventory: v.inventory,
+            isDefault: v.isDefault,
+            sortOrder: v.sortOrder,
+            imageUrl: v.imageUrl,
+          }))
+
+        if (variantsToSave.length > 0) {
+          await upsertVariantsMutation.mutateAsync({
+            productId,
+            variants: variantsToSave,
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Error saving variants:', error)
+      errors.push('variants')
+    }
+
+    try {
+      // Save modifier groups if any exist
+      if (localModifierGroups.length > 0) {
+        const groupsToSave = localModifierGroups
+          .filter(g => g.name.trim() !== '') // Only save groups with names
+          .map(g => ({
+            id: g.id?.startsWith('temp-') ? undefined : g.id,
+            name: g.name,
+            description: g.description,
+            type: g.type,
+            required: g.required,
+            minSelect: g.minSelect,
+            maxSelect: g.maxSelect,
+            sortOrder: g.sortOrder,
+            isActive: g.isActive,
+            modifiers: g.modifiers
+              .filter(m => m.name.trim() !== '') // Only save modifiers with names
+              .map(m => ({
+                id: m.id?.startsWith('temp-') ? undefined : m.id,
+                name: m.name,
+                description: m.description,
+                priceAdjustment: m.priceAdjustment,
+                priceType: m.priceType,
+                sortOrder: m.sortOrder,
+                isAvailable: m.isAvailable,
+                isDefault: m.isDefault,
+              })),
+          }))
+          .filter(g => g.modifiers.length > 0) // Only save groups with modifiers
+
+        if (groupsToSave.length > 0) {
+          await bulkUpsertModifiersMutation.mutateAsync({
+            productId,
+            groups: groupsToSave,
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Error saving modifiers:', error)
+      errors.push('customizations')
+    }
+
+    if (errors.length > 0) {
+      toast({
+        title: "Partial Save",
+        description: `Product saved but some ${errors.join(' and ')} may not have been saved. You can add them by editing the product.`,
+        variant: "destructive",
+      })
+    }
+  }
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -135,61 +297,19 @@ export function ProductForm({ product }: ProductFormProps) {
       images: product?.images ?? [],
       status: product?.status ?? ProductStatus.DRAFT,
       featured: product?.featured ?? false,
-      preparationTime:
-        product?.preparationTime != null ? String(product.preparationTime) : "",
+      preparationTime: product?.preparationTime != null ? String(product.preparationTime) : "",
       ingredients: product?.ingredients ?? [],
       allergens: product?.allergens ?? [],
     },
   })
 
-  // Field arrays (Option B)
-  const {
-    fields: ingredientFields,
-    append: appendIngredient,
-    remove: removeIngredient,
-  } = useFieldArray<FieldValues, "ingredients">({
-    control: form.control as unknown as Control<FieldValues>,
-    name: "ingredients",
-  })
-
-  // Mutations
-  const { mutate: createProduct } = api.product.create.useMutation({
-    onSuccess: () => {
-      toast({ title: "Product created", description: "Your product has been created successfully." })
-      router.push("/dashboard/products")
-    },
-    onError: (error) => {
-      toast({ title: "Error", description: error.message || "Failed to create product.", variant: "destructive" })
-      setIsLoading(false)
-    },
-  })
-
-  const { mutate: updateProduct } = api.product.update.useMutation({
-    onSuccess: () => {
-      toast({ title: "Product updated", description: "Your product has been updated successfully." })
-      router.push("/dashboard/products")
-    },
-    onError: (error) => {
-      toast({ title: "Error", description: error.message || "Failed to update product.", variant: "destructive" })
-      setIsLoading(false)
-    },
-  })
-
-  // Submit
-  const onSubmit = async (values: ProductFormValues) => {
+  const onSubmit = (values: ProductFormValues) => {
     setIsLoading(true)
 
-    const price = Number(values.price)
-    const compareAt =
-      values.compareAtPrice && values.compareAtPrice !== ""
-        ? Number(values.compareAtPrice)
-        : undefined
-    const inventory = Number(values.inventory)
-
-    const preparationTime =
-      values.preparationTime && values.preparationTime.trim() !== ""
-        ? values.preparationTime
-        : undefined
+    const price = parseFloat(values.price)
+    const compareAt = values.compareAtPrice ? parseFloat(values.compareAtPrice) : undefined
+    const inventory = parseInt(values?.inventory!, 10)
+    const preparationTime = values.preparationTime ? parseInt(values.preparationTime, 10) : undefined
 
     const data = {
       ...values,
@@ -200,172 +320,235 @@ export function ProductForm({ product }: ProductFormProps) {
     }
 
     if (product) {
-      updateProduct({ id: product.id, data })
+      updateProductMutation.mutate({ id: product.id, data })
     } else {
-      createProduct(data)
+      createProductMutation.mutate(data)
     }
   }
 
-  // Get variants from the fetched data or fallback to props
-  const variants = productWithVariants?.variants || product?.variants || []
+  // Handle changes from local managers
+  const handleVariantsChange = (updatedVariants: ProductVariant[]) => {
+    setLocalVariants(updatedVariants)
+  }
 
-  // Get current form values for preview
-  const formValues = form.watch()
+  const handleModifiersChange = (updatedGroups: LocalModifierGroup[]) => {
+    setLocalModifierGroups(updatedGroups)
+  }
+
+  // Count active items
+  const activeVariantsCount = localVariants.filter(v => !v.isDeleted).length
+  const activeModifiersCount = localModifierGroups.filter(g => 
+    g.name.trim() !== '' && g.modifiers.some(m => m.name.trim() !== '')
+  ).length
 
   return (
-    <>
-      <div className="flex-1 space-y-6 p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" asChild>
-              <Link href="/dashboard/products">
-                <ChevronLeft className="h-4 w-4" />
-              </Link>
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">
-                {product ? "Edit Product" : "New Product"}
-              </h1>
-              <p className="text-muted-foreground">
-                {product ? "Update product details" : "Add a new product to your menu"}
+    <div className="flex-1 space-y-6 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/dashboard/products">
+              <ChevronLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {product ? "Edit Product" : "New Product"}
+            </h1>
+            <p className="text-muted-foreground">
+              {product ? "Update product details" : "Add a new product to your menu"}
+            </p>
+          </div>
+        </div>
+        {product && product._count && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>{product._count.orderItems} orders</span>
+            <span>•</span>
+            <span>{product._count.reviews} reviews</span>
+          </div>
+        )}
+      </div>
+
+      {/* Info banner for new products */}
+      {!product && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="flex items-start gap-3 pt-4">
+            <Sparkles className="h-5 w-5 text-blue-600 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-blue-900">
+                All-in-one product creation! 🎉
+              </p>
+              <p className="text-sm text-blue-700 mt-1">
+                Add variants, customization options, and all product details in one go. 
+                Everything saves together when you click Save Product.
               </p>
             </div>
-          </div>
-          {product && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              {product._count && (
-                <>
-                  <span>{product._count.orderItems} orders</span>
-                  <span>•</span>
-                  <span>{product._count.reviews} reviews</span>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+          </CardContent>
+        </Card>
+      )}
 
-        {/* Form */}
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="basic">
-              <TabsList className="settings-tabslist grid w-full grid-cols-6">
-                <TabsTrigger 
-                  value="basic"
-                  className={cn(
-                    "settings-tabtrigger gap-2",
-                    activeTab === "basic" && "settings-tabtrigger-active"
-                  )}
-                >
-                  Basic Info
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="pricing"
-                  className={cn(
-                    "settings-tabtrigger gap-2", 
-                    activeTab === "pricing" && "settings-tabtrigger-active"
-                  )}
-                >
-                  Pricing & Inventory
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="media"
-                  className={cn(
-                    "settings-tabtrigger gap-2",
-                    activeTab === "media" && "settings-tabtrigger-active"
-                  )}
-                >
-                  Media
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="variants"
-                  className={cn(
-                    "settings-tabtrigger gap-2",
-                    activeTab === "variants" && "settings-tabtrigger-active",
-                    !productId && "opacity-50 cursor-not-allowed"
-                  )}
-                  disabled={!productId}
-                >
-                  Variants
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="customization"
-                  className={cn(
-                    "settings-tabtrigger gap-2",
-                    activeTab === "customization" && "settings-tabtrigger-active",
-                    !productId && "opacity-50 cursor-not-allowed"
-                  )}
-                  disabled={!productId}
-                >
-                  Customization
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="details"
-                  className={cn(
-                    "settings-tabtrigger gap-2",
-                    activeTab === "details" && "settings-tabtrigger-active"
-                  )}
-                >
-                  Details
-                </TabsTrigger>
-              </TabsList>
+      {/* Form */}
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="basic">
+            <TabsList className="settings-tabslist grid w-full grid-cols-6">
+              <TabsTrigger 
+                value="basic"
+                className={cn(
+                  "settings-tabtrigger gap-2",
+                  activeTab === "basic" && "settings-tabtrigger-active"
+                )}
+              >
+                Basic Info
+              </TabsTrigger>
+              <TabsTrigger 
+                value="pricing"
+                className={cn(
+                  "settings-tabtrigger gap-2", 
+                  activeTab === "pricing" && "settings-tabtrigger-active"
+                )}
+              >
+                Pricing
+              </TabsTrigger>
+              <TabsTrigger 
+                value="media"
+                className={cn(
+                  "settings-tabtrigger gap-2",
+                  activeTab === "media" && "settings-tabtrigger-active"
+                )}
+              >
+                Media
+              </TabsTrigger>
+              <TabsTrigger 
+                value="variants"
+                className={cn(
+                  "settings-tabtrigger gap-2",
+                  activeTab === "variants" && "settings-tabtrigger-active"
+                )}
+              >
+                Variants
+                {activeVariantsCount > 0 && (
+                  <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-xs text-white">
+                    {activeVariantsCount}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger 
+                value="customization"
+                className={cn(
+                  "settings-tabtrigger gap-2",
+                  activeTab === "customization" && "settings-tabtrigger-active"
+                )}
+              >
+                Customization
+                {activeModifiersCount > 0 && (
+                  <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-xs text-white">
+                    {activeModifiersCount}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger 
+                value="details"
+                className={cn(
+                  "settings-tabtrigger gap-2",
+                  activeTab === "details" && "settings-tabtrigger-active"
+                )}
+              >
+                Details
+              </TabsTrigger>
+            </TabsList>
 
-              {/* Basic Info */}
-              <TabsContent value="basic" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Basic Information</CardTitle>
-                    <CardDescription>Essential details about your product</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Product Name</FormLabel>
+            {/* Basic Info Tab */}
+            <TabsContent value="basic" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Basic Information</CardTitle>
+                  <CardDescription>Essential product details</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Product Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., Chicken Rice" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Describe your product..."
+                            className="min-h-[100px]"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="categoryId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Category</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <Input placeholder="e.g., Chicken Rice" {...field} />
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a category" />
+                            </SelectTrigger>
                           </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                          <SelectContent>
+                            {categories.map((category) => (
+                              <SelectItem key={category.id} value={category.id}>
+                                {category.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
 
+            {/* Pricing & Inventory Tab */}
+            <TabsContent value="pricing" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Pricing</CardTitle>
+                  <CardDescription>Set your product pricing</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-4 sm:grid-cols-2">
                     <FormField
                       control={form.control}
-                      name="description"
+                      name="price"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Description</FormLabel>
+                          <FormLabel>Price *</FormLabel>
                           <FormControl>
-                            <Textarea placeholder="Describe your product..." className="min-h-[100px]" {...field} />
-                          </FormControl>
-                          <FormDescription>
-                            Help customers understand what makes this dish special
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="categoryId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Category</FormLabel>
-                          <FormControl>
-                            <CategoryCombobox
-                              value={field.value}
-                              onChange={field.onChange}
-                              placeholder="Select or type to create..."
-                              disabled={isLoading}
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="0.00"
+                              {...field}
                             />
                           </FormControl>
-                          <FormDescription>
-                            Choose an existing category or create a new one
-                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -373,299 +556,253 @@ export function ProductForm({ product }: ProductFormProps) {
 
                     <FormField
                       control={form.control}
-                      name="status"
+                      name="compareAtPrice"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Status</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value={ProductStatus.DRAFT}>Draft</SelectItem>
-                              <SelectItem value={ProductStatus.ACTIVE}>Active</SelectItem>
-                              <SelectItem value={ProductStatus.SOLD_OUT}>Sold Out</SelectItem>
-                              <SelectItem value={ProductStatus.DISCONTINUED}>Discontinued</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormDescription>Only active products are visible to customers</FormDescription>
+                          <FormLabel>Compare at Price</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="0.00"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormDescription>Original price for sale items</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
+                  </div>
 
-                    <FormField
-                      control={form.control}
-                      name="featured"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-base">Featured Product</FormLabel>
-                            <FormDescription>Featured products appear at the top of your menu</FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-
-              {/* Pricing & Inventory */}
-              <TabsContent value="pricing" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Pricing & Inventory</CardTitle>
-                    <CardDescription>Set your price and manage stock levels</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <FormField
-                        control={form.control}
-                        name="price"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Price</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2">$</span>
-                                <Input type="number" step="0.01" placeholder="0.00" className="pl-8" {...field} />
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="compareAtPrice"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Compare at Price</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2">$</span>
-                                <Input type="number" step="0.01" placeholder="0.00" className="pl-8" {...field} />
-                              </div>
-                            </FormControl>
-                            <FormDescription>Original price to show discount</FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <FormField
-                      control={form.control}
-                      name="sku"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>SKU</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., CHKN-001" {...field} />
-                          </FormControl>
-                          <FormDescription>Stock keeping unit for inventory tracking</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="trackInventory"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-base">Track Inventory</FormLabel>
-                            <FormDescription>Automatically track stock levels</FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    {form.watch("trackInventory") && (
-                      <FormField
-                        control={form.control}
-                        name="inventory"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Current Stock</FormLabel>
-                            <FormControl>
-                              <Input type="number" placeholder="0" {...field} />
-                            </FormControl>
-                            <FormDescription>Number of units available for sale</FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                  <FormField
+                    control={form.control}
+                    name="sku"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SKU</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., CHK-RICE-001" {...field} />
+                        </FormControl>
+                        <FormDescription>Stock Keeping Unit</FormDescription>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
+                  />
+                </CardContent>
+              </Card>
 
-              {/* Media */}
-              <TabsContent value="media" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Inventory</CardTitle>
+                  <CardDescription>Manage product stock</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="trackInventory"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Track Inventory</FormLabel>
+                          <FormDescription>
+                            Monitor stock levels for this product
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  {form.watch("trackInventory") && (
+                    <FormField
+                      control={form.control}
+                      name="inventory"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Stock Quantity</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder="0"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Media Tab */}
+            <TabsContent value="media" className="space-y-6">
+              {productId ? (
+                // For existing products, use the full image manager with API calls
                 <ProductImageManager 
-                  productId={product?.id || 'new'} // Pass 'new' for new products
-                  images={product?.images || []}
+                  productId={productId}
+                  images={form.watch("images") || []}
                   onUpdate={() => {
-                    // Refresh product data if needed
+                    // Optionally refresh or show success message
                     toast({ title: "Images updated" })
                   }}
                 />
-              </TabsContent>
+              ) : (
+                // For new products, show a placeholder or simple uploader
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Product Images</CardTitle>
+                    <CardDescription>Add photos after creating the product</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <ImageIcon className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                    <p className="text-sm text-muted-foreground text-center max-w-md">
+                      Save the product first, then you can upload and manage images. 
+                      This ensures your images are properly linked to the product.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
 
-              {/* Variants */}
-              <TabsContent value="variants" className="space-y-6">
-                {productId ? (
+            {/* Variants Tab - ALWAYS ENABLED */}
+            <TabsContent value="variants">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Product Variants</CardTitle>
+                  <CardDescription>
+                    Add different options like sizes, colors, or flavors
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
                   <ProductVariantManager
-                    variants={variants}
-                    onChange={(updatedVariants) => {
-                      // You could either:
-                      // 1. Store in local state and save with the product
-                      // 2. Call a mutation directly to update variants
-                      console.log('Variants updated:', updatedVariants)
-                    }}
+                    variants={localVariants}
+                    onChange={handleVariantsChange}
                     basePrice={Number(form.watch("price")) || 0}
                     trackInventory={form.watch("trackInventory")}
                   />
-                ) : (
-                  <Card>
-                    <CardContent className="flex flex-col items-center justify-center py-12">
-                      <p className="text-muted-foreground text-center">
-                        Save the product first to add variants
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-              </TabsContent>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-              {/* Customization */}
-              <TabsContent value="customization">
-                {productId ? (
-                  <ProductModifiersManager
-                    productId={productId}
-                    existingGroups={modifierGroups || []}
-                  />
-                ) : (
-                  <Card>
-                    <CardContent className="flex flex-col items-center justify-center py-12">
-                      <p className="text-muted-foreground text-center">
-                        Save the product first to add customization options
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-              </TabsContent>
+            {/* Customization Tab - NOW ENABLED FOR ALL */}
+            <TabsContent value="customization">
+              {productId ? (
+                // Existing product - use the original manager with direct DB updates
+                <ProductModifiersManager
+                  productId={productId}
+                  existingGroups={modifierGroups || []}
+                />
+              ) : (
+                // New product - use local state manager
+                <LocalModifiersManager
+                  groups={localModifierGroups}
+                  onChange={handleModifiersChange}
+                />
+              )}
+            </TabsContent>
 
-              {/* Details */}
-              <TabsContent value="details" className="space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Additional Details</CardTitle>
-                    <CardDescription>Extra information about your product</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="preparationTime"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Preparation Time</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., 15–20 mins" {...field} />
-                          </FormControl>
-                          <FormDescription>Estimated time to prepare this dish</FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="space-y-4">
-                      <div>
-                        <FormLabel>Ingredients</FormLabel>
-                        <FormDescription>List the main ingredients in this dish</FormDescription>
-                      </div>
-
-                      {ingredientFields.map((field, index) => (
-                        <div key={field.id} className="flex gap-2">
+            {/* Details Tab */}
+            <TabsContent value="details" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Additional Details</CardTitle>
+                  <CardDescription>Extra information about your product</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="preparationTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Preparation Time (minutes)</FormLabel>
+                        <FormControl>
                           <Input
-                            {...form.register(`ingredients.${index}`)}
-                            placeholder="e.g., Chicken, Rice"
+                            type="number"
+                            min="0"
+                            step="1"
+                            placeholder="e.g., 30"
+                            {...field}
                           />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeIngredient(index)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value={ProductStatus.DRAFT}>Draft</SelectItem>
+                            <SelectItem value={ProductStatus.ACTIVE}>Active</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="featured"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Featured Product</FormLabel>
+                          <FormDescription>
+                            Highlight this product on your storefront
+                          </FormDescription>
                         </div>
-                      ))}
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
 
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => appendIngredient("")}
-                        className="hover:bg-green-50 hover:border-green-300 hover:text-green-700 hover:shadow-sm transition-all duration-200"
-                      >
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Ingredient
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-
-            {/* Actions */}
-            <div className="flex items-center justify-end gap-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.push("/dashboard/products")}
-                disabled={isLoading}
-                className="hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm transition-all duration-200"
-              >
-                Cancel
-              </Button>
-              <Button 
-                type="button"
-                variant="outline"
-                onClick={() => setShowPreview(true)}
-                  className="gap-2 group relative overflow-hidden 
-                  transition-all duration-200 
-                  hover:scale-105 hover:shadow-md 
-                  hover:border-orange-500 hover:text-orange-600"
-              >
-                <Eye className="h-4 w-4" />
-                Preview Changes
-              </Button>
-              <Button type="submit" disabled={isLoading} className="hover:bg-orange-700 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 active:scale-[0.98]">
-                <Save className="mr-2 h-4 w-4" />
-                {isLoading ? "Saving..." : product ? "Update Product" : "Create Product"}
-              </Button>
-            </div>
-          </form>
-        </Form>
-      </div>
-
-      {/* Preview Modal */}
-      <ProductPreviewModal
-        isOpen={showPreview}
-        onClose={() => setShowPreview(false)}
-        formData={formValues}
-      />
-    </>
+          {/* Save Button */}
+          <div className="flex items-center justify-end gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.push("/dashboard/products")}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              <Save className="mr-2 h-4 w-4" />
+              {isLoading ? "Saving..." : product ? "Update Product" : "Save Product"}
+            </Button>
+          </div>
+        </form>
+      </Form>
+    </div>
   )
 }
