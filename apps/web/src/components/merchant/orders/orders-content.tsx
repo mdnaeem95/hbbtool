@@ -92,14 +92,25 @@ export function OrdersContent() {
 
       {/* Tabs for All Orders vs Delivery Planning */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="all" className="flex items-center gap-2">
+        <TabsList className="grid w-full max-w-md grid-cols-2 bg-gray-100 p-1 rounded-lg">
+          <TabsTrigger 
+            value="all" 
+            className={cn(
+              "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
+              "hover:bg-gray-50",
+              "data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm"
+            )}
+          >
             <Package className="w-4 h-4" />
             All Orders
           </TabsTrigger>
           <TabsTrigger 
             value="delivery" 
-            className="flex items-center gap-2 relative"
+            className={cn(
+              "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-all relative",
+              "hover:bg-gray-50",
+              "data-[state=active]:bg-white data-[state=active]:text-orange-600 data-[state=active]:shadow-sm"
+            )}
           >
             <Navigation className="w-4 h-4" />
             Delivery Routes
