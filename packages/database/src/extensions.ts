@@ -29,26 +29,6 @@ export const softDeleteExtension = Prisma.defineExtension({
         return query(args)
       },
     },
-    category: {
-      async findMany({ args, query }: { args: any, query: any }) {
-        if (!args?.where || args.where.deletedAt === undefined) {
-          args = { ...args, where: { ...(args?.where ?? {}), deletedAt: null } }
-        }
-        return query(args)
-      },
-      async findFirst({ args, query }: { args: any, query: any }) {
-        if (!args?.where || args.where.deletedAt === undefined) {
-          args = { ...args, where: { ...(args?.where ?? {}), deletedAt: null } }
-        }
-        return query(args)
-      },
-      async count({ args, query }: { args: any, query: any }) {
-        if (!args?.where || args.where.deletedAt === undefined) {
-          args = { ...args, where: { ...(args?.where ?? {}), deletedAt: null } }
-        }
-        return query(args)
-      },
-    },
     product: {
       async findMany({ args, query }: { args: any, query: any }) {
         if (!args?.where || args.where.deletedAt === undefined) {

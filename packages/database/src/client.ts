@@ -45,45 +45,36 @@ export const excludeDeleted: Prisma.MerchantWhereInput = { deletedAt: null }
 // Common includes with proper type safety
 export const merchantIncludes = {
   basic: {
-    categories: {
-      where: { deletedAt: null },
-      orderBy: { sortOrder: "asc" as const },
-    },
+    // Categories are now global, not merchant-specific
+    // Query categories separately if needed
   },
   withProducts: {
-    categories: {
-      where: { deletedAt: null },
-      orderBy: { sortOrder: "asc" as const },
+    products: {
+      where: { deletedAt: null, status: "ACTIVE" },
+      orderBy: { createdAt: "desc" as const },
       include: {
-        products: {
-          where: { deletedAt: null, status: "ACTIVE" },
-          orderBy: { createdAt: "desc" as const }
-        },
+        category: true, // Include the global category
       },
     },
   },
   full: {
-    categories: {
-      where: { deletedAt: null },
-      orderBy: { sortOrder: "asc" as const },
+    products: {
+      where: { deletedAt: null, status: "ACTIVE" },
+      orderBy: [
+        { featured: "desc" as const },
+        { createdAt: "desc" as const }
+      ],
       include: {
-        products: {
-          where: { deletedAt: null, status: "ACTIVE" },
-          orderBy: { featured: "desc" as const, createdAt: "desc" as const }
-        },
+        category: true, // Include the global category
       },
     },
-    _count: {
-      select: {
-        orders: true,
-        reviews: true,
-        products: {
-          where: { deletedAt: null, status: "ACTIVE" }
-        }
-      }
-    }
-  }
-} as const
+    reviews: {
+      where: { isVisible: true },
+      orderBy: { createdAt: "desc" as const },
+      take: 5,
+    },
+  },
+} satisfies Record<string, Prisma.MerchantInclude>
 
 // Product includes
 export const productIncludes = {

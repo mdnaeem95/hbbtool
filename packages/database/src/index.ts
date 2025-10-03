@@ -22,4 +22,4 @@ export * from "./cache"
 export { Prisma, type PrismaClient } from "@prisma/client"
 export { type Decimal } from "@prisma/client/runtime/library.js"
 export type DB = typeof db
-export * from '@homejiak/types'
+export * from './types-only'

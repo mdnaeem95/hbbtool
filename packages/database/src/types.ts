@@ -6,29 +6,29 @@ type Decimal = Prisma.Decimal
    Read models with relations
    ========================= */
 
-// Merchant → categories (active, ordered)
-export type MerchantWithCategories = Prisma.MerchantGetPayload<{
+// Merchant with basic info
+export type MerchantWithProducts = Prisma.MerchantGetPayload<{
   include: {
-    categories: {
-      where: { deletedAt: null }
-      orderBy: { sortOrder: "asc" }
+    products: {
+      where: { deletedAt: null, status: "ACTIVE" }
+      orderBy: [{ featured: "desc" }, { createdAt: "desc" }]
+      include: {
+        category: true // Include the global category
+      }
     }
   }
 }>
 
-// Merchant → categories → products (active, ordered)
-export type MerchantWithProducts = Prisma.MerchantGetPayload<{
+// Category with products from specific merchant
+export type CategoryWithProducts = Prisma.CategoryGetPayload<{
   include: {
-    categories: {
-      where: { deletedAt: null }
-      orderBy: { sortOrder: "asc" }
-      include: {
-        products: {
-          where: { deletedAt: null, status: "ACTIVE" }
-          // Primary: sortOrder, Secondary: createdAt (newest first)
-          orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }]
-        }
+    products: {
+      where: { 
+        deletedAt: null, 
+        status: "ACTIVE",
+        // merchantId can be filtered at query time
       }
+      orderBy: [{ featured: "desc" }, { popularityScore: "desc" }]
     }
   }
 }>
