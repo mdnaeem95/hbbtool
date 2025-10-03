@@ -1,18 +1,9 @@
 "use client"
 
-import { useState } from "react"
-import { 
-  Dialog, 
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  Button,
-  Badge,
-  cn
-} from "@homejiak/ui"
+import { useState, useEffect } from "react"
+import { Button, Badge, cn } from "@homejiak/ui"
 import { ProductCard } from "@homejiak/ui"
-import { Eye, Monitor, Smartphone } from "lucide-react"
+import { Eye, Monitor, Smartphone, X } from "lucide-react"
 
 interface ProductPreviewModalProps {
   isOpen: boolean
@@ -31,12 +22,45 @@ interface ProductPreviewModalProps {
 }
 
 export function ProductPreviewModal({ 
-  isOpen, 
+  isOpen: isOpenProp, 
   onClose, 
   formData 
 }: ProductPreviewModalProps) {
   const [previewMode, setPreviewMode] = useState<'card' | 'detail'>('card')
   const [device, setDevice] = useState<'mobile' | 'desktop'>('desktop')
+  const [isOpen, setIsOpen] = useState(isOpenProp)
+
+  useEffect(() => {
+    setIsOpen(isOpenProp)
+  }, [isOpenProp])
+
+  // Handle escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose()
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape)
+    }
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [isOpen])
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [isOpen])
+
+  const handleClose = () => {
+    setIsOpen(false)
+    setTimeout(onClose, 200)
+  }
 
   // Transform form data to product card format
   const previewProduct = {
@@ -56,150 +80,184 @@ export function ProductPreviewModal({
     }
   }
 
+  if (!isOpen) return null
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] p-0 gap-0 overflow-hidden">
-        {/* Header */}
-        <DialogHeader className="border-b bg-muted/40 px-6 py-4 space-y-0">
-          <div className="flex items-start justify-between gap-4 mb-4">
-            <div>
-              <DialogTitle>Preview Changes</DialogTitle>
-              <DialogDescription className="mt-1.5">
-                See how your product will appear to customers
-              </DialogDescription>
-            </div>
+    <>
+      {/* Backdrop */}
+      <div 
+        className={cn(
+          "fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm transition-opacity duration-200",
+          isOpen ? "opacity-100" : "opacity-0"
+        )}
+        onClick={handleClose}
+        aria-hidden="true"
+      />
 
-            {/* Device toggle */}
-            <div className="flex gap-1 rounded-lg border p-1 bg-background">
-              <Button 
-                type="button"
-                variant={device === 'mobile' ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => setDevice('mobile')}
-                className="gap-2"
-              >
-                <Smartphone className="h-4 w-4" />
-                <span className="hidden sm:inline">Mobile</span>
-              </Button>
-              <Button 
-                type="button"
-                variant={device === 'desktop' ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => setDevice('desktop')}
-                className="gap-2"
-              >
-                <Monitor className="h-4 w-4" />
-                <span className="hidden sm:inline">Desktop</span>
-              </Button>
-            </div>
-          </div>
-
-          {/* View mode toggle */}
-          <div className="flex gap-2">
-            <Button 
-              type="button"
-              variant={previewMode === 'card' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setPreviewMode('card')}
-              className="gap-2"
-            >
-              <Eye className="h-4 w-4" />
-              Catalog View
-            </Button>
-            <Button 
-              type="button"
-              variant={previewMode === 'detail' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setPreviewMode('detail')}
-              className="gap-2"
-            >
-              <Eye className="h-4 w-4" />
-              Detail View
-            </Button>
-          </div>
-
-          {/* Validation warnings */}
-          {!formData.name && (
-            <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 p-3 rounded-md mt-4">
-              <Badge variant="outline" className="border-amber-200 text-amber-700">
-                Warning
-              </Badge>
-              <span>Product name is required</span>
-            </div>
-          )}
-        </DialogHeader>
-
-        {/* Preview Area */}
-        <div className="flex-1 overflow-auto bg-muted/20 p-4 sm:p-8">
+      {/* Modal Container */}
+      <div className="fixed inset-0 z-[101] overflow-y-auto">
+        <div className="flex min-h-full items-center justify-center p-4">
+          {/* Modal Content */}
           <div 
             className={cn(
-              "mx-auto bg-white rounded-lg transition-all duration-300 shadow-sm",
-              device === 'mobile' ? 'max-w-[375px]' : 'max-w-6xl'
+              "relative w-full max-w-6xl rounded-xl bg-white shadow-2xl transition-all duration-200",
+              isOpen ? "opacity-100 scale-100" : "opacity-0 scale-95"
             )}
+            onClick={e => e.stopPropagation()}
           >
-            {previewMode === 'card' ? (
-              <div className="p-4 sm:p-6">
-                <div className="mb-4">
-                  <Badge variant="secondary" className="mb-2">
-                    Preview Mode
-                  </Badge>
-                  <h3 className="text-lg font-semibold text-muted-foreground">
-                    Product Catalog
-                  </h3>
-                </div>
-                <div className={cn(
-                  "grid gap-4",
-                  device === 'desktop' ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1'
-                )}>
-                  <ProductCard 
-                    product={previewProduct}
-                    variant="preview"
-                  />
-                  {/* Show context with other products on desktop */}
-                  {device === 'desktop' && (
-                    <>
-                      <div className="opacity-30 pointer-events-none hidden sm:block">
-                        <ProductCard 
-                          product={{
-                            ...previewProduct,
-                            id: 'context-1',
-                            name: 'Other Product 1',
-                            images: ['/placeholder-food.jpg'],
-                            featured: false
-                          }}
-                          variant="default"
-                        />
-                      </div>
-                      <div className="opacity-30 pointer-events-none hidden sm:block">
-                        <ProductCard 
-                          product={{
-                            ...previewProduct,
-                            id: 'context-2',
-                            name: 'Other Product 2',
-                            images: ['/placeholder-food.jpg'],
-                            featured: false
-                          }}
-                          variant="default"
-                        />
-                      </div>
-                    </>
+            {/* Close Button */}
+            <button
+              onClick={handleClose}
+              className="absolute right-4 top-4 z-10 rounded-lg bg-white/90 p-2 text-gray-500 backdrop-blur-sm transition-colors hover:bg-gray-100 hover:text-gray-900"
+              aria-label="Close modal"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {/* Content */}
+            <div className="max-h-[90vh] overflow-y-auto rounded-xl">
+              <div className="flex flex-col">
+                {/* Header */}
+                <div className="border-b bg-muted/40 px-6 py-4">
+                  {/* Title Row */}
+                  <div className="mb-4">
+                    <h2 className="text-lg font-semibold">Preview Changes</h2>
+                    <p className="text-sm text-muted-foreground mt-1.5">
+                      See how your product will appear to customers
+                    </p>
+                  </div>
+
+                  {/* Controls Row */}
+                  <div className="flex items-center justify-between gap-4 mb-4">
+                    <div className="flex gap-2">
+                      <Button 
+                        type="button"
+                        variant={previewMode === 'card' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setPreviewMode('card')}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Catalog View
+                      </Button>
+                      <Button 
+                        type="button"
+                        variant={previewMode === 'detail' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setPreviewMode('detail')}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Detail View
+                      </Button>
+                    </div>
+
+                    <div className="flex gap-1 rounded-lg border p-1 bg-background">
+                      <Button 
+                        type="button"
+                        variant={device === 'mobile' ? 'secondary' : 'ghost'}
+                        size="sm"
+                        onClick={() => setDevice('mobile')}
+                      >
+                        <Smartphone className="h-4 w-4 mr-2" />
+                        Mobile
+                      </Button>
+                      <Button 
+                        type="button"
+                        variant={device === 'desktop' ? 'secondary' : 'ghost'}
+                        size="sm"
+                        onClick={() => setDevice('desktop')}
+                      >
+                        <Monitor className="h-4 w-4 mr-2" />
+                        Desktop
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Validation warnings */}
+                  {!formData.name && (
+                    <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 p-3 rounded-md">
+                      <Badge variant="outline" className="border-amber-200 text-amber-700">
+                        Warning
+                      </Badge>
+                      <span>Product name is required</span>
+                    </div>
                   )}
                 </div>
+
+                {/* Preview Area */}
+                <div className="flex-1 bg-muted/20 p-4 sm:p-8">
+                  <div 
+                    className={cn(
+                      "mx-auto bg-white rounded-lg transition-all duration-300 shadow-sm",
+                      device === 'mobile' ? 'max-w-[375px]' : 'max-w-6xl'
+                    )}
+                  >
+                    {previewMode === 'card' ? (
+                      <div className="p-4 sm:p-6">
+                        <div className="mb-4">
+                          <Badge variant="secondary" className="mb-2">
+                            Preview Mode
+                          </Badge>
+                          <h3 className="text-lg font-semibold text-muted-foreground">
+                            Product Catalog
+                          </h3>
+                        </div>
+                        <div className={cn(
+                          "grid gap-4",
+                          device === 'desktop' ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1'
+                        )}>
+                          <ProductCard 
+                            product={previewProduct}
+                            variant="preview"
+                          />
+                          {/* Show context with other products on desktop */}
+                          {device === 'desktop' && (
+                            <>
+                              <div className="opacity-30 pointer-events-none hidden sm:block">
+                                <ProductCard 
+                                  product={{
+                                    ...previewProduct,
+                                    id: 'context-1',
+                                    name: 'Other Product 1',
+                                    images: ['/placeholder-food.jpg'],
+                                    featured: false
+                                  }}
+                                  variant="default"
+                                />
+                              </div>
+                              <div className="opacity-30 pointer-events-none hidden sm:block">
+                                <ProductCard 
+                                  product={{
+                                    ...previewProduct,
+                                    id: 'context-2',
+                                    name: 'Other Product 2',
+                                    images: ['/placeholder-food.jpg'],
+                                    featured: false
+                                  }}
+                                  variant="default"
+                                />
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <ProductDetailPreview product={previewProduct} device={device} />
+                    )}
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="border-t p-4 bg-background flex justify-end">
+                  <Button type="button" variant="outline" onClick={handleClose}>
+                    Close Preview
+                  </Button>
+                </div>
               </div>
-            ) : (
-              <ProductDetailPreview product={previewProduct} device={device} />
-            )}
+            </div>
           </div>
         </div>
-
-        {/* Footer */}
-        <div className="border-t p-4 bg-background flex justify-end">
-          <Button type="button" onClick={onClose}>
-            Close Preview
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </>
   )
 }
 
