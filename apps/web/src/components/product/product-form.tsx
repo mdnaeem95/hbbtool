@@ -19,6 +19,8 @@ import { ProductImageManager } from "./image-manager"
 import { ProductModifiersManager } from "./product-modifier-manager"
 import { LocalModifiersManager } from "./local-modifiers-manager"
 import { ProductVariantManager, type ProductVariant } from "./product-variant-manager"
+import { CategoryCombobox } from "./category-combobox"
+import { IngredientsPicker } from "./ingredients-picker"
 
 // Product form schema
 const productFormSchema = z.object({
@@ -44,6 +46,7 @@ const productFormSchema = z.object({
   featured: z.boolean().default(false),
   preparationTime: z.string().default(""),
   ingredients: z.array(z.string()).default([]),
+  ingredientIds: z.array(z.string()).default([]),
   allergens: z.array(z.string()).default([]),
 })
 
@@ -132,14 +135,6 @@ export function ProductForm({ product }: ProductFormProps) {
       setLocalModifierGroups(modifierGroups as any)
     }
   }, [modifierGroups, localModifierGroups.length, product])
-
-  // Get categories for dropdown
-  const { data: categoriesData } = api.category.getPopular.useQuery({ limit: 50 })
-  const categories = (categoriesData || []) as Array<{
-    id: string
-    name: string
-    slug?: string
-  }>
 
   // Mutations
   const createProductMutation = api.product.create.useMutation({
@@ -504,20 +499,17 @@ export function ProductForm({ product }: ProductFormProps) {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Category</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a category" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {categories.map((category) => (
-                              <SelectItem key={category.id} value={category.id}>
-                                {category.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <CategoryCombobox
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Select or create category..."
+                            disabled={isLoading}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Choose an existing category or create a new one
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -783,6 +775,23 @@ export function ProductForm({ product }: ProductFormProps) {
                   />
                 </CardContent>
               </Card>
+
+                <FormField
+                  control={form.control}
+                  name="ingredientIds"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl>
+                        <IngredientsPicker
+                          selectedIngredients={field.value!}
+                          onChange={field.onChange}
+                          disabled={isLoading}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
             </TabsContent>
           </Tabs>
 
