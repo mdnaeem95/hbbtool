@@ -43,26 +43,48 @@ const TEST_SUITES = [
         ]
       },
       {
-        id: 'email-verification',
-        name: 'Email verification flow',
+        id: 'admin-approval',
+        name: 'Admin approval flow',
         type: 'manual',
         steps: [
-          'Open verification email',
-          'Click verification link',
-          'Verify "Email verified" message',
-          'Return to /auth',
-          'Login with new credentials'
+          'Login as admin (muhdnaeem95@gmail.com)',
+          'Navigate to /admin/dashboard',
+          'Verify pending merchant appears in queue',
+          'Click "Approve" button',
+          'Add optional approval notes',
+          'Confirm approval',
+          'Verify merchant status changes to ACTIVE',
+          'Check email - approval email sent via Resend'
         ]
       },
       {
-        id: 'first-login',
-        name: 'First login experience',
+        id: 'admin-rejection',
+        name: 'Admin rejection flow',
         type: 'manual',
         steps: [
-          'Login with newly created account',
+          'Create another test merchant account',
+          'Login as admin',
+          'Navigate to pending merchants',
+          'Click "Reject" button',
+          'Enter rejection reason',
+          'Confirm rejection',
+          'Verify merchant status = SUSPENDED',
+          'Check email - rejection email sent via Resend',
+          'Try to login - should get suspended error'
+        ]
+      },
+      {
+        id: 'first-login-after-approval',
+        name: 'First login experience (after approval)',
+        type: 'manual',
+        steps: [
+          'Logout as admin',
+          'Return to /auth',
+          'Login with approved merchant credentials',
           'Verify redirect to /dashboard',
           'Verify onboarding overlay appears',
-          'Check for "first login" indicator'
+          'Check for "first login" indicator',
+          'Verify welcome message with business name'
         ]
       }
     ]

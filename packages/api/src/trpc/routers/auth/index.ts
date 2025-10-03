@@ -134,7 +134,7 @@ export const authRouter = router({
       // Create merchant in database first
       const merchant = await ctx.db.merchant.create({
         data: {
-          id: authData.user.id,
+          supabaseId: authData.user.id,
           email: normalizedEmail,
           phone: input.phone,
           businessName: input.businessName,
