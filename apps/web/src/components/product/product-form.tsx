@@ -308,8 +308,10 @@ export function ProductForm({ product }: ProductFormProps) {
     const inventory = parseInt(values?.inventory!, 10)
     const preparationTime = values.preparationTime ? parseInt(values.preparationTime, 10) : undefined
 
+    const { images, ...restValues } = values
+
     const data = {
-      ...values,
+      ...restValues,
       price,
       compareAtPrice: compareAt,
       inventory,
