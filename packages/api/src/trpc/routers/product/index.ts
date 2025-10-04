@@ -55,7 +55,7 @@ const updateProductZ = z.object({
   data: z.object({
     name: z.string().min(1).max(200).optional(),
     description: z.string().optional(),
-    categoryId: z.string().cuid().nullable().optional(),
+    categoryId: z.uuid().optional(),
     price: priceSchema.optional(),
     compareAtPrice: priceSchema.nullable().optional(),
     comparePrice: priceSchema.nullable().optional(), // legacy alias
