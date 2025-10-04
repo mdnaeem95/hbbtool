@@ -150,14 +150,22 @@ export function TRPCProvider({ children }: { children: React.ReactNode }) {
           url: '/api/trpc',
           transformer: superjson,
           maxURLLength: 2083,
+          headers() {
+            return {
+              'x-trpc-source': 'client',
+            }
+          },
           
           // Enhanced fetch with size tracking
           async fetch(url, options) {
             const startTime = performance.now()
+
+            const isMutation = options?.method === 'POST' || (options?.body && typeof options.body === 'string')
             
             try {
               const response = await fetch(url, {
                 ...options,
+                method: isMutation ? 'POST' : (options?.method || 'GET'),
                 credentials: 'include',
                 headers: {
                   ...options?.headers,
