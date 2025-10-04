@@ -1,5 +1,5 @@
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button, Card } from '@homejiak/ui'
 import { X, GripVertical, Loader2, Image as ImageIcon } from 'lucide-react'
 import Image from 'next/image'
@@ -91,6 +91,11 @@ export function ProductImageManager({
 }: ProductImageManagerProps) {
   const [images, setImages] = useState(initialImages)
   const [uploading, setUploading] = useState(false)
+
+  // Added useEffect to sync local state with prop changes
+  useEffect(() => {
+    setImages(initialImages)
+  }, [initialImages])
   
   const uploadImage = api.storage.uploadProductImage.useMutation({
     onSuccess: (data) => {
