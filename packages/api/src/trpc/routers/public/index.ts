@@ -50,7 +50,6 @@ export const publicRouter = router({
       const merchant = await ctx.db.merchant.findFirst({
         where: { slug: input.slug, status: 'ACTIVE', deletedAt: null },
         include: {
-          categories: { where: { isActive: true }, orderBy: { sortOrder: 'asc' } },
           _count: { select: { products: true, reviews: true } },
         },
       })
@@ -764,10 +763,6 @@ export const publicRouter = router({
           deletedAt: null 
         },
         include: {
-          categories: { 
-            where: { isActive: true }, 
-            orderBy: { sortOrder: 'asc' } 
-          },
           _count: { 
             select: { products: true, reviews: true } 
           },
