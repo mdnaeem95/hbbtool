@@ -50,7 +50,7 @@ export function MerchantListSidebar({
 
   return (
     <div className="divide-y divide-border">
-      {merchants.map((merchant) => (
+      {merchants && merchants.map((merchant: any) => (
         <Link
           key={merchant.id}
           href={`/merchant/${merchant.slug}/products`}
