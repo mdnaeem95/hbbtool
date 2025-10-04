@@ -775,4 +775,54 @@ export const publicRouter = router({
 
       return merchant
     }),
+
+  getCategories: publicProcedure
+    .input(z.object({ merchantSlug: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const merchant = await ctx.db.merchant.findFirst({
+        where: { slug: input.merchantSlug, status: 'ACTIVE', deletedAt: null },
+        select: { id: true },
+      })
+      
+      if (!merchant) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Merchant not found' })
+      }
+
+      const categories = await ctx.db.category.findMany({
+        where: {
+          products: {
+            some: {
+              merchantId: merchant.id,
+              status: 'ACTIVE',
+              deletedAt: null,
+            }
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          description: true,
+          _count: {
+            select: {
+              products: {
+                where: {
+                  merchantId: merchant.id,
+                  status: 'ACTIVE',
+                  deletedAt: null,
+                }
+              }
+            }
+          }
+        },
+      })
+
+      return categories.map(cat => ({
+        id: cat.id,
+        name: cat.name,
+        slug: cat.slug,
+        description: cat.description,
+        productCount: cat._count.products,
+      }))
+    }),
 })

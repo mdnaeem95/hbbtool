@@ -1,7 +1,7 @@
 'use client'
 
 import { notFound } from "next/navigation"
-import { Suspense, useEffect, useState } from "react"
+import { Suspense, useEffect } from "react"
 import { ProductCatalog } from "../../../../../components/product/product-catalog"
 import { ProductCatalogSkeleton } from "../../../../../components/product/product-catalog-skeleton"
 import { api } from "../../../../../lib/trpc/client"
@@ -23,44 +23,38 @@ interface ProductsPageClientProps {
   }
 }
 
-export function ProductsPageClient({
-  slug,
-}: ProductsPageClientProps) {
+export function ProductsPageClient({ slug }: ProductsPageClientProps) {
   const { setMerchant } = useMerchant()
   const setCartMerchantInfo = useCartStore(state => state.setMerchantInfo)
-  const [, setHasInteracted] = useState(false)
   
-  // OPTIMIZATION: Parallel data fetching with aggressive caching
+  // Fetch merchant data
   const { 
     data: merchant, 
     isLoading: merchantLoading, 
-    error,
-    isLoadingError 
+    error: merchantError,
   } = api.public.getMerchant.useQuery(
     { slug },
     {
       staleTime: 5 * 60 * 1000,
       gcTime: 10 * 60 * 1000,
       refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      // Retry quickly on failure
-      retry: 2,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     }
   )
 
-  // Track user interaction for optimistic UI
-  useEffect(() => {
-    const handleInteraction = () => setHasInteracted(true)
-    window.addEventListener('click', handleInteraction, { once: true })
-    window.addEventListener('touchstart', handleInteraction, { once: true })
-    return () => {
-      window.removeEventListener('click', handleInteraction)
-      window.removeEventListener('touchstart', handleInteraction)
+  // Fetch categories separately (only if merchant loaded)
+  const { 
+    data: categories = [],
+    isLoading: categoriesLoading,
+  } = api.public.getCategories.useQuery(
+    { merchantSlug: slug },
+    {
+      enabled: !!merchant, // Only fetch when merchant is loaded
+      staleTime: 10 * 60 * 1000,
+      gcTime: 15 * 60 * 1000,
     }
-  }, [])
+  )
 
-  // Update merchant context when data arrives
+  // Update merchant context
   useEffect(() => {
     if (merchant) {
       setMerchant({
@@ -80,13 +74,12 @@ export function ProductsPageClient({
     }
   }, [merchant, setMerchant, setCartMerchantInfo])
 
-  // Handle error states gracefully
-  if (error || isLoadingError) {
-    if (error?.data?.code === 'NOT_FOUND') {
-      notFound()
-    }
-    
-    // Show error state instead of blocking
+  // Handle error states
+  if (merchantError?.data?.code === 'NOT_FOUND') {
+    notFound()
+  }
+
+  if (merchantError) {
     return (
       <div className="min-h-screen bg-background">
         <MerchantHeaderSkeleton />
@@ -107,12 +100,12 @@ export function ProductsPageClient({
     )
   }
 
-  // CRITICAL FIX: Progressive rendering instead of blocking
+  const isLoading = merchantLoading || categoriesLoading
+
   return (
     <div className="min-h-screen bg-background">
       <AnimatePresence mode="wait">
-        {merchantLoading ? (
-          // Show skeleton that matches final layout exactly
+        {isLoading ? (
           <motion.div
             key="skeleton"
             initial={{ opacity: 0.6 }}
@@ -126,7 +119,6 @@ export function ProductsPageClient({
             </div>
           </motion.div>
         ) : merchant ? (
-          // Fade in real content smoothly
           <motion.div
             key="content"
             initial={{ opacity: 0 }}
@@ -138,12 +130,9 @@ export function ProductsPageClient({
               <Suspense fallback={<ProductCatalogSkeleton />}>
                 <ProductCatalog
                   merchantSlug={merchant.slug}
-                  categories={merchant.categories.map((cat: any) => ({
-                    id: cat.id,
-                    name: cat.name,
-                    slug: cat.slug,
-                    productCount: cat._count?.products,
-                  }))}
+                  merchantId={merchant.id}
+                  merchantName={merchant.businessName}
+                  categories={categories}
                 />
               </Suspense>
             </div>
@@ -154,13 +143,12 @@ export function ProductsPageClient({
   )
 }
 
-// Optimized Merchant Header Component
+// Merchant Header Component (unchanged)
 function MerchantHeader({ merchant }: { merchant: any }) {
   return (
     <div className="border-b bg-card">
       <div className="container py-6 md:py-8">
         <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-          {/* Logo with optimized loading */}
           {merchant.logoUrl && (
             <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0">
               <Image
@@ -168,14 +156,13 @@ function MerchantHeader({ merchant }: { merchant: any }) {
                 alt={merchant.businessName}
                 fill
                 className="rounded-lg object-cover"
-                priority // Load immediately
+                priority
                 sizes="(max-width: 640px) 64px, 80px"
               />
             </div>
           )}
           
           <div className="flex-1">
-            {/* Title and Rating */}
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold">{merchant.businessName}</h1>
@@ -186,7 +173,6 @@ function MerchantHeader({ merchant }: { merchant: any }) {
                 )}
               </div>
               
-              {/* Rating Badge */}
               {merchant.averageRating && (
                 <div className="flex items-center gap-1 px-2 py-1 bg-yellow-50 rounded-lg">
                   <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
@@ -198,7 +184,6 @@ function MerchantHeader({ merchant }: { merchant: any }) {
               )}
             </div>
             
-            {/* Quick Info Pills */}
             <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
               {merchant.preparationTime && (
                 <div className="flex items-center gap-1.5 px-3 py-1 bg-gray-100 rounded-full">
@@ -219,7 +204,6 @@ function MerchantHeader({ merchant }: { merchant: any }) {
                 </div>
               )}
               
-              {/* Cuisine Types */}
               {merchant.cuisineType?.map((cuisine: string) => (
                 <div key={cuisine} className="px-3 py-1 bg-orange-100 rounded-full text-orange-700">
                   {cuisine}
@@ -233,26 +217,19 @@ function MerchantHeader({ merchant }: { merchant: any }) {
   )
 }
 
-// Skeleton that exactly matches the real header layout
 function MerchantHeaderSkeleton() {
   return (
     <div className="border-b bg-card animate-pulse">
       <div className="container py-6 md:py-8">
         <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-          {/* Logo skeleton */}
           <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg bg-gray-200" />
           
           <div className="flex-1 w-full">
-            {/* Title skeleton */}
             <div className="h-8 w-48 sm:w-64 bg-gray-200 rounded mb-2" />
-            
-            {/* Description skeleton */}
             <div className="space-y-2">
               <div className="h-4 w-full max-w-md bg-gray-200 rounded" />
               <div className="h-4 w-3/4 max-w-sm bg-gray-200 rounded" />
             </div>
-            
-            {/* Info pills skeleton */}
             <div className="mt-4 flex gap-3">
               <div className="h-7 w-20 bg-gray-200 rounded-full" />
               <div className="h-7 w-24 bg-gray-200 rounded-full" />
