@@ -34,7 +34,7 @@ async function ensureUniqueProductSlug(db: any, merchantId: string, base: string
 const createProductZ = z.object({
   name: z.string().min(1).max(200),
   description: z.string().optional(),
-  categoryId: z.string().cuid().optional(),
+  categoryId: z.uuid().optional(),
   price: priceSchema,
   // accept legacy 'comparePrice' but map to compareAtPrice
   compareAtPrice: priceSchema.optional(),
