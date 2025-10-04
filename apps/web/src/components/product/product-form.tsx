@@ -314,6 +314,7 @@ export function ProductForm({ product }: ProductFormProps) {
       compareAtPrice: compareAt,
       inventory,
       preparationTime,
+      categoryId: values.categoryId && values.categoryId.trim() !== '' ? values.categoryId : undefined,
     }
 
     if (product) {
