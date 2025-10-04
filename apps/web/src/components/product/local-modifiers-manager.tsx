@@ -163,9 +163,15 @@ export function LocalModifiersManager({
           <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
             Add customization groups like "Toppings", "Spice Level", or "Add-ons" to let customers personalize their orders.
           </p>
-          <Button onClick={addGroup} variant="outline">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Customization Group
+          <Button
+            type="button"
+            variant="outline"
+            onClick={addGroup}
+            className="group w-full relative overflow-hidden transition-all duration-200 hover:shadow-md hover:border-purple-500"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-purple-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <Plus className="mr-2 h-4 w-4 transition-transform group-hover:rotate-90" />
+            <span className="relative">Add Customization Group</span>
           </Button>
         </div>
       </div>

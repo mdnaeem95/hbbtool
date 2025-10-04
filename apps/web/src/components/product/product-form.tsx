@@ -13,7 +13,7 @@ import {
   Input, Textarea, Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
   Switch, Tabs, TabsContent, TabsList, TabsTrigger, useToast, cn 
 } from "@homejiak/ui"
-import { ChevronLeft, ImageIcon, Save, Sparkles } from "lucide-react"
+import { ChevronLeft, Eye, ImageIcon, Save, Sparkles } from "lucide-react"
 import { ProductStatus } from "@homejiak/types"
 import { ProductImageManager } from "./image-manager"
 import { ProductModifiersManager } from "./product-modifier-manager"
@@ -21,6 +21,7 @@ import { LocalModifiersManager } from "./local-modifiers-manager"
 import { ProductVariantManager, type ProductVariant } from "./product-variant-manager"
 import { CategoryCombobox } from "./category-combobox"
 import { IngredientsPicker } from "./ingredients-picker"
+import { ProductPreviewModal } from "./product-preview-modal"
 
 // Product form schema
 const productFormSchema = z.object({
@@ -113,6 +114,7 @@ export function ProductForm({ product }: ProductFormProps) {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState("basic")
+  const [showPreview, setShowPreview] = useState(false)
 
   // LOCAL STATE FOR VARIANTS AND MODIFIERS
   const [localVariants, setLocalVariants] = useState<ProductVariant[]>(
@@ -456,7 +458,7 @@ export function ProductForm({ product }: ProductFormProps) {
             {/* Basic Info Tab */}
             <TabsContent value="basic" className="space-y-6">
               <Card>
-                <CardHeader>
+                <CardHeader className="space-y-2">
                   <CardTitle>Basic Information</CardTitle>
                   <CardDescription>Essential product details</CardDescription>
                 </CardHeader>
@@ -521,7 +523,7 @@ export function ProductForm({ product }: ProductFormProps) {
             {/* Pricing & Inventory Tab */}
             <TabsContent value="pricing" className="space-y-6">
               <Card>
-                <CardHeader>
+                <CardHeader className="space-y-2">
                   <CardTitle>Pricing</CardTitle>
                   <CardDescription>Set your product pricing</CardDescription>
                 </CardHeader>
@@ -572,11 +574,49 @@ export function ProductForm({ product }: ProductFormProps) {
                     name="sku"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>SKU</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., CHK-RICE-001" {...field} />
-                        </FormControl>
-                        <FormDescription>Stock Keeping Unit</FormDescription>
+                        <FormLabel>SKU (Stock Keeping Unit)</FormLabel>
+                        <div className="flex gap-2">
+                          <FormControl>
+                            <Input placeholder="e.g., CHK-RICE-001" {...field} />
+                          </FormControl>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              const productName = form.watch("name") || "PRODUCT"
+                              const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase()
+                              const generatedSku = productName
+                                .toUpperCase()
+                                .replace(/[^A-Z0-9]/g, '-')
+                                .substring(0, 15) + '-' + randomSuffix
+                              field.onChange(generatedSku)
+                              toast({
+                                title: "SKU Generated",
+                                description: `Auto-generated: ${generatedSku}`,
+                              })
+                            }}
+                            className="group whitespace-nowrap transition-all hover:shadow-md"
+                          >
+                            <svg 
+                              className="mr-2 h-4 w-4 transition-transform group-hover:rotate-12" 
+                              fill="none" 
+                              stroke="currentColor" 
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            Generate
+                          </Button>
+                        </div>
+                        <FormDescription className="space-y-1">
+                          <p className="text-sm">
+                            A unique code to identify and track this product in your inventory.
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Useful for inventory management, order tracking, and sales reports. 
+                            Click "Generate" to create one automatically.
+                          </p>
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -585,7 +625,7 @@ export function ProductForm({ product }: ProductFormProps) {
               </Card>
 
               <Card>
-                <CardHeader>
+                <CardHeader className="space-y-2">
                   <CardTitle>Inventory</CardTitle>
                   <CardDescription>Manage product stock</CardDescription>
                 </CardHeader>
@@ -651,7 +691,7 @@ export function ProductForm({ product }: ProductFormProps) {
               ) : (
                 // For new products, show a placeholder or simple uploader
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="space-y-2">
                     <CardTitle>Product Images</CardTitle>
                     <CardDescription>Add photos after creating the product</CardDescription>
                   </CardHeader>
@@ -669,7 +709,7 @@ export function ProductForm({ product }: ProductFormProps) {
             {/* Variants Tab - ALWAYS ENABLED */}
             <TabsContent value="variants">
               <Card>
-                <CardHeader>
+                <CardHeader className="space-y-2">
                   <CardTitle>Product Variants</CardTitle>
                   <CardDescription>
                     Add different options like sizes, colors, or flavors
@@ -706,7 +746,7 @@ export function ProductForm({ product }: ProductFormProps) {
             {/* Details Tab */}
             <TabsContent value="details" className="space-y-6">
               <Card>
-                <CardHeader>
+                <CardHeader className="space-y-2">
                   <CardTitle>Additional Details</CardTitle>
                   <CardDescription>Extra information about your product</CardDescription>
                 </CardHeader>
@@ -795,21 +835,63 @@ export function ProductForm({ product }: ProductFormProps) {
             </TabsContent>
           </Tabs>
 
-          {/* Save Button */}
-          <div className="flex items-center justify-end gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.push("/dashboard/products")}
-              disabled={isLoading}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              <Save className="mr-2 h-4 w-4" />
-              {isLoading ? "Saving..." : product ? "Update Product" : "Save Product"}
-            </Button>
+          {/* Action Buttons */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowPreview(true)}
+                className="group relative overflow-hidden transition-all duration-200 hover:shadow-md hover:scale-105"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <Eye className="mr-2 h-4 w-4 transition-transform group-hover:scale-110" />
+                <span className="relative">Preview Changes</span>
+              </Button>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push("/dashboard/products")}
+                disabled={isLoading}
+                className="group relative overflow-hidden transition-all duration-200 hover:shadow-md hover:scale-105 disabled:hover:scale-100"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-gray-500/10 to-gray-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <span className="relative">Cancel</span>
+              </Button>
+              
+              <Button 
+                type="submit" 
+                disabled={isLoading}
+                className="group relative overflow-hidden bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 transition-all duration-200 hover:shadow-lg hover:scale-105 disabled:hover:scale-100 disabled:opacity-50"
+              >
+                <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <Save className="mr-2 h-4 w-4 relative transition-transform group-hover:rotate-12" />
+                <span className="relative font-semibold">
+                  {isLoading ? "Saving..." : product ? "Update Product" : "Save Product"}
+                </span>
+              </Button>
+            </div>
           </div>
+
+          {/* Preview Modal */}
+          <ProductPreviewModal
+            isOpen={showPreview}
+            onClose={() => setShowPreview(false)}
+            formData={{
+              name: form.watch("name"),
+              description: form.watch("description"),
+              price: form.watch("price"),
+              compareAtPrice: form.watch("compareAtPrice"),
+              images: form.watch("images"),
+              preparationTime: form.watch("preparationTime"),
+              status: form.watch("status"),
+              featured: form.watch("featured"),
+              inventory: form.watch("inventory"),
+            }}
+          />
         </form>
       </Form>
     </div>

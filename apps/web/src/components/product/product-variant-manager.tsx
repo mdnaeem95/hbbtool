@@ -142,9 +142,11 @@ export function ProductVariantManager({
           onClick={addVariant}
           variant="outline"
           size="sm"
+          className="group relative overflow-hidden transition-all duration-200 hover:shadow-md hover:border-blue-500"
         >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Variant
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <Plus className="mr-2 h-4 w-4 transition-transform group-hover:rotate-90" />
+          <span className="relative">Add Variant</span>
         </Button>
       </div>
 
