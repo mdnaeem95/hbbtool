@@ -3,9 +3,25 @@
 import { useState } from "react"
 import { Check, X, Plus } from "lucide-react"
 import { api } from "@/lib/trpc/client"
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle,
-  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
-  Popover, PopoverContent, PopoverTrigger, Badge, cn } from "@homejiak/ui"
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Badge,
+  cn,
+} from "@homejiak/ui"
 
 interface IngredientsPickerProps {
   selectedIngredients: string[] // Array of ingredient IDs
@@ -21,14 +37,12 @@ export function IngredientsPicker({
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
 
-  // Get merchant's ingredients
-  const { data: inventoryData } = api.ingredients.getMerchantInventory.useQuery({})
-  const ingredients = inventoryData?.ingredients || []
-
-  // Filter ingredients based on search
-  const filteredIngredients = ingredients.filter((ing) =>
-    ing.name.toLowerCase().includes(search.toLowerCase())
-  )
+  // Get ALL global ingredients (not just merchant's inventory)
+  const { data: ingredientsData } = api.ingredients.getAll.useQuery({
+    search: search || undefined,
+    limit: 50,
+  })
+  const ingredients = ingredientsData?.ingredients || []
 
   // Get selected ingredient details
   const selectedIngredientDetails = ingredients.filter((ing) =>
@@ -52,7 +66,7 @@ export function IngredientsPicker({
       <CardHeader>
         <CardTitle>Ingredients</CardTitle>
         <CardDescription>
-          Link ingredients from your inventory to track costs and manage stock
+          Link ingredients to track costs and manage stock
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -92,49 +106,39 @@ export function IngredientsPicker({
               Add Ingredients
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[400px] p-0" align="start">
-            <Command shouldFilter={false}>
+          <PopoverContent 
+            className="w-[400px] p-0 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 shadow-lg" 
+            align="start"
+          >
+            <Command shouldFilter={false} className="bg-white dark:bg-gray-950">
               <CommandInput
                 placeholder="Search ingredients..."
                 value={search}
                 onValueChange={setSearch}
+                className="border-b"
               />
-              <CommandList>
-                {filteredIngredients.length === 0 ? (
+              <CommandList className="bg-white dark:bg-gray-950">
+                {ingredients.length === 0 ? (
                   <CommandEmpty>
-                    {ingredients.length === 0 ? (
-                      <div className="py-6 text-center">
-                        <p className="text-sm text-muted-foreground mb-2">
-                          No ingredients in your inventory yet
-                        </p>
-                        <Button
-                          variant="link"
-                          size="sm"
-                          onClick={() => {
-                            window.location.href = "/dashboard/ingredients"
-                          }}
-                        >
-                          Add ingredients to inventory
-                        </Button>
-                      </div>
-                    ) : (
-                      <p className="py-6 text-center text-sm text-muted-foreground">
+                    <div className="py-6 text-center">
+                      <p className="text-sm text-muted-foreground mb-2">
                         No ingredients found
                       </p>
-                    )}
+                      <p className="text-xs text-muted-foreground">
+                        Try searching for common ingredients like "flour", "sugar", etc.
+                      </p>
+                    </div>
                   </CommandEmpty>
                 ) : (
-                  <CommandGroup>
-                    {filteredIngredients.map((ingredient) => {
-                      const isSelected = selectedIngredients.includes(
-                        ingredient.id
-                      )
+                  <CommandGroup className="p-2">
+                    {ingredients.map((ingredient) => {
+                      const isSelected = selectedIngredients.includes(ingredient.id)
                       return (
                         <CommandItem
                           key={ingredient.id}
                           value={ingredient.id}
                           onSelect={() => handleToggle(ingredient.id)}
-                          className="cursor-pointer"
+                          className="cursor-pointer px-2 py-2.5 rounded-sm"
                         >
                           <Check
                             className={cn(
@@ -144,10 +148,11 @@ export function IngredientsPicker({
                           />
                           <div className="flex-1">
                             <p className="font-medium">{ingredient.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {ingredient.currentStock}{" "}
-                              {ingredient.purchaseUnit} in stock
-                            </p>
+                            {ingredient.category && (
+                              <p className="text-xs text-muted-foreground">
+                                {ingredient.category}
+                              </p>
+                            )}
                           </div>
                         </CommandItem>
                       )
